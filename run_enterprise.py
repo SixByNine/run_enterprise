@@ -21,7 +21,7 @@ parser.add_argument('--Ared-max','-A',type=float,default=-12,help='Max log10A_Re
 parser.add_argument('--Ared-min',type=float,default=-18,help='Min log10A_Red')
 parser.add_argument('--red-gamma-max',type=float,default=8,help='Max gamma red')
 parser.add_argument('--red-gamma-min',type=float,default=0,help='Min gamma red')
-parser.add_argument('--red-prior-uniform',action='store_true',help='Use uniform prior (in log space) for red noise amplitude')
+parser.add_argument('--red-prior-log',action='store_true',help='Use uniform prior in log space for red noise amplitude')
 parser.add_argument('--red-ncoeff',type=int,default=60,help='Number of red noise coefficients (nC)')
 parser.add_argument('-n','--no-sample',dest='sample',default=True,action='store_false', help='Disable the actual sampling...')
 parser.add_argument('--no-white',dest='white',default=True,action='store_false', help='Disable efac and equad')
@@ -29,10 +29,15 @@ parser.add_argument('--ngecorr',action='store_true', help='Add ECORR for the nan
 parser.add_argument('--white-corner',action='store_true', help='Make the efac/equad corner plots')
 parser.add_argument('--all-corner',action='store_true', help='Make corner plots with all params')
 parser.add_argument('--pm',action='store_true', help='Fit for PMRA+PMDEC')
+parser.add_argument('--px',action='store_true', help='Fit for parallax')
+parser.add_argument('--px-range',type=float,default=10, help='Max parallax to search')
+parser.add_argument('--px-verbiest',action='store_true', help=argparse.SUPPRESS) #help='Use Verbiest PX prior to correct for L-K bias')
+parser.add_argument('--s1400',type=float,default=None, help=argparse.SUPPRESS)  #help='S1400, used for Verbiest PX prior')
 parser.add_argument('--pm-angle',action='store_true', help='Fit for PM + angle')
 parser.add_argument('--pm-range',type=float,default=10,help='Search range for proper motion (deg/yr)')
 parser.add_argument('--models','-M',nargs='+',help='Add a model to model selection stack. Use e.g. --model "-D --f2 --no-red-noise"')
 parser.add_argument('--outdir','-o',type=str,help="Output directory for chains etc")
+parser.add_argument('--plot-chain',action='store_true', help='Make a plot of the chains')
 
 args=parser.parse_args()
 
@@ -41,12 +46,17 @@ print(vars(args))
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.linalg as sl
+import scipy.integrate as integrate
+import scipy.interpolate as interpolate
+from scipy.stats import rv_continuous
+
 
 import sys
 
 import enterprise
 from enterprise.pulsar import Pulsar
 import enterprise.signals.parameter as parameter
+import enterprise.signals.prior as prior
 from enterprise.signals import utils
 from enterprise.signals import signal_base
 from enterprise.signals import selections
@@ -62,6 +72,12 @@ from enterprise_extensions import models, model_utils
 import corner
 from PTMCMCSampler.PTMCMCSampler import PTSampler as ptmcmc
 
+from astropy import coordinates as coord
+from astropy import units as u
+
+from matplotlib.backends.backend_pdf import PdfPages
+
+
 par = args.par
 tim=args.tim
 f2range=args.f2
@@ -69,6 +85,7 @@ f2range=args.f2
 print("Read pulsar data")
 psr=Pulsar(par,tim,drop_t2pulsar=False)
 psr.earthssb = psr.t2pulsar.earth_ssb
+psr.observatory_earth = psr.t2pulsar.observatory_earth
 
 orig_pmra=0
 orig_pmdec=0
@@ -93,6 +110,9 @@ if posepoch < 0:
     print("Assume POSEPOCH=PEPOCH")
     posepoch=pepoch
 
+if args.px and "PX" in psr.fitpars:
+    print("ERROR: Can't fit for PX in both MCMC and least-squares")
+    sys.exit(1)
 if args.pm and "PMRA" in psr.fitpars:
     print("ERROR: Can't fit for PMRA in both MCMC and least-squares")
     sys.exit(1)
@@ -115,16 +135,95 @@ def mjkf2(toas,pepoch,f0,valf2):
     return -1e-27*valf2*x*x*x/6.0/f0
 
 @signal_base.function
-def mjkpm_angle(toas,pos,earthssb,posepoch,amp,angle):
+def mjkpm_angle(toas,pos,earthssb,posepoch,amp,angle,orig_pmra=0,orig_pmdec=0):
     psrdec = np.arcsin(pos[2]/np.sqrt(np.sum(pos*pos)))
 
     pmra = amp * np.cos(angle)/np.cos(psrdec)
     pmdec = amp * np.sin(angle)
-    return mjkpm(toas,pos,earthssb,posepoch,pmra,pmdec)
+    return mjkpm(toas,pos,earthssb,posepoch,pmra,pmdec,orig_pmra,orig_pmdec)
  
 
+
 @signal_base.function
-def mjkpm(toas,pos,earthssb,posepoch,pmra,pmdec):
+def mjkpx(toas,pos,earthssb,observatory_earth,px):
+    # This is just the linearised parallax function from tempo2...
+    pxconv=1.74532925199432958E-2/3600.0e3
+    AULTSC=499.00478364
+
+    rca = earthssb[:,0:3] + observatory_earth[:,0:3]
+    rr = np.sum(rca*rca,axis=1)
+
+    rcos1 = np.sum(pos*rca,axis=1)
+
+    return px * 0.5*pxconv * (rr-rcos1*rcos1)/AULTSC
+
+
+class VerbiestParallaxPriorRV(rv_continuous):
+    def _rvs(self):
+        return self.i_invCDF(np.random.uniform(0,1,self._size))
+    def _pdf(self,x):
+        if x < self.a or x > self.b:
+            return 0
+        else:
+            return self.i_PDF(x)
+    def _logpdf(self,x):
+        if x < self.a or x > self.b:
+            return -np.inf
+        else:
+            return np.log(self.i_PDF(x))
+    def _cdf(self,x):
+        if x < self.a:
+            return 0
+        elif x > self.b:
+            return 1
+        else:
+            return self.i_CDF(x)
+
+def VerbiestParallaxPrior(gl,gb,PXmin=1e-3,PXmax=15,s1400=None,R0=8.5,EE=0.33,size=None):
+    GalCo=np.array([gl,gb])
+    EE=0.5
+    R0=8.5
+    PP=np.linspace(PXmin,PXmax,10000)
+    RR = np.sqrt( R0 * R0 + np.power( np.cos( GalCo[0] ) / PP, 2.0 )
+                           - 2.0 * R0 * np.cos( GalCo[0] ) * np.cos( GalCo[1] ) / PP );
+    Pvol = np.power( RR, 1.9 ) \
+               * np.exp( - abs( np.sin( GalCo[0] ) / PP ) / EE \
+                  - 5.0 * ( RR - R0 ) / R0 ) * np.power( PP, -4.0 )
+
+    Pvol /= np.max(Pvol)
+    zz = Pvol
+
+    if s1400 != None:
+        Plum = np.power( PP, -1.0 ) *\
+            np.exp( -0.5 * np.power( ( np.log10( s1400 ) - 2.0 * np.log10( PP ) + 1.1 )\
+                / 0.9, 2.0 ) );
+        Plum/=np.max(Plum)
+        zz *= Plum
+
+
+    PDF = zz/np.sum(zz)
+    CDF = integrate.cumtrapz(PDF,initial=0)
+    CDF -= np.amin(CDF)
+    CDF /= np.amax(CDF)
+
+    RV = VerbiestParallaxPriorRV(a=PXmin,b=PXmax)
+    RV.i_PDF    = interpolate.interp1d(PP,PDF)
+    RV.i_CDF    = interpolate.interp1d(PP,CDF)
+    RV.i_invCDF = interpolate.interp1d(CDF, PP)
+
+    class VerbiestParallaxPrior(parameter.Parameter):
+        _prior=prior.Prior(RV)
+        _size=size
+        _gl=gl
+        _gb=gb
+        def __repr__(self):
+            return '"{}":VerbiestParallax({},{})'.format(self.name, gl,gb) \
+                + ('' if self._size is None else '[{}]'.format(self._size))
+    return VerbiestParallaxPrior
+
+
+@signal_base.function
+def mjkpm(toas,pos,earthssb,posepoch,pmra,pmdec,orig_pmra=0,orig_pmdec=0):
     # This is just the linearised proper motion function from tempo2...
     AULTSC=499.00478364
     rce = earthssb[:,0:3]
@@ -143,8 +242,8 @@ def mjkpm(toas,pos,earthssb,posepoch,pmra,pmdec):
     rs2dy = (180.0/np.pi)*1314900000
 
     # This will be pmra in rad/s
-    v_pmra = pmra / rs2dy / np.cos(psrdec)
-    v_pmdec = pmdec / rs2dy
+    v_pmra  = (pmra-orig_pmra) / rs2dy / np.cos(psrdec)
+    v_pmdec = (pmdec-orig_pmdec) / rs2dy
     
     t0 = (toas/86400.0-posepoch)
     d_pmra = re * np.cos(deltae)*np.cos(psrdec)*np.sin(psrra-alphae) * t0
@@ -216,7 +315,7 @@ def makeModel(args):
 
     if args.red:
         # red noise (powerlaw with 30 frequencies)
-        if args.red_prior_uniform:
+        if args.red_prior_log:
             log10_A = parameter.Uniform(args.Ared_min,args.Ared_max)
         else:
             log10_A = parameter.LinearExp(args.Ared_min,args.Ared_max)
@@ -234,10 +333,30 @@ def makeModel(args):
 
     if args.pm:
         pmrange=args.pm_range
-        pmra=parameter.Uniform(-pmrange,pmrange)
-        pmdec=parameter.Uniform(-pmrange,pmrange)
-        pm = deterministic_signals.Deterministic(mjkpm(posepoch=posepoch,pmra=pmra,pmdec=pmdec),name='pm')
+        pmra=parameter.Uniform(-pmrange+orig_pmra,pmrange+orig_pmra)
+        pmdec=parameter.Uniform(-pmrange+orig_pmdec,pmrange+orig_pmdec)
+        pm = deterministic_signals.Deterministic(mjkpm(posepoch=posepoch,pmra=pmra,pmdec=pmdec,orig_pmra=orig_pmra,orig_pmdec=orig_pmdec),name='pm')
         model += pm
+
+    if args.px:
+        if args.px_verbiest:
+            print("\n\nWarning: Using Verbiest PX prior (Not tested!!)\n\n")
+        #def VerbiestParallaxPrior(gl,gb,PXmin=1e-3,PXmax=15,s1400=None,R0=8.5,EE=0.33,size=None):
+            if f0 > 100:
+                px_ee=0.5
+            else:
+                px_ee=0.33
+            ra=np.arctan2(psr.pos[1],psr.pos[0])*u.radian
+            dec=np.arcsin(psr.pos[2]/np.sqrt(np.sum(psr.pos*psr.pos)))*u.radian
+            c = coord.SkyCoord(ra,dec)
+            gal = c.transform_to(coord.Galactic)
+            gl=gal.l.deg
+            gb=gal.b.deg
+            pxp=VerbiestParallaxPrior(gl,gb,s1400=args.s1400,EE=px_ee)
+        else:
+            pxp=parameter.Uniform(0,args.px_range)
+        px = deterministic_signals.Deterministic(mjkpx(px=pxp),name='px')
+        model += px
 
     if args.pm_angle:
         pmrange=args.pm_range
@@ -293,7 +412,7 @@ else:
         margs.extend(m.split())
         if args.jbo:
             margs.append("-j")
-        if args.red_prior_uniform:
+        if args.red_prior_log:
             margs.append("--red-prior-uniform")
         pargs=parser.parse_args(margs)
         model=makeModel(pargs)
@@ -312,7 +431,7 @@ print("")
 print("'least-squares' fit parameters:")
 i=1
 for p in psr.fitpars:
-    print("   %d   %s"%(i,p))
+    print("  {:2d}   {}".format(i,p))
     i+=1
 
 
@@ -329,7 +448,7 @@ for p in pars:
                 z += "_"
 
 
-    print("   {:d}   {:40s} {}".format(i,p,z))
+    print("  {:2d}   {:40s} {}".format(i,p,z))
     i+=1
 
 
@@ -404,7 +523,7 @@ if not args.models == None:
         pmask = np.append(pmask,[True,True,True,True])
         mask = np.rint(chain[:,-5]) == bestmodel
         chain = chain[:,:len(pmask)]
-        #chain = chain[mask,:]
+        chain = chain[mask,:]
         chain = chain[:,pmask]
         burn = int(0.25 * chain.shape[0])
 
@@ -472,12 +591,12 @@ with open(resfname,"w") as resf:
                 p="PM-angle"
             elif "pm_amp" in p:
                 p="PM"
+            elif "px_px" in p:
+                p='PX'
             elif "pm_pmra" in p:
                 p='PMRA'
-                v += orig_pmra
             elif "pm_pmdec" in p:
                 p='PMDEC'
-                v += orig_pmdec
             elif p=="DM_A":
                 v = convert_dmA(v)
                 mean = convert_dmA(mean)
@@ -581,6 +700,21 @@ if args.white_corner:
     fig.savefig("%s.corner_efac.pdf"%psr.name)
     fig=corner.corner(post[:,m_eq], labels=pars[m_eq], smooth=True);
     fig.savefig("%s.corner_equad.pdf"%psr.name)
+
+if args.plot_chain:
+    x=np.arange(chain.shape[0])
+    with PdfPages("%s.chain.pdf"%psr.name) as pdf:
+        for i in range(len(pars)):
+            fig=plt.figure(figsize=(16,8))
+            plt.plot(x[:burn],chain[:burn,i],'.',color='gray')
+            plt.plot(x[burn:],chain[burn:,i],'.',color='k')
+            plt.title("%s"%pars[i])
+            plt.ylabel("%s"%pars[i])
+            pdf.savefig()
+            plt.close()
+
+
+
 
 if f2range > 0:
     print("F2",np.mean(post[:,m_f2])*1e-27,np.std(post[:,m_f2])*1e-27)
