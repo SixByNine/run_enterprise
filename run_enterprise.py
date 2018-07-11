@@ -671,6 +671,21 @@ with open(resfname,"w") as resf:
 
 post = chain[burn:,:len(pars)]
 
+
+if args.plot_chain:
+    x=np.arange(chain.shape[0])
+    with PdfPages("%s.chain.pdf"%psr.name) as pdf:
+        for i in range(len(pars)):
+            fig=plt.figure(figsize=(16,8))
+            plt.plot(x[:burn],chain[:burn,i],'.',color='gray')
+            plt.plot(x[burn:],chain[burn:,i],'.',color='k')
+            plt.title("%s"%pars[i])
+            plt.ylabel("%s"%pars[i])
+            pdf.savefig()
+            plt.close()
+
+
+
 m_f2 = (pars=='F2')
 i_ef = np.array([i for i, v in enumerate(pars) if 'efac' in v],dtype=np.int)
 i_eq = np.array([i for i, v in enumerate(pars) if 'equad' in v],dtype=np.int)
@@ -700,19 +715,6 @@ if args.white_corner:
     fig.savefig("%s.corner_efac.pdf"%psr.name)
     fig=corner.corner(post[:,m_eq], labels=pars[m_eq], smooth=True);
     fig.savefig("%s.corner_equad.pdf"%psr.name)
-
-if args.plot_chain:
-    x=np.arange(chain.shape[0])
-    with PdfPages("%s.chain.pdf"%psr.name) as pdf:
-        for i in range(len(pars)):
-            fig=plt.figure(figsize=(16,8))
-            plt.plot(x[:burn],chain[:burn,i],'.',color='gray')
-            plt.plot(x[burn:],chain[burn:,i],'.',color='k')
-            plt.title("%s"%pars[i])
-            plt.ylabel("%s"%pars[i])
-            pdf.savefig()
-            plt.close()
-
 
 
 

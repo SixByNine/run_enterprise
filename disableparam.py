@@ -14,6 +14,9 @@ with open(par) as f:
         e=line.split()
         if len(e) > 0:
             if e[0] in params:
+                if e[0] == "JUMP":
+                    print("{:<14} {} {} {} 0".format(e[0],e[1],e[2],e[3]))
+                    continue
                 print("{:<14} {}".format(e[0],e[1]))
             else:
                 print(line.strip())
