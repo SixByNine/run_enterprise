@@ -17,6 +17,7 @@ parser.add_argument('--Adm-max',type=float,default=-12,help='Max log10A_DM')
 parser.add_argument('--Adm-min',type=float,default=-18,help='Min log10A_DM')
 parser.add_argument('--no-red-noise',dest='red',default=True,action='store_false', help='Disable Power Law Red Noise search')
 parser.add_argument('--jbo','-j',action='store_true',help='Use -be flag for splitting backends')
+parser.add_argument('--be-flag','-f',help='Use specified flag for splitting backends')
 parser.add_argument('--Ared-max','-A',type=float,default=-12,help='Max log10A_Red')
 parser.add_argument('--Ared-min',type=float,default=-18,help='Min log10A_Red')
 parser.add_argument('--red-gamma-max',type=float,default=8,help='Max gamma red')
@@ -25,6 +26,8 @@ parser.add_argument('--red-prior-log',action='store_true',help='Use uniform prio
 parser.add_argument('--red-ncoeff',type=int,default=60,help='Number of red noise coefficients (nC)')
 parser.add_argument('-n','--no-sample',dest='sample',default=True,action='store_false', help='Disable the actual sampling...')
 parser.add_argument('--no-white',dest='white',default=True,action='store_false', help='Disable efac and equad')
+parser.add_argument('--efac-max',type=float, default=5, help='Max for efac prior')
+parser.add_argument('--efac-min',type=float, default=0.2, help='Min for efac prior')
 parser.add_argument('--ngecorr',action='store_true', help='Add ECORR for the nanograv backends')
 parser.add_argument('--white-corner',action='store_true', help='Make the efac/equad corner plots')
 parser.add_argument('--all-corner',action='store_true', help='Make corner plots with all params')
@@ -38,6 +41,7 @@ parser.add_argument('--pm-range',type=float,default=10,help='Search range for pr
 parser.add_argument('--models','-M',nargs='+',help='Add a model to model selection stack. Use e.g. --model "-D --f2 --no-red-noise"')
 parser.add_argument('--outdir','-o',type=str,help="Output directory for chains etc")
 parser.add_argument('--plot-chain',action='store_true', help='Make a plot of the chains')
+parser.add_argument('--tspan-mult',type=float,default=2,help='Multiplier for tspan')
 
 args=parser.parse_args()
 
@@ -125,6 +129,12 @@ print("Done.")
 
 def jbbackends(flags):
     backend_flags=flags['be']
+    flagvals = np.unique(backend_flags)
+    return {flagval: backend_flags == flagval for flagval in flagvals}
+
+
+def flagbackends(flags,beflagval):
+    backend_flags=flags[beflagval]
     flagvals = np.unique(backend_flags)
     return {flagval: backend_flags == flagval for flagval in flagvals}
 
@@ -285,7 +295,9 @@ def makeModel(args):
     if args.jbo:
         selection = selections.Selection(jbbackends)
         selflag='-be'
-
+    if args.be_flag:
+        selflag="-"+args.be_flag
+        selection = selections.Selection(lambda flags: flagbackends(flags,args.be_flag))
 
 
     s = selection(psr)
@@ -297,7 +309,7 @@ def makeModel(args):
 
     if args.white:
         medianlogerr=np.log10(np.median(psr.toaerrs))
-        efac = parameter.Uniform(0.2,5.0)
+        efac = parameter.Uniform(args.efac_min,args.efac_max)
         equad = parameter.LinearExp(medianlogerr-2,medianlogerr+2)
         ef = white_signals.MeasurementNoise(efac=efac,selection=selection)
         eq = white_signals.EquadNoise(log10_equad=equad, selection=selection)
@@ -377,8 +389,8 @@ nC=args.red_ncoeff
 Tspan = psr.toas.max()-psr.toas.min()
 print("Tspan=%.1f"%(Tspan/86400.))
 
-Tspan*=2
-nC*=2
+Tspan*=args.tspan_mult
+nC*=args.tspan_mult
 
 
 #print(psr.fitpars)
@@ -386,8 +398,10 @@ nC*=2
 
 selflag='-f'
 if args.jbo:
-    selection = selections.Selection(jbbackends)
     selflag='-be'
+if args.be_flag:
+    selflag="-"+args.be_flag
+
 
 if args.outdir == None:
     outdir='chains/'+psr.name+"/"
@@ -412,8 +426,18 @@ else:
         margs.extend(m.split())
         if args.jbo:
             margs.append("-j")
+
+        if args.be_flag:
+            margs.append("--be-flag")
+            margs.append(args.be_flag)
         if args.red_prior_log:
-            margs.append("--red-prior-uniform")
+            margs.append("--red-prior-log")
+
+        margs.append("--efac-max")
+        margs.append("{}".format(args.efac_max))
+        margs.append("--efac-min")
+        margs.append("{}".format(args.efac_min))
+
         pargs=parser.parse_args(margs)
         model=makeModel(pargs)
         pta[i] = signal_base.PTA(model(psr))
@@ -582,7 +606,7 @@ with open(resfname,"w") as resf:
             elif "ecorr" in p:
                 flag=p.split('_',1)[1]
                 flag=flag[:-12]
-                p="TNCORR %s %s"%(selflag,flag)
+                p="TNECORR %s %s"%(selflag,flag)
             elif "equad" in p:
                 flag=p.split('_',1)[1]
                 flag=flag[:-12]
