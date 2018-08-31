@@ -7,6 +7,7 @@ matplotlib.use('Agg')
 
 import argparse
 
+
 parser=argparse.ArgumentParser(description="Run 'enterprise' on a single pulsar")
 parser.add_argument('par')
 parser.add_argument('tim')
@@ -88,6 +89,10 @@ f2range=args.f2
 
 print("Read pulsar data")
 psr=Pulsar(par,tim,drop_t2pulsar=False)
+
+orig_toas=psr.t2pulsar.toas()
+issorted=np.all(orig_toas[:-1] <= orig_toas[1:])
+
 psr.earthssb = psr.t2pulsar.earth_ssb
 psr.observatory_earth = psr.t2pulsar.observatory_earth
 
@@ -122,6 +127,10 @@ if args.pm and "PMRA" in psr.fitpars:
     sys.exit(1)
 if args.pm and "PMDEC" in psr.fitpars:
     print("ERROR: Can't fit for PMDEC in both MCMC and least-squares")
+    sys.exit(1)
+
+if (args.pm or args.px) and not issorted:
+    print("ERROR: Toas must be sorted or wierd things happen with paralax and proper motion")
     sys.exit(1)
 
 print("Done.")
@@ -607,6 +616,7 @@ with open(resfname,"w") as resf:
                 flag=p.split('_',1)[1]
                 flag=flag[:-12]
                 p="TNECORR %s %s"%(selflag,flag)
+                v = np.pow(10,v)*1e6 # Convert log-seconds to microseconds
             elif "equad" in p:
                 flag=p.split('_',1)[1]
                 flag=flag[:-12]
