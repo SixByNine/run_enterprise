@@ -61,7 +61,6 @@ import sys
 import enterprise
 from enterprise.pulsar import Pulsar
 import enterprise.signals.parameter as parameter
-import enterprise.signals.prior as prior
 from enterprise.signals import utils
 from enterprise.signals import signal_base
 from enterprise.signals import selections
@@ -176,7 +175,7 @@ def mjkpx(toas,pos,earthssb,observatory_earth,px):
 
     return px * 0.5*pxconv * (rr-rcos1*rcos1)/AULTSC
 
-
+"""
 class VerbiestParallaxPriorRV(rv_continuous):
     def _rvs(self):
         return self.i_invCDF(np.random.uniform(0,1,self._size))
@@ -239,7 +238,7 @@ def VerbiestParallaxPrior(gl,gb,PXmin=1e-3,PXmax=15,s1400=None,R0=8.5,EE=0.33,si
             return '"{}":VerbiestParallax({},{})'.format(self.name, gl,gb) \
                 + ('' if self._size is None else '[{}]'.format(self._size))
     return VerbiestParallaxPrior
-
+"""
 
 @signal_base.function
 def mjkpm(toas,pos,earthssb,posepoch,pmra,pmdec,orig_pmra=0,orig_pmdec=0):
@@ -362,7 +361,9 @@ def makeModel(args):
     if args.px:
         if args.px_verbiest:
             print("\n\nWarning: Using Verbiest PX prior (Not tested!!)\n\n")
-        #def VerbiestParallaxPrior(gl,gb,PXmin=1e-3,PXmax=15,s1400=None,R0=8.5,EE=0.33,size=None):
+            print("\n\nERROR: FAIL\n\n")
+            sys.exit(1)
+            """
             if f0 > 100:
                 px_ee=0.5
             else:
@@ -374,6 +375,7 @@ def makeModel(args):
             gl=gal.l.deg
             gb=gal.b.deg
             pxp=VerbiestParallaxPrior(gl,gb,s1400=args.s1400,EE=px_ee)
+            """
         else:
             pxp=parameter.Uniform(0,args.px_range)
         px = deterministic_signals.Deterministic(mjkpx(px=pxp),name='px')
