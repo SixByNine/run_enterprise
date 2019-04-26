@@ -43,6 +43,7 @@ parser.add_argument('--models','-M',nargs='+',help='Add a model to model selecti
 parser.add_argument('--outdir','-o',type=str,help="Output directory for chains etc")
 parser.add_argument('--plot-chain',action='store_true', help='Make a plot of the chains')
 parser.add_argument('--tspan-mult',type=float,default=2,help='Multiplier for tspan')
+parser.add_argument('--pm-ecliptic',action='store_true', help='Generate ecliptic coords from pmra/pmdec')
 
 args=parser.parse_args()
 
@@ -77,7 +78,7 @@ import corner
 from PTMCMCSampler.PTMCMCSampler import PTSampler as ptmcmc
 
 from astropy import coordinates as coord
-from astropy import units as u
+from astropy import units as units
 
 from matplotlib.backends.backend_pdf import PdfPages
 
@@ -91,6 +92,16 @@ psr=Pulsar(par,tim,drop_t2pulsar=False)
 
 orig_toas=psr.t2pulsar.toas()
 issorted=np.all(orig_toas[:-1] <= orig_toas[1:])
+#mask=orig_toas[:-1] <= orig_toas[1:]
+#i=0
+#for b in mask:
+#    if not b:
+#        print("{:.20f}".format(orig_toas[i-1]))
+#        print("{:.20f}".format(orig_toas[i]))
+#        print("{:.20f}".format(orig_toas[i+1]))
+#        print("==")
+#    i+=1
+
 
 psr.earthssb = psr.t2pulsar.earth_ssb
 psr.observatory_earth = psr.t2pulsar.observatory_earth
@@ -114,6 +125,13 @@ with open(par) as f:
                 orig_pmra=float(e[1])
             elif e[0]=="PMDEC":
                 orig_pmdec=float(e[1])
+            elif e[0]=="RAJ":
+                psr_ra=e[1]
+            elif e[0]=="DECJ":
+                psr_dec=e[1]
+
+psr_coord = coord.SkyCoord(psr_ra,psr_dec,unit=(units.hourangle,units.degree))
+
 if posepoch < 0:
     print("Assume POSEPOCH=PEPOCH")
     posepoch=pepoch
@@ -578,6 +596,7 @@ def convert_dmA(v):
     return v
 
 
+
 ul68 = np.percentile(chain[burn:,:len(pars)],84.1,axis=0)
 ll68 = np.percentile(chain[burn:,:len(pars)],15.9,axis=0)
 ul = np.percentile(chain[burn:,:len(pars)],97.5,axis=0)
@@ -585,6 +604,9 @@ ll = np.percentile(chain[burn:,:len(pars)],2.5,axis=0)
 means = np.mean(chain[burn:,:len(pars)],axis=0)
 stds = np.std(chain[burn:,:len(pars)],axis=0)
 medians = np.median(chain[burn:,:len(pars)],axis=0)
+
+post_derived = chain[burn:,:len(pars)]
+pars_derived = np.array(pars).copy()
 
 print("")
 print("Max LogLikelihood",pta.get_lnlikelihood(pmax))
@@ -698,6 +720,52 @@ with open(resfname,"w") as resf:
         print(s)
         resf.write(s+"\n")
 
+ 
+        post_derived = np.concatenate((post_derived,np.array([pmamp]).T),axis=1)
+        pars_derived = np.concatenate((pars_derived,[p]))
+
+        if args.pm_ecliptic:
+            pm_ra_cosdec=pmra*np.cos(psr_coord.dec)*(units.mas/units.yr)
+            pm_dec = pmdec*(units.mas/units.yr)
+            psr_pmcoord = coord.ICRS(np.repeat(psr_coord.ra,len(pm_dec)),\
+                    np.repeat(psr_coord.dec,len(pm_dec)),\
+                    pm_ra_cosdec=pm_ra_cosdec,\
+                    pm_dec=pm_dec)
+            ecliptic = psr_pmcoord.transform_to(coord.BarycentricTrueEcliptic)
+            pm_elat = ecliptic.pm_lat.to((units.mas/units.yr)).value
+            pm_elon = ecliptic.pm_lon_coslat.to((units.mas/units.yr)).value / np.cos(ecliptic[0].lat)
+
+            mean = np.mean(pm_elat)
+            median=np.median(pm_elat)
+            u = np.percentile(pm_elat,97.5)
+            l = np.percentile(pm_elat,2.5)
+            v = pm_elat[imax-burn]
+            sig=np.std(pm_elat)
+            u68 = np.percentile(pm_elat,84.1)
+            l68 = np.percentile(pm_elat,15.9)
+            p = "PMELAT"
+            s = "{:20s} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g}  {:< 10g} {:< 10g} {:< 10g} ".format(p,v,mean,sig,l,l68,median,u68,u)
+            print(s)
+            resf.write(s+"\n")
+            post_derived = np.concatenate((post_derived,np.array([pm_elat]).T),axis=1)
+            pars_derived = np.concatenate((pars_derived,[p]))
+
+            mean = np.mean(pm_elon)
+            median=np.median(pm_elon)
+            u = np.percentile(pm_elon,97.5)
+            l = np.percentile(pm_elon,2.5)
+            v = pm_elon[imax-burn]
+            sig=np.std(pm_elon)
+            u68 = np.percentile(pm_elon,84.1)
+            l68 = np.percentile(pm_elon,15.9)
+            p = "PMELON"
+            s = "{:20s} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g}  {:< 10g} {:< 10g} {:< 10g} ".format(p,v,mean,sig,l,l68,median,u68,u)
+            print(s)
+            resf.write(s+"\n")
+
+            post_derived = np.concatenate((post_derived,np.array([pm_elon]).T),axis=1)
+            pars_derived = np.concatenate((pars_derived,[p]))
+
 
 
 
@@ -738,6 +806,14 @@ pmax = chain[imax,:len(pars)]
 fig=corner.corner(post[:,n_w], labels=pars[n_w], smooth=True,truths=pmax[n_w])
 
 fig.savefig("%s.corner.pdf"%psr.name)
+
+
+nderived=len(pars_derived)-len(pars)
+if nderived > 0:
+    derived = np.pad(n_w,(0,nderived),'constant',constant_values=(True))
+    fig=corner.corner(post_derived[:,derived], labels=pars_derived[derived], smooth=True)
+    fig.savefig("%s.corner_derived.pdf"%psrname)
+
 
 
 if args.all_corner:
