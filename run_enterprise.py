@@ -440,40 +440,41 @@ else:
 print("Output directory =",outdir)
 
 
-if args.models==None:
-    model = makeModel(args)
-    pta = signal_base.PTA(model(psr))
-    sampler=model_utils.setup_sampler(pta,outdir)
-    x0 = np.hstack(p.sample() for p in pta.params)
-else:
-    nmodels = len(args.models)
-    mod_index = np.arange(nmodels)
-    pta = dict.fromkeys(mod_index)
-    i=0
-    for m in args.models:
-        margs=[args.par,args.tim]
-        margs.extend(m.split())
-        if args.jbo:
-            margs.append("-j")
+if args.sample:
+    if args.models==None:
+        model = makeModel(args)
+        pta = signal_base.PTA(model(psr))
+        sampler=model_utils.setup_sampler(pta,outdir)
+        x0 = np.hstack(p.sample() for p in pta.params)
+    else:
+        nmodels = len(args.models)
+        mod_index = np.arange(nmodels)
+        pta = dict.fromkeys(mod_index)
+        i=0
+        for m in args.models:
+            margs=[args.par,args.tim]
+            margs.extend(m.split())
+            if args.jbo:
+                margs.append("-j")
 
-        if args.be_flag:
-            margs.append("--be-flag")
-            margs.append(args.be_flag)
-        if args.red_prior_log:
-            margs.append("--red-prior-log")
+            if args.be_flag:
+                margs.append("--be-flag")
+                margs.append(args.be_flag)
+            if args.red_prior_log:
+                margs.append("--red-prior-log")
 
-        margs.append("--efac-max")
-        margs.append("{}".format(args.efac_max))
-        margs.append("--efac-min")
-        margs.append("{}".format(args.efac_min))
+            margs.append("--efac-max")
+            margs.append("{}".format(args.efac_max))
+            margs.append("--efac-min")
+            margs.append("{}".format(args.efac_min))
 
-        pargs=parser.parse_args(margs)
-        model=makeModel(pargs)
-        pta[i] = signal_base.PTA(model(psr))
-        i += 1
-    super_model = model_utils.HyperModel(pta)
-    sampler = super_model.setup_sampler(resume=False, outdir=outdir)
-    x0 = super_model.initial_sample()
+            pargs=parser.parse_args(margs)
+            model=makeModel(pargs)
+            pta[i] = signal_base.PTA(model(psr))
+            i += 1
+        super_model = model_utils.HyperModel(pta)
+        sampler = super_model.setup_sampler(resume=False, outdir=outdir)
+        x0 = super_model.initial_sample()
 
 
 print("PSR Name: ",psr.name)
@@ -609,7 +610,7 @@ post_derived = chain[burn:,:len(pars)]
 pars_derived = np.array(pars).copy()
 
 print("")
-print("Max LogLikelihood",pta.get_lnlikelihood(pmax))
+#print("Max LogLikelihood",pta.get_lnlikelihood(pmax))
 print("")
 outpar=par+".post"
 resfname=par+".results"
@@ -725,7 +726,7 @@ with open(resfname,"w") as resf:
         pars_derived = np.concatenate((pars_derived,[p]))
 
         if args.pm_ecliptic:
-            pm_ra_cosdec=pmra*np.cos(psr_coord.dec)*(units.mas/units.yr)
+            pm_ra_cosdec=pmra*(units.mas/units.yr)
             pm_dec = pmdec*(units.mas/units.yr)
             psr_pmcoord = coord.ICRS(np.repeat(psr_coord.ra,len(pm_dec)),\
                     np.repeat(psr_coord.dec,len(pm_dec)),\
@@ -733,7 +734,7 @@ with open(resfname,"w") as resf:
                     pm_dec=pm_dec)
             ecliptic = psr_pmcoord.transform_to(coord.BarycentricTrueEcliptic)
             pm_elat = ecliptic.pm_lat.to((units.mas/units.yr)).value
-            pm_elon = ecliptic.pm_lon_coslat.to((units.mas/units.yr)).value / np.cos(ecliptic[0].lat)
+            pm_elon = ecliptic.pm_lon_coslat.to((units.mas/units.yr)).value
 
             mean = np.mean(pm_elat)
             median=np.median(pm_elat)
@@ -812,7 +813,7 @@ nderived=len(pars_derived)-len(pars)
 if nderived > 0:
     derived = np.pad(n_w,(0,nderived),'constant',constant_values=(True))
     fig=corner.corner(post_derived[:,derived], labels=pars_derived[derived], smooth=True)
-    fig.savefig("%s.corner_derived.pdf"%psrname)
+    fig.savefig("%s.corner_derived.pdf"%psr.name)
 
 
 

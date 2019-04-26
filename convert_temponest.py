@@ -280,7 +280,7 @@ with open(resfname,"w") as resf:
         pars_derived = np.concatenate((pars_derived,[p]))
 
         if args.pm_ecliptic:
-            pm_ra_cosdec=pmra*np.cos(psr_coord.dec)*(units.mas/units.yr)
+            pm_ra_cosdec=pmra*(units.mas/units.yr)
             pm_dec = pmdec*(units.mas/units.yr)
             psr_pmcoord = coord.ICRS(np.repeat(psr_coord.ra,len(pm_dec)),\
                     np.repeat(psr_coord.dec,len(pm_dec)),\
@@ -288,7 +288,7 @@ with open(resfname,"w") as resf:
                     pm_dec=pm_dec)
             ecliptic = psr_pmcoord.transform_to(coord.BarycentricTrueEcliptic)
             pm_elat = ecliptic.pm_lat.to((units.mas/units.yr)).value
-            pm_elon = ecliptic.pm_lon_coslat.to((units.mas/units.yr)).value / np.cos(ecliptic[0].lat)
+            pm_elon = ecliptic.pm_lon_coslat.to((units.mas/units.yr)).value 
 
             mean = np.mean(pm_elat)
             median=np.median(pm_elat)
