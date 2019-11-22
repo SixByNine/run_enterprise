@@ -239,8 +239,8 @@ with open(resfname,"w") as resf:
             if p=="PM-angle":
                 pmangle=v
                 pos=psr.pos
-                psrdec = np.arcsin(pos[2]/np.sqrt(np.sum(pos*pos)))
-                pmra = pmamp * np.cos(pmangle)/np.cos(psrdec)
+                #psrdec = np.arcsin(pos[2]/np.sqrt(np.sum(pos*pos)))
+                pmra = pmamp * np.cos(pmangle) #/np.cos(psrdec)
                 pmdec = pmamp * np.sin(pmangle)
                 outf.write("PMRA %s\n"%(pmra))
                 outf.write("PMDEC %s\n"%(pmdec))
@@ -253,7 +253,7 @@ with open(resfname,"w") as resf:
     print("Derived parameters:")
     if "PMRA" in pars and "PMDEC" in pars:
         pos=psr.pos
-        psrdec = np.arcsin(pos[2]/np.sqrt(np.sum(pos*pos)))
+        #psrdec = np.arcsin(pos[2]/np.sqrt(np.sum(pos*pos)))
         i=0
         for p in pars:
             if "PMRA" in p:
@@ -261,8 +261,8 @@ with open(resfname,"w") as resf:
             if "PMDEC" in p:
                 pmdec = chain[burn:,i]
             i+=1
-        pmz = pmra * np.cos(psrdec)
-        pmamp = np.sqrt(pmz*pmz + pmdec*pmdec)
+        #pmz = pmra * np.cos(psrdec)
+        pmamp = np.sqrt(pmra*pmra + pmdec*pmdec)
         mean = np.mean(pmamp)
         median=np.median(pmamp)
         u = np.percentile(pmamp,97.5)

@@ -45,6 +45,17 @@ parser.add_argument('--plot-chain',action='store_true', help='Make a plot of the
 parser.add_argument('--tspan-mult',type=float,default=2,help='Multiplier for tspan')
 parser.add_argument('--pm-ecliptic',action='store_true', help='Generate ecliptic coords from pmra/pmdec')
 
+parser.add_argument('--quasiperiodic','-Q', action='store_true',help='fit quasiperiodic (QP) model')
+parser.add_argument('--Aqp-max',type=float,default=1,help='Max log10A_QP')
+parser.add_argument('--Aqp-min',type=float,default=-4,help='Min log10A_QP')
+parser.add_argument('--qp-prior-log',action='store_true',help='Use uniform prior in log space for QP amplitude')
+
+parser.add_argument('--qp-f0-max',type=float,default=10.0,help='Max QP f0')
+parser.add_argument('--qp-f0-min',type=float,default=0.1,help='Min QP f0')
+
+parser.add_argument('--qp-sigma-max',type=float,default=10.0,help='Max QP sigma')
+parser.add_argument('--qp-sigma-min',type=float,default=0.01,help='Min QP sigma')
+
 args=parser.parse_args()
 
 print(vars(args))
@@ -172,9 +183,9 @@ def mjkf2(toas,pepoch,f0,valf2):
 
 @signal_base.function
 def mjkpm_angle(toas,pos,earthssb,posepoch,amp,angle,orig_pmra=0,orig_pmdec=0):
-    psrdec = np.arcsin(pos[2]/np.sqrt(np.sum(pos*pos)))
+    #psrdec = np.arcsin(pos[2]/np.sqrt(np.sum(pos*pos)))
 
-    pmra = amp * np.cos(angle)/np.cos(psrdec)
+    pmra = amp * np.cos(angle) #/np.cos(psrdec)
     pmdec = amp * np.sin(angle)
     return mjkpm(toas,pos,earthssb,posepoch,pmra,pmdec,orig_pmra,orig_pmdec)
  
@@ -311,6 +322,12 @@ def FourierBasisGP_DM(spectrum, components=20,
 
     return FourierBasisGP_DM
 
+@signal_base.function
+def quasiperiodic(f, log10_A=-1, sigma=0.1,f0=0.3):
+    df = np.diff(np.concatenate((np.array([0]), f[::2])))
+    return ((10**log10_A)**2 *
+            np.exp(-((f/const.fyr-f0)/sigma)**2) * np.repeat(df, 2))
+
 
 def makeModel(args):
     print("Set up model...")
@@ -361,6 +378,18 @@ def makeModel(args):
         pl = utils.powerlaw(log10_A=log10_A, gamma=gamma)
         rn = gp_signals.FourierBasisGP(spectrum=pl, components=nC, Tspan=Tspan)
         model+=rn
+
+    if args.quasiperiodic:
+        # red noise (powerlaw with 30 frequencies)
+        if args.qp_prior_log:
+            log10_A = parameter.Uniform(args.Aqp_min, args.Aqp_max)('QP_A')
+        else:
+            log10_A = parameter.LinearExp(args.Aqp_min, args.Aqp_max)('QP_A')
+        qp_f0 = parameter.Uniform(args.qp_f0_min, args.qp_f0_max)('QP_f0')
+        qp_sigma = parameter.Uniform(args.qp_sigma_min, args.qp_sigma_max)('QP_sigma')
+        qp_law = quasiperiodic(log10_A=log10_A, f0=qp_f0, sigma=qp_sigma)
+        qp = gp_signals.FourierBasisGP(spectrum=qp_law, components=nC, Tspan=Tspan)
+        model += qp
 
     if args.dm:
         log10_Adm = parameter.LinearExp(args.Adm_min,args.Adm_max)('DM_A')
@@ -684,8 +713,8 @@ with open(resfname,"w") as resf:
             if p=="PM-angle":
                 pmangle=v
                 pos=psr.pos
-                psrdec = np.arcsin(pos[2]/np.sqrt(np.sum(pos*pos)))
-                pmra = pmamp * np.cos(pmangle)/np.cos(psrdec)
+                #psrdec = np.arcsin(pos[2]/np.sqrt(np.sum(pos*pos)))
+                pmra = pmamp * np.cos(pmangle) #/np.cos(psrdec)
                 pmdec = pmamp * np.sin(pmangle)
                 outf.write("PMRA %s\n"%(pmra))
                 outf.write("PMDEC %s\n"%(pmdec))
@@ -698,7 +727,7 @@ with open(resfname,"w") as resf:
     print("Derived parameters:")
     if psr.name+"_pm_pmra" in pars and psr.name+"_pm_pmdec" in pars:
         pos=psr.pos
-        psrdec = np.arcsin(pos[2]/np.sqrt(np.sum(pos*pos)))
+        #psrdec = np.arcsin(pos[2]/np.sqrt(np.sum(pos*pos)))
         i=0
         for p in pars:
             if "pmra" in p:
@@ -706,8 +735,8 @@ with open(resfname,"w") as resf:
             if "pmdec" in p:
                 pmdec = chain[burn:,i]
             i+=1
-        pmz = pmra * np.cos(psrdec)
-        pmamp = np.sqrt(pmz*pmz + pmdec*pmdec)
+        #pmz = pmra * np.cos(psrdec)
+        pmamp = np.sqrt(pmra*pmra + pmdec*pmdec)
         mean = np.mean(pmamp)
         median=np.median(pmamp)
         u = np.percentile(pmamp,97.5)
