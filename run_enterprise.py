@@ -94,6 +94,8 @@ from astropy import units as units
 from matplotlib.backends.backend_pdf import PdfPages
 
 
+from quasiperiodic import quasiperiodic, create_quasiperiodic_basisfunction, FourierBasisGP_QP
+
 par = args.par
 tim=args.tim
 f2range=args.f2
@@ -322,11 +324,7 @@ def FourierBasisGP_DM(spectrum, components=20,
 
     return FourierBasisGP_DM
 
-@signal_base.function
-def quasiperiodic(f, log10_A=-1, sigma=0.1,f0=0.3):
-    df = np.diff(np.concatenate((np.array([0]), f[::2])))
-    return ((10**log10_A)**2 *
-            np.exp(-((f/const.fyr-f0)/sigma)**2) * np.repeat(df, 2))
+
 
 
 def makeModel(args):
@@ -380,15 +378,20 @@ def makeModel(args):
         model+=rn
 
     if args.quasiperiodic:
-        # red noise (powerlaw with 30 frequencies)
+        # Quasiperiodic noise with a fourier basis
         if args.qp_prior_log:
             log10_A = parameter.Uniform(args.Aqp_min, args.Aqp_max)('QP_A')
         else:
             log10_A = parameter.LinearExp(args.Aqp_min, args.Aqp_max)('QP_A')
         qp_f0 = parameter.Uniform(args.qp_f0_min, args.qp_f0_max)('QP_f0')
         qp_sigma = parameter.Uniform(args.qp_sigma_min, args.qp_sigma_max)('QP_sigma')
+
         qp_law = quasiperiodic(log10_A=log10_A, f0=qp_f0, sigma=qp_sigma)
-        qp = gp_signals.FourierBasisGP(spectrum=qp_law, components=nC, Tspan=Tspan)
+
+        qp_basis = create_quasiperiodic_basisfunction(sigma=qp_sigma, f0=qp_f0, Tspan=Tspan)
+
+        qp = FourierBasisGP_QP(basis=qp_basis,spectrum=qp_law)
+
         model += qp
 
     if args.dm:
