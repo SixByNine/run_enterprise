@@ -6,7 +6,11 @@ import matplotlib
 matplotlib.use('Agg')
 
 import argparse
+import emcee
+import os
 
+from multiprocessing import Pool
+#from schwimmbad import MPIPool
 
 parser=argparse.ArgumentParser(description="Run 'enterprise' on a single pulsar")
 parser.add_argument('par')
@@ -27,6 +31,7 @@ parser.add_argument('--red-prior-log',action='store_true',help='Use uniform prio
 parser.add_argument('--red-ncoeff',type=int,default=60,help='Number of red noise coefficients (nC)')
 parser.add_argument('-n','--no-sample',dest='sample',default=True,action='store_false', help='Disable the actual sampling...')
 parser.add_argument('--no-white',dest='white',default=True,action='store_false', help='Disable efac and equad')
+parser.add_argument('--white-prior-log',action='store_true',help='Use uniform prior in log space for Equad')
 parser.add_argument('--efac-max',type=float, default=5, help='Max for efac prior')
 parser.add_argument('--efac-min',type=float, default=0.2, help='Min for efac prior')
 parser.add_argument('--ngecorr',action='store_true', help='Add ECORR for the nanograv backends')
@@ -49,6 +54,8 @@ parser.add_argument('--quasiperiodic','-Q', action='store_true',help='fit quasip
 parser.add_argument('--Aqp-max',type=float,default=1,help='Max log10A_QP')
 parser.add_argument('--Aqp-min',type=float,default=-4,help='Min log10A_QP')
 parser.add_argument('--qp-prior-log',action='store_true',help='Use uniform prior in log space for QP amplitude')
+parser.add_argument('--glitch-recovery',action='store_true', help='fit for glitch recoveries')
+parser.add_argument('--glitches',type=int, nargs='+', help='Select glitches to fit')
 
 parser.add_argument('--qp-f0-max',type=float,default=10.0,help='Max QP f0')
 parser.add_argument('--qp-f0-min',type=float,default=0.1,help='Min QP f0')
@@ -56,6 +63,11 @@ parser.add_argument('--qp-f0-min',type=float,default=0.1,help='Min QP f0')
 parser.add_argument('--qp-sigma-max',type=float,default=10.0,help='Max QP sigma')
 parser.add_argument('--qp-sigma-min',type=float,default=0.01,help='Min QP sigma')
 
+parser.add_argument('--emcee',action='store_true', help='Use emcee sampler')
+parser.add_argument('--cont',action='store_true', help='Continue existing chain (emcee)')
+parser.add_argument('--nthread','-t',type=int, default=1, help="number of threads (emcee)")
+parser.add_argument('--nwalkers',type=int, default=0, help="number of walkers (emcee)")
+parser.add_argument('--test-threads',action='store_true', help='Test threading options (emcee)')
 args=parser.parse_args()
 
 print(vars(args))
@@ -96,6 +108,8 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 from quasiperiodic import quasiperiodic, create_quasiperiodic_basisfunction, FourierBasisGP_QP
 
+import ent_emcee
+
 par = args.par
 tim=args.tim
 f2range=args.f2
@@ -123,10 +137,11 @@ orig_pmra=0
 orig_pmdec=0
 posepoch=-1
 parlines=[]
+glitches={}
 with open(par) as f:
     for line in f:
         parlines.append(line)
-        e=line.split()
+        e=line.strip().split()
         if len(e) > 1:
             if e[0]=="F0":
                 f0=float(e[1])
@@ -142,6 +157,14 @@ with open(par) as f:
                 psr_ra=e[1]
             elif e[0]=="DECJ":
                 psr_dec=e[1]
+            elif e[0].startswith("GLEP"):
+                glitches[e[0][4:]] = {'EP':float(e[1])}
+            elif e[0].startswith("GLF0D"):
+                glitches[e[0][5:]]['F0D'] = float(e[1])
+            elif e[0].startswith("GLTD"):
+                glitches[e[0][4:]]['TD'] = float(e[1])
+
+
 
 psr_coord = coord.SkyCoord(psr_ra,psr_dec,unit=(units.hourangle,units.degree))
 
@@ -158,6 +181,13 @@ if args.pm and "PMRA" in psr.fitpars:
 if args.pm and "PMDEC" in psr.fitpars:
     print("ERROR: Can't fit for PMDEC in both MCMC and least-squares")
     sys.exit(1)
+
+if args.glitch_recovery:
+    for gl in glitches:
+        if "GLF0D{}".format(gl) in psr.fitpars or "GLTD{}".format(gl) in psr.fitpars:
+            print("ERROR: Can't fit for GLF0D/GLTD in both MCMC and least-squares")
+            sys.exit(1)
+
 
 if (args.pm or args.px) and not issorted:
     print("ERROR: Toas must be sorted or wierd things happen with paralax and proper motion")
@@ -176,6 +206,28 @@ def flagbackends(flags,beflagval):
     backend_flags=flags[beflagval]
     flagvals = np.unique(backend_flags)
     return {flagval: backend_flags == flagval for flagval in flagvals}
+
+
+@signal_base.function
+def mjk_glitch_recovery(toas, f0, glep, f0d, log10_td, old_f0d, old_td):
+    td = np.power(10.0,log10_td)
+    f0d *= 1e-6
+
+    t= toas/86400.0 - glep
+
+    expf=np.zeros_like(toas) + 1.0
+    m = t>=0
+    expf[m] = np.exp(-t[m]/td) + 1.0
+    phs = - f0d * td * 86400.0 * (1.0-expf)
+
+    if old_td > 0:
+        expf=np.zeros_like(toas) + 1.0
+        m = t>=0
+        expf[m] = np.exp(-t[m]/old_td) + 1.0
+        phs += old_f0d * old_td * 86400.0 * (1.0-expf)
+
+    return phs / f0
+
 
 
 @signal_base.function
@@ -351,7 +403,10 @@ def makeModel(args):
     if args.white:
         medianlogerr=np.log10(np.median(psr.toaerrs))
         efac = parameter.Uniform(args.efac_min,args.efac_max)
-        equad = parameter.LinearExp(medianlogerr-2,medianlogerr+2)
+        if(args.white_prior_log):
+            equad = parameter.Uniform(medianlogerr-2,medianlogerr+2)
+        else:
+            equad = parameter.LinearExp(medianlogerr-2,medianlogerr+2)
         ef = white_signals.MeasurementNoise(efac=efac,selection=selection)
         eq = white_signals.EquadNoise(log10_equad=equad, selection=selection)
         model += ef
@@ -438,6 +493,26 @@ def makeModel(args):
         pm = deterministic_signals.Deterministic(mjkpm_angle(posepoch=posepoch,amp=pmamp,angle=pmangle),name='pm')
         model += pm
 
+    if args.glitch_recovery:
+        for gl in glitches:
+            igl=int(gl[1:])
+            if args.glitches==None or igl in args.glitches:
+                f0d = parameter.Uniform(-1*f0,1*f0)("GLF0D{}".format(gl)) # units of 10^-6
+                td = parameter.Uniform(0,4)("GLTD{}".format(gl))
+                if "TD" in glitches[gl]:
+                    old_td = parameter.Constant(glitches[gl]['TD'])
+                else:
+                    old_td = parameter.Constant(0)
+
+                if "F0D" in glitches[gl]:
+                    old_f0d = parameter.Constant(glitches[gl]['F0D'])
+                else:
+                    old_f0d = parameter.Constant(0)
+
+                glexp = mjk_glitch_recovery(f0=parameter.Constant(f0), glep=parameter.Constant(glitches[gl]['EP']), f0d=f0d, log10_td=td, old_td=old_td, old_f0d=old_f0d)
+                glexp_f = deterministic_signals.Deterministic(glexp,name="gl{}".format(gl))
+                model += glexp_f
+
 
     if f2range > 0:
         f2 = mjkf2(pepoch=parameter.Constant(pepoch),f0=parameter.Constant(f0), valf2=parameter.Uniform(-f2range/1e-27,f2range/1e-27)('F2'))
@@ -451,7 +526,7 @@ Tspan = psr.toas.max()-psr.toas.min()
 print("Tspan=%.1f"%(Tspan/86400.))
 
 Tspan*=args.tspan_mult
-nC*=args.tspan_mult
+nC*=int(args.tspan_mult)
 
 
 #print(psr.fitpars)
@@ -476,8 +551,67 @@ if args.sample:
     if args.models==None:
         model = makeModel(args)
         pta = signal_base.PTA(model(psr))
+        x0 = np.hstack([p.sample() for p in pta.params])
         sampler=model_utils.setup_sampler(pta,outdir)
-        x0 = np.hstack(p.sample() for p in pta.params)
+        if args.emcee:
+            nwalkers = args.nwalkers
+            if nwalkers < 2*len(x0):
+                nwalkers = 2*len(x0)
+
+            if args.cont:
+                scls,offs = np.loadtxt(os.path.join(outdir,"scloff"),unpack=True)
+            else:
+                vv = [np.hstack([p.sample() for p in pta.params]) for i in range(100)]
+                scls = np.std(vv,axis=0)
+                offs = np.mean(vv,axis=0)
+                np.savetxt(os.path.join(outdir,"scloff"),np.array([scls,offs]).T)
+
+            if args.test_threads:
+                print("Testing threading... nwalkers=",nwalkers)
+                p0=np.zeros((nwalkers,len(x0)))
+                for i in range(nwalkers):
+                    p0[i] = np.hstack([p.sample() for p in pta.params])
+                    p0[i] -= offs
+                    p0[i] /= scls
+                import time
+                for t in (range(args.nthread+1))[::2]:
+                    if t==0:
+                        t=1
+                    with Pool(t,initializer = ent_emcee.init,initargs=[pta,offs,scls]) as pool:
+                        start = time.time()
+                        n=4
+                        for j in range(n):
+                            res = pool.map(ent_emcee.log_prob,(p0[i] for i in range(nwalkers)))
+                        end = time.time()
+                        delta_time = end - start
+                        if t==1:
+                            tone=delta_time
+                        print("t={} {:.1f}s {:.1f}ms speedup={:.1f} {:.0f}%".format(t,delta_time/n, t*1000.*delta_time/n/len(p0),tone/delta_time, 100.*tone/delta_time/t))
+                sys.exit(1)
+
+            
+            tpool = Pool(args.nthread,initializer = ent_emcee.init,initargs=[pta,offs,scls])
+
+            #tpool = MPIPool()
+            #ent_emcee.init(pta)
+            #if not tpool.is_master():
+            #    tpool.wait()
+            #    sys.exit(0)
+
+            filename = os.path.join(outdir,"chain.h5")
+            backend = emcee.backends.HDFBackend(filename)
+            if args.cont:
+                print("CONTINUE EXISTING CHAIN!")
+            else:
+                backend.reset(nwalkers,len(x0))
+            #moves=[(emcee.moves.StretchMove(),0.4),(emcee.moves.DEMove(), 0.5), (emcee.moves.DESnookerMove(), 0.1),]
+            moves=[(emcee.moves.DEMove(), 0.8), (emcee.moves.DESnookerMove(), 0.2)]
+            sampler = emcee.EnsembleSampler(nwalkers,len(x0),ent_emcee.log_prob,backend=backend,pool=tpool,moves=moves)
+            p0=np.zeros((nwalkers,len(x0)))
+            for i in range(nwalkers):
+                p0[i] = np.hstack([p.sample() for p in pta.params])
+                p0[i] -= offs
+                p0[i] /= scls
     else:
         nmodels = len(args.models)
         mod_index = np.arange(nmodels)
@@ -505,9 +639,18 @@ if args.sample:
             pta[i] = signal_base.PTA(model(psr))
             i += 1
         super_model = model_utils.HyperModel(pta)
-        sampler = super_model.setup_sampler(resume=False, outdir=outdir)
         x0 = super_model.initial_sample()
-
+        sampler = super_model.setup_sampler(resume=False, outdir=outdir)
+        if args.emcee:
+            def log_prob(*args,**kwargs):
+                return super_model.get_lnlikelihood(*args,**kwargs)+super_model.get_lnprior(*args,**kwargs)
+            filename = os.path.join(outdir,"chain.h5")
+            backend = emcee.backends.HDFBackend(filename)
+            backend.reset(2*len(x0),len(x0))
+            sampler = emcee.EnsembleSampler(2*len(x0),len(x0),log_prob,backend=backend)
+            p0=np.zeros((2*len(x0),len(x0)))
+            for i in range(2*len(x0)):
+                p0[i] = super_model.initial_sample()
 
 print("PSR Name: ",psr.name)
 print("F0: ",f0)
@@ -541,15 +684,78 @@ for p in pars:
 # sampler for N steps
 N = int(args.nsample)
 if args.sample:
-    sampler.sample(x0, N, SCAMweight=30, AMweight=15, DEweight=50)
+    if args.emcee:
+
+        """
+        state=p0
+        for state in sampler.sample(p0, N, progress=True):
+            print("T",state)
+
+        """
+
+        print("Launch EMCEE\n\n")
+
+        if args.cont:
+            p0=None
+        state = sampler.run_mcmc(p0,1)
+        for state in sampler.sample(state,iterations=N,progress=True):
+            if sampler.iteration % 10:
+                continue
+            i = np.argmin(sampler.acceptance_fraction)
+            state.log_prob[i] -= 1e99
+
+            if sampler.iteration % 100:
+                continue
+            print(sampler.iteration)
+            print("Acceptance rate: {:.2f} {:.2f} {}".format(np.mean(sampler.acceptance_fraction),np.amin(sampler.acceptance_fraction),i))
+
+        """
+        if args.cont:
+            p0=None
+        else:
+            print("Burn period\n\n")
+            state = sampler.run_mcmc(p0,N//10,progress=True)
+            print("Mean Acceptance rate: ",np.mean(sampler.acceptance_fraction))
+            print("Min Acceptance rate:  ",np.amin(sampler.acceptance_fraction))
+            state.log_prob -= 1e99
+        state = sampler.run_mcmc(state,N,progress=True)
+        print("Mean Acceptance rate: ",np.mean(sampler.acceptance_fraction))
+        print("Min Acceptance rate:  ",np.amin(sampler.acceptance_fraction))
+        """
+        # todo... option to terminate early
+        tpool.close()
+    else:
+        sampler.sample(x0, N, SCAMweight=30, AMweight=15, DEweight=50)
 
 
 # In[8]:
 
 
-chain = np.loadtxt(outdir+'/chain_1.txt')
-pars = np.loadtxt(outdir + '/pars.txt', dtype=np.unicode_)
-burn = int(0.25 * chain.shape[0])
+if args.emcee:
+    filename = os.path.join(outdir,"chain.h5")
+    scls,offs = np.loadtxt(os.path.join(outdir,"scloff"),unpack=True)
+    reader = emcee.backends.HDFBackend(filename)
+
+    tau = reader.get_autocorr_time(tol=0)
+    burnin = int(2 * np.max(tau))
+    thin = int(0.5 * np.min(tau))
+    print("tau = {} burn = {} thin = {}".format(tau, burnin, thin))
+    samples = reader.get_chain(discard=burnin, flat=True, thin=thin)
+    samples *= scls
+    samples += offs
+    log_prob_samples = reader.get_log_prob(discard=burnin, flat=True, thin=thin)
+
+    log_prior_samples = reader.get_blobs(discard=burnin, flat=True, thin=thin)
+    pars = np.loadtxt(outdir + '/pars.txt', dtype=np.unicode_)
+
+    N=len(samples)
+    chain = np.concatenate( (samples, log_prob_samples[:, None], log_prior_samples[:, None],np.zeros(N)[:,None],np.zeros(N)[:,None]), axis=1)
+    burn=int(0.25*chain.shape[0])
+
+else:
+    chain = np.loadtxt(outdir+'/chain_1.txt')
+    pars = np.loadtxt(outdir + '/pars.txt', dtype=np.unicode_)
+    burn = int(0.25 * chain.shape[0])
 
 
 if not args.models == None:
@@ -614,7 +820,7 @@ if not args.models == None:
         burn = int(0.25 * chain.shape[0])
 
 
-imax = np.argmax(chain[:,len(pars)+1])
+imax = np.argmax(chain[:,len(pars)])
 
 pmax = chain[imax,:len(pars)]
 
@@ -706,10 +912,14 @@ with open(resfname,"w") as resf:
             elif "log10_A" in p:
                 p="TNRedAmp"
                 outf.write("TNRedC %d\n"%nC)
-                outf.write("TNRedFLow -0.301\n")
+                outf.write("TNRedFLow {}\n".format(np.log10(1.0/args.tspan_mult)))
             s = "{:20s} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g}  {:< 10g} {:< 10g} {:< 10g} ".format(p,v,mean,sig,l,l68,median,u68,u)
             resf.write(s+"\n")
             print(s)
+            if p.startswith("GLTD"):
+                v = np.power(10.0,v)
+            if p.startswith("GLF0D"):
+                v *=1e-6
             if p=="PM":
                 pmamp=v
                 continue
@@ -833,8 +1043,10 @@ m_eq = np.zeros(len(pars),dtype=np.bool)
 m_eq[i_eq] = True
 
 n_w=np.logical_not(np.logical_or(m_ef,m_eq))
-imax = np.argmax(chain[:,len(pars)+1])
+imax = np.argmax(chain[:,len(pars)])
 pmax = chain[imax,:len(pars)]
+
+plt.rcParams.update({'font.size': 8})
 
 fig=corner.corner(post[:,n_w], labels=pars[n_w], smooth=True,truths=pmax[n_w])
 

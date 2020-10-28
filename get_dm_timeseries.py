@@ -33,6 +33,8 @@ cvm  = np.loadtxt("cov.matrix")
 dmcosidx=lab[1]=='param_red_dm_cos'
 dmsinidx=lab[1]=='param_red_dm_sin'
 meta = np.loadtxt("tnreddm.meta",usecols=(1))
+dm_omega=meta[0]
+dm_red_epoch=meta[1]
 dm_epoch=meta[2]
 dm=meta[3]
 dm1=meta[4]
@@ -50,7 +52,7 @@ rx,ry,re,rfreq = np.loadtxt("out.res",usecols=(0,5,6,8),unpack=True)
 dat_t=rx
 dat_e=re
 
-t=np.linspace(start,finish,1000)
+t=np.linspace(start,finish,200)
 y=np.zeros_like(t)
 
 cosidx=lab[1]=='param_red_cos'
@@ -140,11 +142,11 @@ for iparam in range(len(beta)):
         omegai = omega*(lab_k[iparam]+1.0)
         M[iparam] = np.sin(omegai * (t-epoch))
     if dmcosidx[iparam]:
-        omegai = omega*(lab_k[iparam]+1.0)
-        dmM[iparam] = np.cos(omegai * (t-epoch))
+        omegai = dm_omega*(lab_k[iparam]+1.0)
+        dmM[iparam] = np.cos(omegai * (t-dm_red_epoch))
     if dmsinidx[iparam]:
-        omegai = omega*(lab_k[iparam]+1.0)
-        dmM[iparam] = np.sin(omegai * (t-epoch))
+        omegai = dm_omega*(lab_k[iparam]+1.0)
+        dmM[iparam] = np.sin(omegai * (t-dm_red_epoch))
     if dmidx[iparam]:
         dmM[iparam] = np.power(tyr,lab_k[iparam])
 M=M.T
