@@ -51,6 +51,6 @@ def to_par(self,p,chain):
    if "red_noise_log10_A" in p:
       return "TNRedAmp", chain
    if "red_noise_gamma" in p:
-      return "TNGam", chain
+      return "TNRedGam", chain
    else:
       return None

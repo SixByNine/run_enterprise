@@ -115,7 +115,7 @@ def to_par(self, p, chain):
     global orig_pmra
     global orig_pmdec
     if p == "f2":
-        return "F2", chain*1e-27 + orig_f2
+        return "F2", (chain + orig_f2)*1e-27
     if "px_px" in p:
         return "PX", chain
     if "pm_angle" in p:
