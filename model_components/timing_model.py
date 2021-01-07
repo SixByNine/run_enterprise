@@ -112,8 +112,6 @@ def setup_model(args, psr, parfile):
 
 def to_par(self, p, chain):
     global orig_f2
-    global orig_pmra
-    global orig_pmdec
     if p == "f2":
         return "F2", (chain + orig_f2)*1e-27
     if "px_px" in p:
@@ -123,9 +121,9 @@ def to_par(self, p, chain):
     if "pm_amp" in p:
         return "PM", chain
     if "pm_pmra" in p:
-        return 'PMRA', chain + orig_pmra
+        return 'PMRA', chain
     if "pm_pmdec" in p:
-        return 'PMDEC', chain + orig_pmdec
+        return 'PMDEC', chain
     else:
         return None
 
