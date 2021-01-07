@@ -1,7 +1,7 @@
 import dynesty
 import numpy as np
 from multiprocessing import Pool
-
+import pickle,os
 
 name="DynestySolver"
 argdec="Configure for nested sampling with DyNesty"
@@ -21,17 +21,25 @@ def run_solve(args,_pta,outdir):
 
     for p in pta.params:
         invTs.append(p.invT)
+    filename = os.path.join(outdir, "dynesty_results.pkl")
 
     args.burn=0 ## force no burn in for nested sampling
-    with Pool(args.nthread) as tpool:
-        print("Run Dynesty")
-        sampler = dynesty.NestedSampler(get_lnlikelihood, prior_transform, ndim=len(pta.params),nlive=args.nlive, pool=tpool,queue_size=args.nthread)
-        sampler.run_nested()
-        print(sampler.results.summary())
-        #print(sampler.results)
-        return sampler.results
+    if args.sample:
+        with Pool(args.nthread) as tpool:
+            print("Run Dynesty")
+            sampler = dynesty.NestedSampler(get_lnlikelihood, prior_transform, ndim=len(pta.params),nlive=args.nlive, pool=tpool,queue_size=args.nthread)
+            sampler.run_nested()
+            print(sampler.results.summary())
+            with open(filename, "wb") as f:
+                pickle.dump(sampler.results, f)
+            #print(sampler.results)
+            return sampler.results
+    else:
+        with open(filename,'rb') as f:
+            return pickle.load(f)
 
 def get_posteriors(args,results):
+
     try:
         weights = np.exp(results['logwt'] - results['logz'][-1])
     except:

@@ -3,6 +3,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
 import corner
 import dynesty
+from dynesty import plotting
 
 
 def setup_argparse(parser):
@@ -10,6 +11,21 @@ def setup_argparse(parser):
     parser.add_argument('--all-corner', action='store_true', help='Make corner plots with all params')
     parser.add_argument('--plot-chain', action='store_true', help='Make a plot of the chains/posterior samples')
     parser.add_argument('--burn', default=0.25, help='Fraction of chain to burn-in (MC only; default=0.25)')
+
+
+def cornerplot(samples, labels, weights, truths):
+
+    if weights is None:
+        weights = np.ones_like(samples[:,0])
+    res={'samples': samples, 'weights':weights}
+    fig,ax= plotting.cornerplot(res,truths=truths,labels=labels,truth_color='cyan')
+    for aa in ax:
+        for a in aa:
+            if len(a.xaxis.get_label().get_text()) > 0:
+                print("X", a.xaxis.get_label().get_text())
+            if len(a.yaxis.get_label().get_text()) > 0:
+                a.ticklabel_format(axis='y', style='sci', scilimits=(-3, 3), useMathText=True)
+    return fig
 
 
 def make_plots(args, psr, samples, loglike, weights, pars):
@@ -28,19 +44,19 @@ def make_plots(args, psr, samples, loglike, weights, pars):
 
     plt.rcParams.update({'font.size': 8})
 
-    fig = corner.corner(samples[burn:, n_w], labels=pars[n_w], weights=weights, smooth=True, truths=pmax[n_w])
+    fig = cornerplot(samples[burn:, n_w], labels=pars[n_w], weights=weights, truths=pmax[n_w])
 
     fig.savefig("%s.corner.pdf" % psr.name)
 
     # Make optional corner plots
     if args.all_corner:
-        fig = corner.corner(samples[burn:, :], labels=pars, weights=weights, smooth=True);
+        fig = cornerplot(samples[burn:, :], labels=pars, weights=weights);
         fig.savefig("%s.corner_all.pdf" % psr.name)
 
     if args.white_corner:
-        fig = corner.corner(samples[burn:, m_ef], labels=pars[m_ef], weights=weights, smooth=True);
+        fig = cornerplot(samples[burn:, m_ef], labels=pars[m_ef], weights=weights);
         fig.savefig("%s.corner_efac.pdf" % psr.name)
-        fig = corner.corner(samples[burn:, m_eq], labels=pars[m_eq], weights=weights, smooth=True);
+        fig = cornerplot(samples[burn:, m_eq], labels=pars[m_eq], weights=weights);
         fig.savefig("%s.corner_equad.pdf" % psr.name)
 
     # Plot posterior if requested.

@@ -9,8 +9,8 @@ from astropy import units as units
 
 from . import xparameter as parameter
 
-name = "BasicTimingModel"
-argdec = "Basic pulsar spin and astrometric parameters."
+name = "GlitchModel"
+argdec = "Glitch and recovery parameters."
 
 
 def setup_argparse(parser):
