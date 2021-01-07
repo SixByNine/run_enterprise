@@ -2,6 +2,9 @@ import dynesty
 import numpy as np
 from multiprocessing import Pool
 import pickle,os
+from dynesty import plotting
+import matplotlib.pyplot as plt
+
 
 name="DynestySolver"
 argdec="Configure for nested sampling with DyNesty"
@@ -9,6 +12,7 @@ argdec="Configure for nested sampling with DyNesty"
 def setup_argparse(parser):
     parser.add_argument('--dynesty', action='store_true', help='Use dynesty sampler')
     parser.add_argument('--nlive', type=int, default=500, help="Number of live points (nested)")
+    parser.add_argument('--dynesty-plots', action='store_true', help="make dynesty run plots")
 
 def activated(args):
     return args.dynesty
@@ -39,6 +43,8 @@ def run_solve(args,_pta,outdir):
             return pickle.load(f)
 
 def get_posteriors(args,results):
+
+
 
     try:
         weights = np.exp(results['logwt'] - results['logz'][-1])

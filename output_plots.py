@@ -22,13 +22,27 @@ def cornerplot(samples, labels, weights=None, truths=None):
     for aa in ax:
         for a in aa:
             if len(a.xaxis.get_label().get_text()) > 0:
-                print("X", a.xaxis.get_label().get_text())
+                a.ticklabel_format(axis='x', style='sci', scilimits=(-3, 3), useMathText=True)
             if len(a.yaxis.get_label().get_text()) > 0:
                 a.ticklabel_format(axis='y', style='sci', scilimits=(-3, 3), useMathText=True)
     return fig
 
 
-def make_plots(args, psr, samples, loglike, weights, pars):
+def make_plots(args, psr, samples, loglike, weights, pars,raw_results=None):
+    print("Making plots....")
+    if args.dynesty and args.dynesty_plots:
+        try:
+            fig,ax = plotting.runplot(raw_results)
+            fig.savefig("%s.runplot.pdf" % psr.name)
+        except Exception as e:
+            print(e)
+
+        try:
+            fig,ax = plotting.traceplot(raw_results, labels=pars)
+            fig.savefig("%s.traceplot.pdf" % psr.name)
+        except Exception as e:
+            print(e)
+
     burn = int(len(samples) * args.burn)
     i_ef = np.array([i for i, v in enumerate(pars) if 'TNEF' in v], dtype=np.int)
     i_eq = np.array([i for i, v in enumerate(pars) if 'TNEQ' in v], dtype=np.int)
@@ -71,6 +85,8 @@ def make_plots(args, psr, samples, loglike, weights, pars):
                 plt.ylabel("%s" % pars[i])
                 pdf.savefig()
                 plt.close()
+
+    print("Plots saved")
 
 
 def write_results(args, psr, par, parfile, samples, loglike, weights, pars):
