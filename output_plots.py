@@ -13,7 +13,7 @@ def setup_argparse(parser):
     parser.add_argument('--burn', default=0.25, help='Fraction of chain to burn-in (MC only; default=0.25)')
 
 
-def cornerplot(samples, labels, weights, truths):
+def cornerplot(samples, labels, weights=None, truths=None):
 
     if weights is None:
         weights = np.ones_like(samples[:,0])
@@ -50,13 +50,13 @@ def make_plots(args, psr, samples, loglike, weights, pars):
 
     # Make optional corner plots
     if args.all_corner:
-        fig = cornerplot(samples[burn:, :], labels=pars, weights=weights);
+        fig = cornerplot(samples[burn:, :], labels=pars, weights=weights,truths=pmax);
         fig.savefig("%s.corner_all.pdf" % psr.name)
 
     if args.white_corner:
-        fig = cornerplot(samples[burn:, m_ef], labels=pars[m_ef], weights=weights);
+        fig = cornerplot(samples[burn:, m_ef], labels=pars[m_ef], weights=weights,truths=pmax[m_ef]);
         fig.savefig("%s.corner_efac.pdf" % psr.name)
-        fig = cornerplot(samples[burn:, m_eq], labels=pars[m_eq], weights=weights);
+        fig = cornerplot(samples[burn:, m_eq], labels=pars[m_eq], weights=weights,truths=pmax[m_eq]);
         fig.savefig("%s.corner_equad.pdf" % psr.name)
 
     # Plot posterior if requested.

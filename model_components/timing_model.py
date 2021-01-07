@@ -78,7 +78,7 @@ def setup_model(args, psr, parfile):
     f2range = args.f2
     if f2range > 0:
         f2 = fit_f2(pepoch=parameter.Constant(pepoch), f0=parameter.Constant(f0),
-                    valf2=parameter.Uniform(-f2range / 1e-27, f2range / 1e-27)('F2'))
+                    valf2=parameter.Uniform(-f2range / 1e-27, f2range / 1e-27,to_par=to_par)('F2'))
         f2f = deterministic_signals.Deterministic(f2, name='f2')
         components.append(f2f)
     if args.pm:
@@ -112,7 +112,7 @@ def setup_model(args, psr, parfile):
 
 def to_par(self, p, chain):
     global orig_f2
-    if p == "f2":
+    if p == "F2":
         return "F2", (chain + orig_f2)*1e-27
     if "px_px" in p:
         return "PX", chain
