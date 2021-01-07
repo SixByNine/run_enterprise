@@ -25,8 +25,10 @@ def setup_argparse(parser):
 
 def setup_model(args, psr, parfile):
     global orig_f2
-    global orig_pmra
-    global orig_pmdec
+    orig_f2=0
+    orig_pmra=0
+    orig_pmdec=0
+    posepoch=-1
     for line in parfile:
         e = line.strip().split()
         if len(e) > 1:
