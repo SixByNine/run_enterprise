@@ -51,6 +51,15 @@ def run_enterprise(args):
     model = make_model(args,psr,parfile)
     pta = signal_base.PTA(model(psr))
 
+    print("PSR Name: ", psr.name)
+    print("")
+    print("'least-squares' fit parameters:")
+    for i,p in enumerate(psr.fitpars):
+        print("  {:2d}   {}".format(i+1, p))
+
+    print("MCMC fit parameters:")
+    for i,p in enumerate(pta.param_names):
+        print("  {:2d}   {:40s} ".format(i+1, p))
 
     ### run sampler
     sampler_info=None

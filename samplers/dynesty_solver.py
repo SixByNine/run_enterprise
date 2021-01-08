@@ -27,11 +27,17 @@ def run_solve(args,_pta,outdir):
         invTs.append(p.invT)
     filename = os.path.join(outdir, "dynesty_results.pkl")
 
+    nlive = args.nlive
+    print("Nlive: {} ndim: {}".format(nlive,len(pta.params)))
+    if nlive < 2*len(pta.params):
+        nlive = 2*len(pta.params)
+        print("Warning... nlive too small, setting to {}".format(nlive))
+
     args.burn=0 ## force no burn in for nested sampling
     if args.sample:
         with Pool(args.nthread) as tpool:
             print("Run Dynesty")
-            sampler = dynesty.NestedSampler(get_lnlikelihood, prior_transform, ndim=len(pta.params),nlive=args.nlive, pool=tpool,queue_size=args.nthread)
+            sampler = dynesty.NestedSampler(get_lnlikelihood, prior_transform, ndim=len(pta.params),nlive=nlive, pool=tpool,queue_size=args.nthread)
             sampler.run_nested()
             print(sampler.results.summary())
             with open(filename, "wb") as f:

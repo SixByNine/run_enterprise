@@ -17,6 +17,7 @@ def setup_argparse(parser):
     parser.add_argument('--glitch-all', action='store_true', help='fit for all glitches')
     parser.add_argument('--glitches', type=int, nargs='+', help='Select glitches to fit')
     parser.add_argument('--glitch-recovery', type=int, nargs='+', help='fit for glitch recoveries on these glitches')
+    parser.add_argument('--glitch-epoch-range', type=float, default=0, help='Window for glitch epoch fitting')
 
 
 def setup_model(args, psr, parfile):
@@ -75,6 +76,12 @@ def setup_model(args, psr, parfile):
             # This is the 'old model'
             glitches[gl]['old_model'] = model_glitch(psr.toas, f0, glep, glf0,glf1,glf2,glf0d,gltd)
 
+
+            if args.glitch_epoch_range > 0:
+                glep = parameter.Uniform(glitches[gl]['EP']-args.glitch_epoch_range, glitches[gl]['EP']+args.glitch_epoch_range, to_par=to_par)("GLEP_{}".format(gl))
+            else:
+                glep=parameter.Constant(glitches[gl]['EP'])
+
             glf0 = parameter.Uniform(-1+glf0*1e6, 1+glf0*1e6,to_par=to_par)("GLF0_{}".format(gl))  # units of 10^-6
             glf1 = parameter.Uniform(-1+glf1*1e12, 1+glf1*1e12,to_par=to_par)("GLF1_{}".format(gl))  # units of 10^-12
             if gl in args.glitch_recovery:
@@ -84,7 +91,7 @@ def setup_model(args, psr, parfile):
                 f0d = parameter.Constant(0)
                 td = parameter.Constant(0)
 
-            glexp = model_glitch_residual(f0=parameter.Constant(f0), glep=parameter.Constant(glitches[gl]['EP']),
+            glexp = model_glitch_residual(f0=parameter.Constant(f0), glep=glep,
                                           glf0=glf0, glf1=glf1, glf0d=f0d, log10_td=td,
                                           glitch_id=parameter.Constant(gl))
             glexp_f = deterministic_signals.Deterministic(glexp, name="gl{}:".format(gl))
@@ -113,7 +120,7 @@ def to_par(self, p, chain):
         else:
             return pname,chain
     else:
-        return None
+        return p,chain
 
 
 def model_glitch(toas, f0, glep, glf0, glf1, glf2, glf0d, gltd):

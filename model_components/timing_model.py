@@ -9,6 +9,8 @@ from astropy import units as units
 
 from . import xparameter as parameter
 
+import numpy.polynomial as polynomial
+
 name = "BasicTimingModel"
 argdec = "Basic pulsar spin and astrometric parameters."
 
@@ -21,11 +23,17 @@ def setup_argparse(parser):
     parser.add_argument('--pm-angle', action='store_true', help='Fit for PM + angle rather than by PMRA/PMDEC')
     parser.add_argument('--pm-range', type=float, default=10, help='Search range for proper motion (deg/yr)')
     parser.add_argument('--pm-ecliptic', action='store_true', help='Generate ecliptic coords for proper motion')
+    parser.add_argument('--pos', action='store_true', help='Fit for position (linear fit only)')
+    parser.add_argument('--pos-range', type=float, default=1, help='Search range for position (arcsec)')
+    parser.add_argument('--legendre', action='store_true', help="Fit polynomial using Legendre series")
+    parser.add_argument('--leg-df0', type=float, help="Max offset in f0 parameters")
+    parser.add_argument('--leg-df1', type=float, help="Max offset in f1 parameters")
 
 
 def setup_model(args, psr, parfile):
     global orig_f2
     orig_f2=0
+    orig_f1=0
     orig_pmra=0
     orig_pmdec=0
     posepoch=-1
@@ -34,6 +42,8 @@ def setup_model(args, psr, parfile):
         if len(e) > 1:
             if e[0] == "F0":
                 f0 = float(e[1])
+            if e[0] == "F1":
+                orig_f1 = float(e[1])
             if e[0] == "F2":
                 orig_f2 = float(e[1])
             elif e[0] == "PEPOCH":
@@ -68,21 +78,59 @@ def setup_model(args, psr, parfile):
         print("ERROR: Can't fit for PMDEC in both MCMC and least-squares")
         sys.exit(1)
 
+    if args.pos and "RAJ" in psr.fitpars:
+        print("ERROR: Can't fit for RAJ in both MCMC and least-squares")
+        sys.exit(1)
+    if args.pos and "DECJ" in psr.fitpars:
+        print("ERROR: Can't fit for DECJ in both MCMC and least-squares")
+        sys.exit(1)
+
     orig_toas = psr.t2pulsar.toas()
     issorted = np.all(orig_toas[:-1] <= orig_toas[1:])
 
-    if (args.pm or args.px) and not issorted:
-        print("ERROR: Toas must be sorted or wierd things happen with paralax and proper motion")
+
+    if args.legendre and "F0" in psr.fitpars:
+        print("ERROR: Can't fit for F0 and Legendre polynomial!")
         sys.exit(1)
+    if args.legendre and "F1" in psr.fitpars:
+        print("ERROR: Can't fit for F1 and Legendre polynomial!")
+        sys.exit(1)
+
+    if args.f2 > 0 and "F2" in psr.fitpars:
+        print("ERROR: Can't fit for F2 in MCMC and least-squares!")
+        sys.exit(1)
+
+    if args.pm or args.px or args.pos or args.legendre:
+        if not issorted:
+            print("ERROR: Toas must be sorted or wierd things happen with paralax and proper motion")
+            sys.exit(1)
+        precompute_position_gradients(psr)
 
     components = []
 
     f2range = args.f2
-    if f2range > 0:
-        f2 = fit_f2(pepoch=parameter.Constant(pepoch), f0=parameter.Constant(f0),
-                    valf2=parameter.Uniform(-f2range / 1e-27, f2range / 1e-27,to_par=to_par)('F2'))
-        f2f = deterministic_signals.Deterministic(f2, name='f2')
-        components.append(f2f)
+
+    if args.legendre:
+        domain = [psr.toas[0],psr.toas[-1]]
+        poly = polynomial.polynomial.Polynomial([0, args.leg_df0*f0, args.leg_df1/2*f0, f2range/6*f0],domain=domain,window=domain)
+        leg = poly.convert(kind=polynomial.legendre.Legendre, domain=domain, window=[-1, 1])
+        print(leg.coef)
+        l1 = parameter.Uniform(-leg.coef[1],leg.coef[1],to_par=to_par)("L1")
+        l2 = parameter.Uniform(-leg.coef[2],leg.coef[2],to_par=to_par)("L2")
+        if f2range > 0:
+            l3= parameter.Uniform(-leg.coef[3],leg.coef[3],to_par=to_par)("L3")
+        else:
+            l3=parameter.Constant(0)
+        legfit = deterministic_signals.Deterministic(fit_legendre(l1=l1,l2=l2,l3=l3))
+        components.append(legfit)
+
+    else:
+        if f2range > 0:
+            f2 = fit_f2(pepoch=parameter.Constant(pepoch), f0=parameter.Constant(f0),
+                        valf2=parameter.Uniform(-f2range / 1e-27, f2range / 1e-27,to_par=to_par)('F2'))
+            f2f = deterministic_signals.Deterministic(f2, name='f2')
+            components.append(f2f)
+
     if args.pm:
         pmrange = args.pm_range
         pmra = parameter.Uniform(-pmrange + orig_pmra, pmrange + orig_pmra, to_par=to_par)
@@ -90,6 +138,16 @@ def setup_model(args, psr, parfile):
         pm = deterministic_signals.Deterministic(
             fit_pm(posepoch=posepoch, pmra=pmra, pmdec=pmdec, orig_pmra=orig_pmra, orig_pmdec=orig_pmdec), name='pm')
         components.append(pm)
+
+    if args.pos:
+        print("XXXX")
+        posrange = args.pos_range
+        ## might want to scale range by cos dec or something...
+        ra_off = parameter.Uniform(-posrange, posrange,to_par=to_par)
+        dec_off= parameter.Uniform(-posrange, posrange,to_par=to_par)
+        pos_fit = deterministic_signals.Deterministic(fit_pos(ra_off=ra_off,dec_off=dec_off),name="position")
+        components.append(pos_fit)
+
 
     if args.px:
         pxp = parameter.Uniform(0, args.px_range, to_par=to_par)
@@ -126,8 +184,12 @@ def to_par(self, p, chain):
         return 'PMRA', chain
     if "pm_pmdec" in p:
         return 'PMDEC', chain
+    if "position_ra" in p:
+        return "dRAJ", chain
+    if "position_dec" in p:
+        return "dDECJ", chain
     else:
-        return None
+        return p,chain
 
 
 @signal_base.function
@@ -144,22 +206,29 @@ def fit_pm_angle(toas, pos, earthssb, posepoch, amp, angle, orig_pmra=0, orig_pm
 
 
 @signal_base.function
-def fit_px(toas, pos, earthssb, observatory_earth, px):
+def fit_px(toas, px):
     # This is just the linearised parallax function from tempo2...
-    pxconv = 1.74532925199432958E-2 / 3600.0e3
-    AULTSC = 499.00478364
-
-    rca = earthssb[:, 0:3] + observatory_earth[:, 0:3]
-    rr = np.sum(rca * rca, axis=1)
-
-    rcos1 = np.sum(pos * rca, axis=1)
-
-    return px * 0.5 * pxconv * (rr - rcos1 * rcos1) / AULTSC
+    global d_px
+    return px * d_px
 
 
-@signal_base.function
-def fit_pm(toas, pos, earthssb, posepoch, pmra, pmdec, orig_pmra=0, orig_pmdec=0):
-    # This is just the linearised proper motion function from tempo2...
+def precompute_position_gradients(psr):
+    """
+    Pre-compute all the gradients needed for the proper motion and position fitting.
+    This is all just the linear fit from tempo2, but we allow it to be done in the MCMC.
+    A more complicated model could be implemented if needed.
+    """
+    global rad_per_day2mas_per_year
+    global psrra
+    global psrdec
+    global d_ra
+    global d_dec
+    global d_px
+
+    pos=psr.pos
+    earthssb=psr.earthssb
+    observatory_earth=psr.observatory_earth
+
     AULTSC = 499.00478364
     rce = earthssb[:, 0:3]
     re = np.sqrt(np.sum(rce * rce, axis=1))
@@ -172,16 +241,50 @@ def fit_pm(toas, pos, earthssb, posepoch, pmra, pmdec, orig_pmra=0, orig_pmdec=0
     deltae = np.arctan2(s, np.sqrt(1.0 - s * s))
     alphae = np.arctan2(rce[:, 1], rce[:, 0])
 
-    # Convert radians/second to degrees per year
+    # Convert radians/day to milliarcseconds per year
     # 60.0*60.0*1000.0*86400.0*365.25/24.0/3600.0
-    rs2dy = (180.0 / np.pi) * 1314900000
+    rad_per_day2mas_per_year = (180.0 / np.pi) * 1314900000
 
-    # This will be pmra in rad/s
-    v_pmra = (pmra - orig_pmra) / rs2dy / np.cos(psrdec)
-    v_pmdec = (pmdec - orig_pmdec) / rs2dy
+    d_ra = re*np.cos(deltae)*np.cos(psrdec)*np.sin(psrra - alphae)
+    d_dec =  re * (np.cos(deltae) * np.sin(psrdec) * np.cos(psrra - alphae) - np.sin(deltae) * np.cos(psrdec))
 
-    t0 = (toas / 86400.0 - posepoch)
-    d_pmra = re * np.cos(deltae) * np.cos(psrdec) * np.sin(psrra - alphae) * t0
-    d_pmdec = re * (np.cos(deltae) * np.sin(psrdec) * np.cos(psrra - alphae) - np.sin(deltae) * np.cos(psrdec)) * t0
+    #d_pmra = re * np.cos(deltae) * np.cos(psrdec) * np.sin(psrra - alphae)
+    #d_pmdec = re * (np.cos(deltae) * np.sin(psrdec) * np.cos(psrra - alphae) - np.sin(deltae) * np.cos(psrdec))
 
-    return v_pmra * d_pmra + v_pmdec * d_pmdec
+    pxconv = 1.74532925199432958E-2 / 3600.0e3
+
+    rca = earthssb[:, 0:3] + observatory_earth[:, 0:3]
+    rr = np.sum(rca * rca, axis=1)
+
+    rcos1 = np.sum(pos * rca, axis=1)
+    d_px = 0.5 * pxconv * (rr - rcos1 * rcos1) / AULTSC
+
+@signal_base.function
+def fit_pm(toas, posepoch, pmra, pmdec, orig_pmra=0, orig_pmdec=0):
+    # This is just the linearised proper motion function from tempo2...
+    global rad_per_day2mas_per_year
+    global psrdec
+    global d_ra
+    global d_dec
+
+    # This will be pmra in rad/day
+    v_pmra = (pmra - orig_pmra) / rad_per_day2mas_per_year / np.cos(psrdec)
+    v_pmdec = (pmdec - orig_pmdec) / rad_per_day2mas_per_year
+
+    t0 = (toas / 86400.0 - posepoch) # days
+
+    return v_pmra * d_ra*t0 + v_pmdec * d_dec*t0
+
+
+@signal_base.function
+def fit_pos(toas, ra_off, dec_off):
+    global d_ra # input ra
+    global d_dec # input dec
+    # This is just the linearised position fit from tempo2...
+    # ra_off and dec_off are in arcseconds d_ra/d_dec are in radians
+    return (d_ra*ra_off + d_dec*dec_off)/206264.806247
+
+@signal_base.function
+def fit_legendre(toas, l1, l2, l3):
+    p = polynomial.legendre.Legendre([0,l1,l2,l3], domain=(toas[0],toas[-1]))
+    return p(toas)

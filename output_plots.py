@@ -4,7 +4,8 @@ import numpy as np
 import corner
 import dynesty
 from dynesty import plotting
-
+from astropy import coordinates as coord
+from astropy import units as units
 
 def setup_argparse(parser):
     parser.add_argument('--white-corner', action='store_true', help='Make the efac/equad corner plots')
@@ -133,6 +134,28 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars):
 
     with open(outpar,"w") as outf:
         for line in parfile:
-            outf.write(line)
+            e = line.split()
+            if e[0] in pars \
+                    or (e[0]=="RAJ" and "dRAJ" in pars) \
+                    or (e[0]=="DECJ" and "dDECJ" in pars):
+                outf.write("#"+line)
+            else:
+                outf.write(line)
         for p,v in zip(pars,pmax):
+            ## Still need a couple of special cases...
+            if p=="dRAJ":
+                p="RAJ"
+                new_ra = psr.coord.ra + v*units.arcsecond
+                v=new_ra.to_string(unit=units.hourangle,sep=":",precision=8)
+            if p == "dDECJ":
+                p = "DECJ"
+                new_dec = psr.coord.dec + v*units.arcsecond
+                v = new_dec.to_string(unit=units.degree, sep=":",precision=8)
+
             outf.write("%s %s\n" % (p, v))
+
+
+
+
+
+
