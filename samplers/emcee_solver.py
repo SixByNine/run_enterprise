@@ -20,38 +20,38 @@ def activated(args):
     return args.emcee
 
 def run_solve(args,pta,outdir):
-    x0 = np.hstack([p.sample() for p in pta.params])
-    sampler = model_utils.setup_sampler(pta, outdir)
-    nwalkers = args.nwalkers
-    if nwalkers < 2*len(x0):
-        nwalkers = 2*len(x0)
-
-    if args.cont:
-        scls, offs = np.loadtxt(os.path.join(outdir, "scloff"), unpack=True)
-    else:
-        vv = [np.hstack([p.sample() for p in pta.params]) for i in range(100)]
-        scls = np.std(vv, axis=0)
-        offs = np.mean(vv, axis=0)
-        np.savetxt(os.path.join(outdir, "scloff"), np.array([scls, offs]).T)
-
-    tpool = Pool(args.nthread, initializer=init, initargs=[pta, offs, scls])
-    filename = os.path.join(outdir,"chain.h5")
-    backend = emcee.backends.HDFBackend(filename)
-    if args.cont:
-        print("CONTINUE EXISTING CHAIN!")
-    else:
-        backend.reset(nwalkers,len(x0))
-    #moves=[(emcee.moves.StretchMove(),0.4),(emcee.moves.DEMove(), 0.5), (emcee.moves.DESnookerMove(), 0.1),]
-    moves=[(emcee.moves.DEMove(), 0.8), (emcee.moves.DESnookerMove(), 0.2)]
-    sampler = emcee.EnsembleSampler(nwalkers,len(x0),log_prob,backend=backend,pool=tpool,moves=moves)
-    p0=np.zeros((nwalkers,len(x0)))
-    for i in range(nwalkers):
-        p0[i] = np.hstack([p.sample() for p in pta.params])
-        p0[i] -= offs
-        p0[i] /= scls
-
-    N = int(args.nsample)
+    filename = os.path.join(outdir, "chain.h5")
     if args.sample:
+        x0 = np.hstack([p.sample() for p in pta.params])
+        sampler = model_utils.setup_sampler(pta, outdir)
+        nwalkers = args.nwalkers
+        if nwalkers < 2*len(x0):
+            nwalkers = 2*len(x0)
+
+        if args.cont:
+            scls, offs = np.loadtxt(os.path.join(outdir, "scloff"), unpack=True)
+        else:
+            vv = [np.hstack([p.sample() for p in pta.params]) for i in range(100)]
+            scls = np.std(vv, axis=0)
+            offs = np.mean(vv, axis=0)
+            np.savetxt(os.path.join(outdir, "scloff"), np.array([scls, offs]).T)
+
+        tpool = Pool(args.nthread, initializer=init, initargs=[pta, offs, scls])
+        backend = emcee.backends.HDFBackend(filename)
+        if args.cont:
+            print("CONTINUE EXISTING CHAIN!")
+        else:
+            backend.reset(nwalkers,len(x0))
+        #moves=[(emcee.moves.StretchMove(),0.4),(emcee.moves.DEMove(), 0.5), (emcee.moves.DESnookerMove(), 0.1),]
+        moves=[(emcee.moves.DEMove(), 0.8), (emcee.moves.DESnookerMove(), 0.2)]
+        sampler = emcee.EnsembleSampler(nwalkers,len(x0),log_prob,backend=backend,pool=tpool,moves=moves)
+        p0=np.zeros((nwalkers,len(x0)))
+        for i in range(nwalkers):
+            p0[i] = np.hstack([p.sample() for p in pta.params])
+            p0[i] -= offs
+            p0[i] /= scls
+
+        N = int(args.nsample)
         print("Launch EMCEE\n\n")
 
         if args.cont:
@@ -67,8 +67,9 @@ def run_solve(args,pta,outdir):
                 continue
             print(sampler.iteration)
             print("Acceptance rate: {:.2f} {:.2f} {}".format(np.mean(sampler.acceptance_fraction),np.amin(sampler.acceptance_fraction),i))
-
-    tpool.close()
+        tpool.close()
+    else:
+        scls,offs = np.loadtxt(os.path.join(outdir,"scloff"),unpack=True)
     return (scls,offs,filename)
 
 
