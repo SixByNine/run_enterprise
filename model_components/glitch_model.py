@@ -18,6 +18,8 @@ def setup_argparse(parser):
     parser.add_argument('--glitches', type=int, nargs='+', help='Select glitches to fit')
     parser.add_argument('--glitch-recovery', type=int, nargs='+', help='fit for glitch recoveries on these glitches')
     parser.add_argument('--glitch-epoch-range', type=float, default=0, help='Window for glitch epoch fitting')
+    parser.add_argument('--glitch-td-min', type=float, default=0, help='Min log(td)')
+    parser.add_argument('--glitch-td-max', type=float, default=4, help='Max log10(td)')
 
 
 def setup_model(args, psr, parfile):
@@ -82,11 +84,11 @@ def setup_model(args, psr, parfile):
             else:
                 glep=parameter.Constant(glitches[gl]['EP'])
 
-            glf0 = parameter.Uniform(-1+glf0*1e6, 1+glf0*1e6,to_par=to_par)("GLF0_{}".format(gl))  # units of 10^-6
-            glf1 = parameter.Uniform(-1+glf1*1e12, 1+glf1*1e12,to_par=to_par)("GLF1_{}".format(gl))  # units of 10^-12
+            glf0 = parameter.Uniform(-50+glf0*1e6, 50+glf0*1e6,to_par=to_par)("GLF0_{}".format(gl))  # units of 10^-6
+            glf1 = parameter.Uniform(-3+glf1*1e12, 3+glf1*1e12,to_par=to_par)("GLF1_{}".format(gl))  # units of 10^-12
             if gl in args.glitch_recovery:
-                f0d = parameter.Uniform(-1, 1,to_par=to_par)("GLF0D_{}".format(gl))  # units of 10^-6
-                td = parameter.Uniform(0, 4,to_par=to_par)("GLTD_{}".format(gl))
+                f0d = parameter.Uniform(-5, 5,to_par=to_par)("GLF0D_{}".format(gl))  # units of 10^-6
+                td = parameter.Uniform(args.glitch_td_min, args.glitch_td_max,to_par=to_par)("GLTD_{}".format(gl))
             else:
                 f0d = parameter.Constant(0)
                 td = parameter.Constant(0)

@@ -25,6 +25,8 @@ def run_solve(args,_pta,outdir):
 
     for p in pta.params:
         invTs.append(p.invT)
+
+    os.makedirs(outdir,exist_ok=True)
     filename = os.path.join(outdir, "dynesty_results.pkl")
 
     nlive = args.nlive
@@ -37,8 +39,8 @@ def run_solve(args,_pta,outdir):
     if args.sample:
         with Pool(args.nthread) as tpool:
             print("Run Dynesty")
-            sampler = dynesty.NestedSampler(get_lnlikelihood, prior_transform, ndim=len(pta.params),nlive=nlive, pool=tpool,queue_size=args.nthread)
-            sampler.run_nested()
+            sampler = dynesty.NestedSampler(get_lnlikelihood, prior_transform, ndim=len(pta.params),nlive=nlive, pool=tpool,queue_size=args.nthread,sample='auto', bound='multi',first_update={'min_ncall':1000, 'min_eff':8.0})
+            sampler.run_nested(maxiter=args.nsample)
             print(sampler.results.summary())
             with open(filename, "wb") as f:
                 pickle.dump(sampler.results, f)
