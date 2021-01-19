@@ -84,8 +84,8 @@ def setup_model(args, psr, parfile):
             else:
                 glep=parameter.Constant(glitches[gl]['EP'])
 
-            glf0 = parameter.Uniform(-50+glf0*1e6, 50+glf0*1e6,to_par=to_par)("GLF0_{}".format(gl))  # units of 10^-6
-            glf1 = parameter.Uniform(-3+glf1*1e12, 3+glf1*1e12,to_par=to_par)("GLF1_{}".format(gl))  # units of 10^-12
+            glf0 = parameter.Uniform(-1+glf0*1e6, 1+glf0*1e6,to_par=to_par)("GLF0_{}".format(gl))  # units of 10^-6
+            glf1 = parameter.Uniform(-0.1+glf1*1e12, 0.1+glf1*1e12,to_par=to_par)("GLF1_{}".format(gl))  # units of 10^-12
             if gl in args.glitch_recovery:
                 f0d = parameter.Uniform(-5, 5,to_par=to_par)("GLF0D_{}".format(gl))  # units of 10^-6
                 td = parameter.Uniform(args.glitch_td_min, args.glitch_td_max,to_par=to_par)("GLTD_{}".format(gl))

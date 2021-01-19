@@ -90,72 +90,101 @@ def make_plots(args, psr, samples, loglike, weights, pars,raw_results=None):
     print("Plots saved")
 
 
-def write_results(args, psr, par, parfile, samples, loglike, weights, pars):
+def write_results(args, psr, par, parfile, samples, loglike, weights, pars, derived,derived_names):
     burn = int(len(samples) * args.burn)
     outpar = par + ".post"
     resfname = par + ".results"
-
-    imax = np.argmax(loglike)
-    pmax = samples[imax, :len(pars)]
-
-    if weights is None:
-        ul68 = np.percentile(samples[burn:, :len(pars)], 84.1, axis=0)
-        ll68 = np.percentile(samples[burn:, :len(pars)], 15.9, axis=0)
-        ul = np.percentile(samples[burn:, :len(pars)], 97.5, axis=0)
-        ll = np.percentile(samples[burn:, :len(pars)], 2.5, axis=0)
-        means = np.mean(samples[burn:, :len(pars)], axis=0)
-        stds = np.std(samples[burn:, :len(pars)], axis=0)
-        medians = np.median(samples[burn:, :len(pars)], axis=0)
-    else:
-        ## use dynesty to resample
-        ul68 = np.apply_along_axis(dynesty.utils.quantile, 0, samples[burn:, :len(pars)], 0.841, weights)[0]
-        ll68 = np.apply_along_axis(dynesty.utils.quantile, 0, samples[burn:, :len(pars)], 0.159, weights)[0]
-        ul = np.apply_along_axis(dynesty.utils.quantile, 0, samples[burn:, :len(pars)], 0.975, weights)[0]
-        ll = np.apply_along_axis(dynesty.utils.quantile, 0, samples[burn:, :len(pars)], 0.025, weights)[0]
-        medians = np.apply_along_axis(dynesty.utils.quantile, 0, samples[burn:, :len(pars)], 0.500, weights)[0]
-        means, covs = dynesty.utils.mean_and_cov(samples[burn:, :len(pars)], weights=weights)
-        stds = np.sqrt(np.diag(covs))
-
-    with open(resfname, "w") as resf:
-        s = ("{:20s} {:10s} {:10s} {:10s} {:10s} {:10s} {:10s} {:10s} {:10s}".format("#param", " max-like", " mean",
-                                                                                     " std", "2.5%", " 15.9%", " 50%",
-                                                                                     " 84.1%", " 97.5%"))
-        resf.write(s + "\n")
-        print(s)
-
-        for p, v, u, l, mean, median, sig, u68, l68 in zip(pars, pmax, ul, ll, means, medians, stds, ul68, ll68):
-            s = "{:20s} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g}  {:< 10g} {:< 10g} {:< 10g} ".format(p, v, mean,
-                                                                                                          sig,
-                                                                                                          l, l68,
-                                                                                                          median,
-                                                                                                          u68, u)
+    with open(outpar, "w") as outf:
+        with open(resfname, "w") as resf:
+            s = ("{:20s} {:10s} {:10s} {:10s} {:10s} {:10s} {:10s} {:10s} {:10s}".format("#param", " max-like", " mean",
+                                                                                         " std", "2.5%", " 15.9%", " 50%",
+                                                                                         " 84.1%", " 97.5%"))
             resf.write(s + "\n")
             print(s)
 
-    with open(outpar,"w") as outf:
-        for line in parfile:
-            e = line.split()
-            if e[0] in pars \
-                    or (e[0]=="RAJ" and "dRAJ" in pars) \
-                    or (e[0]=="DECJ" and "dDECJ" in pars):
-                outf.write("#"+line)
-            else:
-                outf.write(line)
-        for p,v in zip(pars,pmax):
-            ## Still need a couple of special cases...
-            if p=="dRAJ":
-                p="RAJ"
-                new_ra = psr.coord.ra + v*units.arcsecond
-                v=new_ra.to_string(unit=units.hourangle,sep=":",precision=8)
-            if p == "dDECJ":
-                p = "DECJ"
-                new_dec = psr.coord.dec + v*units.arcsecond
-                v = new_dec.to_string(unit=units.degree, sep=":",precision=8)
 
-            outf.write("%s %s\n" % (p, v))
+
+            imax = np.argmax(loglike)
+            pmax = samples[imax, :len(pars)]
+
+            ul68,ll68,ul,ll,means,stds,medians=get_stats(samples[burn:, :len(pars)], weights)
 
 
 
+            for p, v, u, l, mean, median, sig, u68, l68 in zip(pars, pmax, ul, ll, means, medians, stds, ul68, ll68):
+                s = "{:20s} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g}  {:< 10g} {:< 10g} {:< 10g} ".format(p, v, mean,
+                                                                                                              sig,
+                                                                                                              l, l68,
+                                                                                                              median,
+                                                                                                              u68, u)
+                resf.write(s + "\n")
+                print(s)
 
 
+            for line in parfile:
+                e = line.split()
+                if e[0] in pars \
+                        or (e[0]=="RAJ" and "dRAJ" in pars) \
+                        or (e[0]=="DECJ" and "dDECJ" in pars):
+                    outf.write("#"+line)
+                else:
+                    outf.write(line)
+            for p,v in zip(pars,pmax):
+                ## Still need a couple of special cases...
+                if p=="dRAJ":
+                    p="RAJ"
+                    new_ra = psr.coord.ra + v*units.arcsecond
+                    v=new_ra.to_string(unit=units.hourangle,sep=":",precision=8)
+                if p == "dDECJ":
+                    p = "DECJ"
+                    new_dec = psr.coord.dec + v*units.arcsecond
+                    v = new_dec.to_string(unit=units.degree, sep=":",precision=8)
 
+                outf.write("%s %s\n" % (p, v))
+
+
+            if len(derived) > 0:
+                print("")
+                print("Derived Params")
+                print("")
+
+                imax = np.argmax(loglike)
+                pmax = derived[imax, :]
+                ul68,ll68,ul,ll,means,stds,medians=get_stats(derived[burn:, :], weights)
+
+                for p, v, u, l, mean, median, sig, u68, l68 in zip(derived_names, pmax, ul, ll, means, medians, stds, ul68,
+                                                                   ll68):
+                    s = "{:20s} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g}  {:< 10g} {:< 10g} {:< 10g} ".format(p, v,
+                                                                                                                  mean,
+                                                                                                                  sig,
+                                                                                                                  l,
+                                                                                                                  l68,
+                                                                                                                  median,
+                                                                                                                  u68,
+                                                                                                                  u)
+                    resf.write(s + "\n")
+                    print(s)
+                for p,v in zip(derived_names,pmax):
+                    outf.write("#%s %s\n" % (p, v))
+
+
+def get_stats(samps,weights):
+    if weights is None:
+        ul68 = np.percentile(samps, 84.1, axis=0)
+        ll68 = np.percentile(samps, 15.9, axis=0)
+        ul = np.percentile(samps, 97.5, axis=0)
+        ll = np.percentile(samps, 2.5, axis=0)
+        means = np.mean(samps, axis=0)
+        stds = np.std(samps, axis=0)
+        medians = np.median(samps, axis=0)
+    else:
+        ## use dynesty to resample
+        ul68 = np.apply_along_axis(dynesty.utils.quantile, 0, samps, 0.841, weights)[0]
+        ll68 = np.apply_along_axis(dynesty.utils.quantile, 0, samps, 0.159, weights)[0]
+        ul = np.apply_along_axis(dynesty.utils.quantile, 0, samps, 0.975, weights)[0]
+        ll = np.apply_along_axis(dynesty.utils.quantile, 0, samps, 0.025, weights)[0]
+        medians = np.apply_along_axis(dynesty.utils.quantile, 0, samps, 0.500, weights)[0]
+        means, covs = dynesty.utils.mean_and_cov(samps, weights=weights)
+        stds = np.sqrt(np.diag(covs))
+
+    return ul68,ll68,ul,ll,means,stds,medians

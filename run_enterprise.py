@@ -2,6 +2,9 @@
 
 from __future__ import division, print_function
 import matplotlib
+
+import derived_parameters
+
 matplotlib.use('Agg')
 import numpy as np
 
@@ -89,10 +92,10 @@ def run_enterprise(args):
         iparam+=1
     parnames=np.array(parnames)
     ### Compute any derived parameters
-
+    derived, derived_names = derived_parameters.compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weights,parnames)
 
     ### Write results
-    output_plots.write_results(args,psr,par,parfile,scaled_samples,log_prob,weights,parnames)
+    output_plots.write_results(args,psr,par,parfile,scaled_samples,log_prob,weights,parnames,derived,derived_names)
 
     ### Make plots
     output_plots.make_plots(args,psr,scaled_samples,log_prob,weights, parnames,raw_results=sampler_info)

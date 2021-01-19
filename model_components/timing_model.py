@@ -26,8 +26,8 @@ def setup_argparse(parser):
     parser.add_argument('--pos', action='store_true', help='Fit for position (linear fit only)')
     parser.add_argument('--pos-range', type=float, default=1, help='Search range for position (arcsec)')
     parser.add_argument('--legendre', action='store_true', help="Fit polynomial using Legendre series")
-    parser.add_argument('--leg-df0', type=float, help="Max offset in f0 parameters")
-    parser.add_argument('--leg-df1', type=float, help="Max offset in f1 parameters")
+    parser.add_argument('--leg-df0', type=float, default=0, help="Max offset in f0 parameters")
+    parser.add_argument('--leg-df1', type=float, default=0, help="Max offset in f1 parameters")
 
 
 def setup_model(args, psr, parfile):
@@ -89,12 +89,12 @@ def setup_model(args, psr, parfile):
     issorted = np.all(orig_toas[:-1] <= orig_toas[1:])
 
 
-    if args.legendre and "F0" in psr.fitpars:
-        print("ERROR: Can't fit for F0 and Legendre polynomial!")
-        sys.exit(1)
-    if args.legendre and "F1" in psr.fitpars:
-        print("ERROR: Can't fit for F1 and Legendre polynomial!")
-        sys.exit(1)
+    #if args.legendre and "F0" in psr.fitpars:
+    #    print("ERROR: Can't fit for F0 and Legendre polynomial!")
+    #    sys.exit(1)
+    #if args.legendre and "F1" in psr.fitpars:
+    #    print("ERROR: Can't fit for F1 and Legendre polynomial!")
+    #    sys.exit(1)
 
     if args.f2 > 0 and "F2" in psr.fitpars:
         print("ERROR: Can't fit for F2 in MCMC and least-squares!")
@@ -112,11 +112,17 @@ def setup_model(args, psr, parfile):
 
     if args.legendre:
         domain = [psr.toas[0],psr.toas[-1]]
-        poly = polynomial.polynomial.Polynomial([0, args.leg_df0*f0, args.leg_df1/2*f0, f2range/6*f0],domain=domain,window=domain)
+        poly = polynomial.polynomial.Polynomial([0, args.leg_df0/f0, args.leg_df1/2/f0, f2range/6/f0],domain=domain,window=domain)
         leg = poly.convert(kind=polynomial.legendre.Legendre, domain=domain, window=[-1, 1])
         print(leg.coef)
-        l1 = parameter.Uniform(-leg.coef[1],leg.coef[1],to_par=to_par)("L1")
-        l2 = parameter.Uniform(-leg.coef[2],leg.coef[2],to_par=to_par)("L2")
+        if args.leg_df0 > 0:
+            l1 = parameter.Uniform(-leg.coef[1],leg.coef[1],to_par=to_par)("L1")
+        else:
+            l1 = parameter.Constant(0)
+        if args.leg_df0 > 0:
+            l2 = parameter.Uniform(-leg.coef[2],leg.coef[2],to_par=to_par)("L2")
+        else:
+            l2 = parameter.Constant(0)
         if f2range > 0:
             l3= parameter.Uniform(-leg.coef[3],leg.coef[3],to_par=to_par)("L3")
         else:
