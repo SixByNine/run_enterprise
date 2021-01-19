@@ -15,16 +15,17 @@ argdec = "Glitch and recovery parameters."
 
 def setup_argparse(parser):
     parser.add_argument('--glitch-all','--gl-all', action='store_true', help='fit for all glitches')
-    parser.add_argument('--glitches', type=int, nargs='+', help='Select glitches to fit')
-    parser.add_argument('--glitch-recovery', type=int, nargs='+', help='fit for glitch recoveries on these glitches')
-    parser.add_argument('--glitch-double-recovery', type=int, nargs='+', help='fit for a second glitch recovery on these glitches')
+    parser.add_argument('--glitches', type=int, default=[], nargs='+', help='Select glitches to fit')
+    parser.add_argument('--glitch-recovery', type=int, default=[], nargs='+', help='fit for glitch recoveries on these glitches')
+    parser.add_argument('--glitch-double-recovery', type=int, default=[], nargs='+', help='fit for a second glitch recovery on these glitches')
     parser.add_argument('--glitch-epoch-range', '--glep-range', type=float, default=0, help='Window for glitch epoch fitting')
     parser.add_argument('--glitch-td-min','--gltd-min', type=float, default=0, help='Min log(td)')
     parser.add_argument('--glitch-td-max', '--gltd-max', type=float, default=4, help='Max log10(td)')
     parser.add_argument('--glitch-f0-range', '--glf0-range', type=float, default=0.3, help="Fractional change in glF0")
     parser.add_argument('--glitch-f1-range', '--glf1-range', type=float, default=0.3, help="Fractional change in glF1")
-    parser.add_argument('--glitch-f0d-range', '--glf0d-range', type=float, default=0.3, help="Fractional range of f0d compared to glF0")
+    parser.add_argument('--glitch-f0d-range', '--glf0d-range', type=float, default=1.0, help="Fractional range of f0d compared to glF0")
     parser.add_argument('--glitch-f0d-positive', '--glf0d-positive', action='store_true' , help="Allow only positive GLF0D")
+    parser.add_argument('--glitch-td-split',type=float,default=2,help="Where to split the td prior for double exponentials")
 
 
 def setup_model(args, psr, parfile):
@@ -90,18 +91,22 @@ def setup_model(args, psr, parfile):
                 glep=parameter.Constant(glitches[gl]['EP'])
 
             glf0_range = sorted([glf0 - args.glitch_f0_range*glf0, glf0 + args.glitch_f0_range*glf0])
-            glf1_range = sorted([glf1 - args.glitch_f1_range*glf0, glf1 + args.glitch_f1_range*glf1])
-            glf0d_range = [0 if args.glitch_f0d_positive else -args.glitch_f0d_range*abs(glf0), args.glitch_f0d_range*abs(glf0)]
+            glf1_range = sorted([glf1 - args.glitch_f1_range*glf1, glf1 + args.glitch_f1_range*glf1])
+            glf0d_range = [-args.glitch_f0d_range*abs(glf0)+glf0d, args.glitch_f0d_range*abs(glf0)+glf0d]
+            if args.glitch_f0d_positive and glf0d_range[0]<0:
+                glf0d_range[0]=0
+
 
             glf0 = parameter.Uniform(glf0_range[0]*1e6, glf0_range[1]*1e6,to_par=to_par)("GLF0_{}".format(gl))  # units of 10^-6
             glf1 = parameter.Uniform(glf1_range[0]*1e12,glf1_range[1]*1e12,to_par=to_par)("GLF1_{}".format(gl))  # units of 10^-12
             if gl in args.glitch_recovery or gl in args.glitch_double_recovery:
-                f0d = parameter.Uniform(glf0d_range[0],glf0d_range[1],to_par=to_par)("GLF0D_{}".format(gl))  # units of 10^-6
+                f0d = parameter.Uniform(glf0d_range[0]*1e6,glf0d_range[1]*1e6,to_par=to_par)("GLF0D_{}".format(gl))  # units of 10^-6
                 td = parameter.Uniform(args.glitch_td_min, args.glitch_td_max,to_par=to_par)("GLTD_{}".format(gl))
                 if gl in args.glitch_double_recovery:
-                    f0d_2 = parameter.Uniform(glf0d_range[0], glf0d_range[1], to_par=to_par)(
+                    td = parameter.Uniform(args.glitch_td_min, args.glitch_td_split, to_par=to_par)("GLTD_{}".format(gl))
+                    f0d_2 = parameter.Uniform(glf0d_range[0]*1e6, glf0d_range[1]*1e6, to_par=to_par)(
                         "GLF0D2_{}".format(gl))  # units of 10^-6
-                    td_2 = parameter.Uniform(args.glitch_td_min, args.glitch_td_max, to_par=to_par)("GLTD2_{}".format(gl))
+                    td_2 = parameter.Uniform(args.glitch_td_split, args.glitch_td_max, to_par=to_par)("GLTD2_{}".format(gl))
             else:
                 f0d = parameter.Constant(0)
                 td = parameter.Constant(0)

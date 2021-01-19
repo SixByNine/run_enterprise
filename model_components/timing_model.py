@@ -28,6 +28,8 @@ def setup_argparse(parser):
     parser.add_argument('--legendre', action='store_true', help="Fit polynomial using Legendre series")
     parser.add_argument('--leg-df0', type=float, default=0, help="Max offset in f0 parameters")
     parser.add_argument('--leg-df1', type=float, default=0, help="Max offset in f1 parameters")
+    parser.add_argument('--wrap',type=float,nargs='+',help="Fit for missing phase wraps at this epoch")
+    parser.add_argument('--wrap-range',type=int, default = 2,help="Max number of wraps missing")
 
 
 def setup_model(args, psr, parfile):
@@ -167,6 +169,13 @@ def setup_model(args, psr, parfile):
         pm = deterministic_signals.Deterministic(fit_pm_angle(posepoch=posepoch, amp=pmamp, angle=pmangle), name='pm')
         components.append(pm)
 
+    if not args.wrap is None:
+        for w_epoch in args.wrap:
+            w = parameter.Uniform(-args.wrap_range-0.49, args.wrap_range+0.49,to_par=to_par)("WRAP_{:.2f}".format(w_epoch))
+            cmp = deterministic_signals.Deterministic(fit_wrap(epoch=parameter.Constant(w_epoch),f0=parameter.Constant(f0),turns=w))
+            components.append(cmp)
+
+
     if len(components) > 0:
         model = components[0]
         for m in components[1:]:
@@ -210,6 +219,12 @@ def fit_pm_angle(toas, pos, earthssb, posepoch, amp, angle, orig_pmra=0, orig_pm
     pmdec = amp * np.sin(angle)
     return fit_pm(toas, pos, earthssb, posepoch, pmra, pmdec, orig_pmra, orig_pmdec)
 
+@signal_base.function
+def fit_wrap(toas, epoch, f0, turns):
+    turns = np.round(turns)
+    res = np.zeros_like(toas)
+    res[toas > epoch* 86400.0] += turns/f0
+    return res
 
 @signal_base.function
 def fit_px(toas, px):

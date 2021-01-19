@@ -61,7 +61,8 @@ def run_solve(args,pta,outdir):
             if sampler.iteration % 10:
                 continue
             i = np.argmin(sampler.acceptance_fraction)
-            #state.log_prob[i] -= 1e99
+            if sampler.acceptance_fraction[i] < 0.1:
+                state.log_prob[i] -= 1e99
 
             if sampler.iteration % 100:
                 continue
