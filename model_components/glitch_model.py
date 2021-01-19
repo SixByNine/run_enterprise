@@ -14,12 +14,17 @@ argdec = "Glitch and recovery parameters."
 
 
 def setup_argparse(parser):
-    parser.add_argument('--glitch-all', action='store_true', help='fit for all glitches')
+    parser.add_argument('--glitch-all','--gl-all', action='store_true', help='fit for all glitches')
     parser.add_argument('--glitches', type=int, nargs='+', help='Select glitches to fit')
     parser.add_argument('--glitch-recovery', type=int, nargs='+', help='fit for glitch recoveries on these glitches')
-    parser.add_argument('--glitch-epoch-range', type=float, default=0, help='Window for glitch epoch fitting')
-    parser.add_argument('--glitch-td-min', type=float, default=0, help='Min log(td)')
-    parser.add_argument('--glitch-td-max', type=float, default=4, help='Max log10(td)')
+    parser.add_argument('--glitch-double-recovery', type=int, nargs='+', help='fit for a second glitch recovery on these glitches')
+    parser.add_argument('--glitch-epoch-range', '--glep-range', type=float, default=0, help='Window for glitch epoch fitting')
+    parser.add_argument('--glitch-td-min','--gltd-min', type=float, default=0, help='Min log(td)')
+    parser.add_argument('--glitch-td-max', '--gltd-max', type=float, default=4, help='Max log10(td)')
+    parser.add_argument('--glitch-f0-range', '--glf0-range', type=float, default=0.3, help="Fractional change in glF0")
+    parser.add_argument('--glitch-f1-range', '--glf1-range', type=float, default=0.3, help="Fractional change in glF1")
+    parser.add_argument('--glitch-f0d-range', '--glf0d-range', type=float, default=0.3, help="Fractional range of f0d compared to glF0")
+    parser.add_argument('--glitch-f0d-positive', '--glf0d-positive', action='store_true' , help="Allow only positive GLF0D")
 
 
 def setup_model(args, psr, parfile):
@@ -84,18 +89,33 @@ def setup_model(args, psr, parfile):
             else:
                 glep=parameter.Constant(glitches[gl]['EP'])
 
-            glf0 = parameter.Uniform(-1+glf0*1e6, 1+glf0*1e6,to_par=to_par)("GLF0_{}".format(gl))  # units of 10^-6
-            glf1 = parameter.Uniform(-0.1+glf1*1e12, 0.1+glf1*1e12,to_par=to_par)("GLF1_{}".format(gl))  # units of 10^-12
-            if gl in args.glitch_recovery:
-                f0d = parameter.Uniform(-5, 5,to_par=to_par)("GLF0D_{}".format(gl))  # units of 10^-6
+            glf0_range = sorted([glf0 - args.glitch_f0_range*glf0, glf0 + args.glitch_f0_range*glf0])
+            glf1_range = sorted([glf1 - args.glitch_f1_range*glf0, glf1 + args.glitch_f1_range*glf1])
+            glf0d_range = [0 if args.glitch_f0d_positive else -args.glitch_f0d_range*abs(glf0), args.glitch_f0d_range*abs(glf0)]
+
+            glf0 = parameter.Uniform(glf0_range[0]*1e6, glf0_range[1]*1e6,to_par=to_par)("GLF0_{}".format(gl))  # units of 10^-6
+            glf1 = parameter.Uniform(glf1_range[0]*1e12,glf1_range[1]*1e12,to_par=to_par)("GLF1_{}".format(gl))  # units of 10^-12
+            if gl in args.glitch_recovery or gl in args.glitch_double_recovery:
+                f0d = parameter.Uniform(glf0d_range[0],glf0d_range[1],to_par=to_par)("GLF0D_{}".format(gl))  # units of 10^-6
                 td = parameter.Uniform(args.glitch_td_min, args.glitch_td_max,to_par=to_par)("GLTD_{}".format(gl))
+                if gl in args.glitch_double_recovery:
+                    f0d_2 = parameter.Uniform(glf0d_range[0], glf0d_range[1], to_par=to_par)(
+                        "GLF0D2_{}".format(gl))  # units of 10^-6
+                    td_2 = parameter.Uniform(args.glitch_td_min, args.glitch_td_max, to_par=to_par)("GLTD2_{}".format(gl))
             else:
                 f0d = parameter.Constant(0)
                 td = parameter.Constant(0)
 
-            glexp = model_glitch_residual(f0=parameter.Constant(f0), glep=glep,
-                                          glf0=glf0, glf1=glf1, glf0d=f0d, log10_td=td,
-                                          glitch_id=parameter.Constant(gl))
+            if gl in args.glitch_double_recovery:
+                ## At some point we should update this to more than 2 exponentials.
+                glexp = model_glitch_residual_multiexp(f0=parameter.Constant(f0), glep=glep,
+                                              glf0=glf0, glf1=glf1, glf0d=f0d, log10_td=td,
+                                              glitch_id=parameter.Constant(gl),
+                                                       glf0d2 = f0d_2, log10_td2=td_2)
+            else:
+                glexp = model_glitch_residual(f0=parameter.Constant(f0), glep=glep,
+                                              glf0=glf0, glf1=glf1, glf0d=f0d, log10_td=td,
+                                              glitch_id=parameter.Constant(gl))
             glexp_f = deterministic_signals.Deterministic(glexp, name="gl{}:".format(gl))
             components.append(glexp_f)
 
@@ -125,7 +145,7 @@ def to_par(self, p, chain):
         return p,chain
 
 
-def model_glitch(toas, f0, glep, glf0, glf1, glf2, glf0d, gltd):
+def model_glitch(toas, f0, glep, glf0=0, glf1=0, glf2=0, glf0d=0, gltd=0):
     t = toas - glep * 86400.0
     m = t >= 0
     glif = np.zeros_like(toas)
@@ -145,3 +165,12 @@ def model_glitch_residual(toas, f0, glep, glf0, glf1=0, glf2=0, glf0d=0, log10_t
     # remove old glitch
     return model_glitch(toas, f0=f0, glep=glep, glf0=glf0 * 1e-6, glf1=glf1 * 1e-12, glf2=glf2 * 1e-18,  #
                         glf0d=glf0d * 1e-6, gltd=10**log10_td) - glitches[int(glitch_id)]['old_model']
+
+@signal_base.function
+def model_glitch_residual_multiexp(toas, f0, glep, glf0, glf1=0, glf2=0, glf0d=0, log10_td=0, glitch_id=1, glf0d2=0, log10_td2=0):
+    global glitches
+    # remove old glitch
+    return model_glitch(toas, f0=f0, glep=glep, glf0=glf0 * 1e-6, glf1=glf1 * 1e-12, glf2=glf2 * 1e-18,  #
+                        glf0d=glf0d * 1e-6, gltd=10**log10_td) \
+           - model_glitch(toas, f0=f0, glep=glep,glf0d=glf0d2, gltd=log10_td2) \
+           - glitches[int(glitch_id)]['old_model']
