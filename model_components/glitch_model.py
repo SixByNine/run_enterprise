@@ -177,5 +177,5 @@ def model_glitch_residual_multiexp(toas, f0, glep, glf0, glf1=0, glf2=0, glf0d=0
     # remove old glitch
     return model_glitch(toas, f0=f0, glep=glep, glf0=glf0 * 1e-6, glf1=glf1 * 1e-12, glf2=glf2 * 1e-18,  #
                         glf0d=glf0d * 1e-6, gltd=10**log10_td) \
-           - model_glitch(toas, f0=f0, glep=glep,glf0d=glf0d2, gltd=log10_td2) \
+           - model_glitch(toas, f0=f0, glep=glep,glf0d=glf0d2*1e-6, gltd=10**log10_td2) \
            - glitches[int(glitch_id)]['old_model']
