@@ -12,14 +12,14 @@ def setup_argparse(parser):
     parser.add_argument('--all-corner', action='store_true', help='Make corner plots with all params')
     parser.add_argument('--plot-chain', action='store_true', help='Make a plot of the chains/posterior samples')
     parser.add_argument('--burn', default=0.25, help='Fraction of chain to burn-in (MC only; default=0.25)')
+    parser.add_argument('--truth-file', default=None, help='Truths values of parameters; default=None') # mod ly
 
-
-def cornerplot(samples, labels, weights=None, truths=None):
+def cornerplot(samples, labels, weights=None, truths=None, truth_color='cyan'): # mod ly
 
     if weights is None:
         weights = np.ones_like(samples[:,0])
     res={'samples': samples, 'weights':weights}
-    fig,ax= plotting.cornerplot(res,truths=truths,labels=labels,truth_color='cyan')
+    fig,ax= plotting.cornerplot(res,truths=truths,labels=labels,truth_color=truth_color) # mod ly
     for aa in ax:
         for a in aa:
             if len(a.xaxis.get_label().get_text()) > 0:
@@ -59,7 +59,22 @@ def make_plots(args, psr, samples, loglike, weights, pars,raw_results=None):
 
     plt.rcParams.update({'font.size': 8})
 
-    fig = cornerplot(samples[burn:, n_w], labels=pars[n_w], weights=weights, truths=pmax[n_w])
+# mod ly
+    #print(pars[n_w])
+    if args.truth_file is None:
+        fig = cornerplot(samples[burn:, n_w], labels=pars[n_w], weights=weights, truths=pmax[n_w])
+    else:
+        d = {}
+        with open(args.truth_file) as f:
+            for line in f:
+                key, val = line.split()
+                d[key] = float(val)
+        fiducial= [None]*len(pars[n_w])
+        for i in range(len(pars[n_w])):
+            if pars[i] in d:
+                fiducial[i] = d[pars[i]]
+        fig = cornerplot(samples[burn:, n_w], labels=pars[n_w], weights=weights, truths=fiducial, truth_color='r')
+# mod ly
 
     fig.savefig("%s.corner.pdf" % psr.name)
 
