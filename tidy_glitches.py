@@ -16,12 +16,13 @@ with open(par) as f:
             i = int(pp[1])
             param=pp[0]
             if not i in glitches:
-                glitches[i] = {}
+                glitches[i] = {'turns':0}
             if param=="GLEP":
                 glitches[i]['epoch'] = float(e[1])
             if param=="GLPH":
                 glitches[i]['turns'] = round(float(e[1]))
                 e[1] = "{}".format(float(e[1]) - glitches[i]['turns'])
+
 
             glitches[i][param] = " ".join(e[1:])
 
@@ -61,6 +62,25 @@ with open(tim) as f:
 
 with open(tim+".fix","w") as f:
     f.writelines(timlines)
+
+nextid = len(glitches)+1
+
+for ig in gg:
+    if "GLF0D2" in glitches[ig]:
+        print("Creating extra glitch {} to account for second recovery term".format(nextid))
+        glitches[nextid] = {}
+        glitches[nextid]['newid']=nextid
+        glitches[nextid]['turns']=0
+        glitches[nextid]['epoch'] = glitches[ig]['epoch']
+        glitches[nextid]['GLEP'] = glitches[ig]['epoch']
+        glitches[nextid]['GLF0D'] = glitches[ig]['GLF0D2']
+        glitches[nextid]['GLTD'] = glitches[ig]['GLTD2']
+        del glitches[ig]['GLF0D2']
+        del glitches[ig]['GLTD2']
+        gg.append(nextid)
+        nextid+=1
+
+
 
 with open(par+".fix","w") as f:
     f.writelines(parlines)
