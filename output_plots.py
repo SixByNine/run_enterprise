@@ -76,7 +76,7 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
         d = {}
         with open(args.truth_file) as f:
             for line in f:
-                key, val = line.split()
+                key, val = line.rsplit(maxsplit=1)
                 d[key] = float(val)
         fiducial= [None]*len(pars[n_w])
         for i in range(len(pars[n_w])):
@@ -189,7 +189,7 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
                     resf.write(s + "\n")
                     print(s)
                 for p,v in zip(derived_names,pmax):
-                    outf.write("#%s %s\n" % (p, v))
+                    outf.write("%s %s\n" % (p, v))
 
 
 def get_stats(samps,weights):
