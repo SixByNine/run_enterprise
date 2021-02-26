@@ -5,6 +5,33 @@ import numpy.polynomial as polynomial
 def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weights,parnames):
     derived=[]
     derived_names=[]
+
+    for i,p in enumerate(parnames):
+        if p.startswith("GLF0(instant)"):
+            iglitch = int(p.split()[1])
+            if "GLF0D_{}".format(iglitch) in parnames:
+                glf0d = scaled_samples[:, parnames == "GLF0D_{}".format(iglitch)][:, 0]
+                glf0 = scaled_samples[:,i] - glf0d
+            else:
+                ## no glitch recovery so GLF0=GLF0(instant)
+                glf0=scaled_samples[:,i]
+            derived.append(glf0)
+            derived_names.append("GLF0_{}".format(iglitch))
+
+        if p.startswith("GLF0(T="):
+            iglitch = int(p.split()[1])
+            glaltf0t = int(args.glitch_alt_f0t)
+            glf0_at_t =scaled_samples[:,i]
+            if "GLF0D_{}".format(iglitch) in parnames:
+                glf0d =scaled_samples[:,parnames=="GLF0D_{}".format(iglitch)][:,0]
+                gltd = scaled_samples[:, parnames == "GLTD_{}".format(iglitch)][:, 0]
+            else:
+                glf0d=0
+                gltd=1
+            glf1 = (glf0_at_t - glf0d * (np.exp(-glaltf0t / gltd) - 1)) / (glaltf0t * 86400.0)
+            derived.append(glf1)
+            derived_names.append("GLF1_{}".format(iglitch))
+
     if args.legendre:
         l1=l2=l3=0
         if "L1" in parnames:

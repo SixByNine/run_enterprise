@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from multiprocessing import Pool
 import dynesty.plotting as plotting
 from dynesty import utils as dyfunc
+import pickle
 
 ppf = (86400.0 * 365.25) ** 2
 
@@ -43,6 +44,9 @@ def fit_red(freqs_days, psd, complex_spec,model_psd,nthread=4):
     print(sampler.results.summary())
     res = sampler.results
 
+    with open("red.samples", "wb") as f:
+        pickle.dump(sampler.results, f)
+
     labels=["logPyr3","alpha","logPw"]
 
 
@@ -52,15 +56,29 @@ def fit_red(freqs_days, psd, complex_spec,model_psd,nthread=4):
     fig,ax = plotting.cornerplot(res,labels=labels)
     fig.savefig("red.cornerplot.pdf")
 
-    mean, cov = dyfunc.mean_and_cov(res.samples, np.exp(res.logwt - res.logz[-1]))
+    weights=np.exp(res.logwt - res.logz[-1])
+    mean, cov = dyfunc.mean_and_cov(res.samples, weights)
+    medians = np.apply_along_axis(dynesty.utils.quantile, 0, res.samples, 0.500, weights)[0]
+    ul68 = np.apply_along_axis(dynesty.utils.quantile, 0, res.samples, 0.841, weights)[0]
+    ll68 = np.apply_along_axis(dynesty.utils.quantile, 0, res.samples, 0.159, weights)[0]
+    err=(ul68-ll68)/2
+
+    psd_10 = pl_red(np.array([0.1/365.25]), *medians,fc=fc)[0]
 
     with open("red.results","w") as ofile:
         for i,v in enumerate(labels):
-            print("{} {} {}".format(v,mean[i],np.sqrt(cov[i,i])))
-            print("{} {} {}".format(v, mean[i], np.sqrt(cov[i, i])), file=ofile)
+            print("{} {} {}".format(v,medians[i], err[i]))
+            print("{} {} {}".format(v,medians[i], err[i]), file=ofile)
+        print("fc {} 0".format(fc))
+        print("fc {} 0".format(fc), file=ofile)
+        print("psd10 {} 0".format(psd_10))
+        print("psd10 {} 0".format(psd_10), file=ofile)
         print("logZ {} {}".format(res.logz[-1],res.logzerr[-1]))
         print("logZ {} {}".format(res.logz[-1], res.logzerr[-1]),file=ofile)
-    psd_model = pl_red(freqs_days, *mean,fc=fc)
+
+        print("deltaf {} 0".format(freqs_days[0] * 365.25), file=ofile)
+
+    psd_model = pl_red(freqs_days, *medians,fc=fc)
     fig=plt.figure()
     plt.loglog(freqs_days,psd)
     plt.loglog(freqs_days,model_psd)
@@ -70,6 +88,69 @@ def fit_red(freqs_days, psd, complex_spec,model_psd,nthread=4):
 
     return res.logz[-1]
 
+def fit_white(freqs_days, psd, complex_spec,model_psd,nthread=4):
+
+
+    ## Try fitting the model to the model, to just get initial params
+    Pw_guess = np.median(psd)
+
+    Pw = parameter.Uniform(np.log10(Pw_guess)-3,np.log10(Pw_guess)+3)
+
+
+    def loglike(pars):
+        psd_model = white(freqs_days, pars[0])
+        spec_var = (psd_model*freqs_days[0]*365.25)*ppf
+        ll = -0.5*np.sum(np.real(complex_spec)**2/spec_var) - 0.5*np.sum(np.log(spec_var*2*np.pi))
+        ll += -0.5*np.sum(np.imag(complex_spec)**2/spec_var) - 0.5*np.sum(np.log(spec_var*2*np.pi))
+        if np.isnan(ll):
+            ll=-np.inf
+        return ll
+
+    def prior_transform(pars):
+        return np.array([Pw.invT(None,pars[0])])
+
+    sampler = dynesty.NestedSampler(loglike,prior_transform,ndim=3,nlive=300)
+    sampler.run_nested()
+    print(sampler.results.summary())
+    res = sampler.results
+
+
+    with open("white.samples", "wb") as f:
+        pickle.dump(sampler.results, f)
+    labels=["logPw"]
+
+
+    fig,ax = plotting.traceplot(res,labels=labels)
+    fig.savefig("white.traceplot.pdf")
+
+    weights = np.exp(res.logwt - res.logz[-1])
+    mean, cov = dyfunc.mean_and_cov(res.samples, weights)
+    medians = np.apply_along_axis(dynesty.utils.quantile, 0, res.samples, 0.500, weights)[0]
+    ul68 = np.apply_along_axis(dynesty.utils.quantile, 0, res.samples, 0.841, weights)[0]
+    ll68 = np.apply_along_axis(dynesty.utils.quantile, 0, res.samples, 0.159, weights)[0]
+    err = (ul68 - ll68) / 2
+
+    psd_10 = white(np.array([0.1/365.25]), *medians)[0]
+    with open("white.results","w") as ofile:
+        for i,v in enumerate(labels):
+            print("{} {} {}".format(v,medians[i],err[i]))
+            print("{} {} {}".format(v, medians[i], err[i]), file=ofile)
+
+        print("psd10 {} 0".format(psd_10))
+        print("psd10 {} 0".format(psd_10), file=ofile)
+        print("logZ {} {}".format(res.logz[-1],res.logzerr[-1]))
+        print("logZ {} {}".format(res.logz[-1], res.logzerr[-1]),file=ofile)
+        print("deltaf {} 0".format(freqs_days[0] * 365.25), file=ofile)
+    psd_model = white(freqs_days, *medians)
+    fig=plt.figure()
+    plt.loglog(freqs_days,psd)
+    plt.loglog(freqs_days,model_psd)
+    plt.loglog(freqs_days,psd_model)
+    fig.savefig("white.spec.pdf")
+
+    return res.logz[-1]
+
+
 
 def fit_lognorm(freqs_days, psd, complex_spec,model_psd,nthread=4):
 
@@ -77,13 +158,14 @@ def fit_lognorm(freqs_days, psd, complex_spec,model_psd,nthread=4):
     ## Try fitting the model to the model, to just get initial params
     Pw_guess = np.median(psd[-8:])
 
-    Pyr = parameter.Uniform(psd[0]-12,psd[0]+6)
+    Pyr = parameter.Uniform(psd[0]-3,psd[0]+3)
     mu = parameter.Uniform(-10,-2)
     sig =parameter.Uniform(0.1,10) ## this is a bit silly range I think
     Pw = parameter.Uniform(np.log10(Pw_guess)-3,np.log10(Pw_guess)+3)
 
 
     def loglike(pars):
+        #def lognorm(freq_days, logPyr3, mu, sig, logPwhite):
         psd_model = lognorm(freqs_days, *pars)
         spec_var = (psd_model*freqs_days[0]*365.25)*ppf
         ll = -0.5*np.sum(np.real(complex_spec)**2/spec_var) - 0.5*np.sum(np.log(spec_var*2*np.pi))
@@ -100,25 +182,37 @@ def fit_lognorm(freqs_days, psd, complex_spec,model_psd,nthread=4):
     print(sampler.results.summary())
     res = sampler.results
 
+    with open("lognorm.samples", "wb") as f:
+        pickle.dump(sampler.results, f)
     labels=["logPyr3","mu","sig","logPw"]
 
     fig,ax = plotting.traceplot(res,labels=labels)
     fig.savefig("lognorm.traceplot.pdf")
-    fix,ax = plotting.cornerplot(res,labels=labels)
+    fig,ax = plotting.cornerplot(res,labels=labels)
     fig.savefig("lognorm.cornerplot.pdf")
 
-    mean, cov = dyfunc.mean_and_cov(res.samples, np.exp(res.logwt - res.logz[-1]))
+    weights = np.exp(res.logwt - res.logz[-1])
+    mean, cov = dyfunc.mean_and_cov(res.samples, weights)
+    medians = np.apply_along_axis(dynesty.utils.quantile, 0, res.samples, 0.500, weights)[0]
+    ul68 = np.apply_along_axis(dynesty.utils.quantile, 0, res.samples, 0.841, weights)[0]
+    ll68 = np.apply_along_axis(dynesty.utils.quantile, 0, res.samples, 0.159, weights)[0]
+    err = (ul68 - ll68) / 2
 
+    psd_10 = lognorm(np.concatenate((freqs_days,[0.1/365.25])), *medians)[-1]
 
     with open("lognorm.results","w") as ofile:
         for i,v in enumerate(labels):
-            print("{} {} {}".format(v,mean[i],np.sqrt(cov[i,i])))
-            print("{} {} {}".format(v, mean[i], np.sqrt(cov[i, i])), file=ofile)
+            print("{} {} {}".format(v,medians[i],err[i]))
+            print("{} {} {}".format(v, medians[i], err[i]), file=ofile)
+        print("psd10 {} 0".format(psd_10))
+        print("psd10 {} 0".format(psd_10), file=ofile)
         print("logZ {} {}".format(res.logz[-1],res.logzerr[-1]))
         print("logZ {} {}".format(res.logz[-1], res.logzerr[-1]),file=ofile)
 
+        print("deltaf {} 0".format(freqs_days[0]*365.25), file=ofile)
 
-    psd_model = lognorm(freqs_days, *mean)
+
+    psd_model = lognorm(freqs_days, *medians)
 
     fig=plt.figure()
     plt.loglog(freqs_days,psd)
@@ -162,29 +256,113 @@ def fit_redpink(freqs_days, psd, complex_spec,model_psd,nthread=4):
     sampler.run_nested()
     print(sampler.results.summary())
     res = sampler.results
-
+    with open("redpink.samples", "wb") as f:
+        pickle.dump(sampler.results, f)
     labels = ["logPyr3", "alpha1", "alpha2", "f_knee",  "logPw"]
     fig,ax = plotting.traceplot(res,labels=labels)
     fig.savefig("redpink.traceplot.pdf")
     fig,ax = plotting.cornerplot(res,labels=labels)
     fig.savefig("redpink.cornerplot.pdf")
 
-    mean, cov = dyfunc.mean_and_cov(res.samples, np.exp(res.logwt - res.logz[-1]))
+    weights = np.exp(res.logwt - res.logz[-1])
+    mean, cov = dyfunc.mean_and_cov(res.samples, weights)
+    medians = np.apply_along_axis(dynesty.utils.quantile, 0, res.samples, 0.500, weights)[0]
+    ul68 = np.apply_along_axis(dynesty.utils.quantile, 0, res.samples, 0.841, weights)[0]
+    ll68 = np.apply_along_axis(dynesty.utils.quantile, 0, res.samples, 0.159, weights)[0]
+    err = (ul68 - ll68) / 2
 
+    psd_10 = pl_red_pink(np.array([0.1/365.25]), *medians,fc=fc)[0]
 
     with open("redpink.results","w") as ofile:
         for i,v in enumerate(labels):
-            print("{} {} {}".format(v,mean[i],np.sqrt(cov[i,i])))
-            print("{} {} {}".format(v, mean[i], np.sqrt(cov[i, i])), file=ofile)
+            print("{} {} {}".format(v,medians[i],err[i]))
+            print("{} {} {}".format(v, medians[i], err[i]), file=ofile)
+
+        print("fc {} 0".format(fc))
+        print("fc {} 0".format(fc), file=ofile)
+        print("psd10 {} 0".format(psd_10))
+        print("psd10 {} 0".format(psd_10), file=ofile)
         print("logZ {} {}".format(res.logz[-1],res.logzerr[-1]))
         print("logZ {} {}".format(res.logz[-1], res.logzerr[-1]),file=ofile)
 
-    psd_model = pl_red_pink(freqs_days, *mean,fc=fc)
+        print("deltaf {} 0".format(freqs_days[0]*365.25), file=ofile)
+
+    psd_model = pl_red_pink(freqs_days, *medians,fc=fc)
     fig=plt.figure()
     plt.loglog(freqs_days,psd)
     plt.loglog(freqs_days,model_psd)
     plt.loglog(freqs_days,psd_model)
     fig.savefig("redpink.spec.pdf")
+
+    return res.logz[-1]
+
+def fit_white_plus_qpnudot(freqs_days, psd, complex_spec,model_psd,nthread=4):
+
+
+    ## Try fitting the model to the model, to just get initial params
+    Pw_guess = np.median(psd[-8:])
+
+    Pyr = parameter.Uniform(np.log10(Pw_guess)-1,np.log10(Pw_guess)+4)
+    Pw = parameter.Uniform(np.log10(Pw_guess)-3,np.log10(Pw_guess)+3)
+
+    f0 = parameter.Uniform(np.log10(freqs_days[4]),np.log10(min(1/20.0,freqs_days[-4])))
+    sig=parameter.Uniform(1e-3,0.25)
+    lam = parameter.Uniform(0.1,10)
+
+    def loglike(pars):
+        #def white_plus_qp_nudot(freq_days, logPyr3, logf0, sig, lam, logPwhite):
+        psd_model = white_plus_qp_nudot(freqs_days, pars[0],pars[1],pars[2],pars[3],pars[4])
+        spec_var = (psd_model*freqs_days[0]*365.25)*ppf
+        ll = -0.5*np.sum(np.real(complex_spec)**2/spec_var) - 0.5*np.sum(np.log(spec_var*2*np.pi))
+        ll += -0.5*np.sum(np.imag(complex_spec)**2/spec_var) - 0.5*np.sum(np.log(spec_var*2*np.pi))
+        if np.isnan(ll):
+            ll=-np.inf
+        return ll
+
+    def prior_transform(pars):
+        return np.array([Pyr.invT(None,pars[0]), f0.invT(None,pars[1]),sig.invT(None,pars[2]),lam.invT(None,pars[3]),Pw.invT(None,pars[4])])
+
+    sampler = dynesty.NestedSampler(loglike,prior_transform,ndim=5,nlive=500)
+    sampler.run_nested()
+    print(sampler.results.summary())
+    res = sampler.results
+    with open("whiteQP.samples", "wb") as f:
+        pickle.dump(sampler.results, f)
+    labels = ["logPyr3", "f0", "sig", "lam","logPw"]
+    fig,ax = plotting.traceplot(res,labels=labels)
+    fig.savefig("whiteQP.traceplot.pdf")
+
+    fig,ax = plotting.cornerplot(res,labels=labels)
+    fig.savefig("whiteQP.cornerplot.pdf")
+
+    weights = np.exp(res.logwt - res.logz[-1])
+    mean, cov = dyfunc.mean_and_cov(res.samples, weights)
+    medians = np.apply_along_axis(dynesty.utils.quantile, 0, res.samples, 0.500, weights)[0]
+    ul68 = np.apply_along_axis(dynesty.utils.quantile, 0, res.samples, 0.841, weights)[0]
+    ll68 = np.apply_along_axis(dynesty.utils.quantile, 0, res.samples, 0.159, weights)[0]
+    err = (ul68 - ll68) / 2
+
+    psd_10 = white_plus_qp_nudot(np.concatenate((freqs_days,[0.1/365.25])), *medians)[-1]
+    with open("whiteQP.results","w") as ofile:
+        for i,v in enumerate(labels):
+            print("{} {} {}".format(v,medians[i],err[i]))
+            print("{} {} {}".format(v, medians[i], err[i]),file=ofile)
+        print("psd10 {} 0".format(psd_10))
+        print("psd10 {} 0".format(psd_10), file=ofile)
+        print("logZ {} {}".format(res.logz[-1],res.logzerr[-1]))
+        print("logZ {} {}".format(res.logz[-1],res.logzerr[-1]),file=ofile)
+        print("deltaf {} 0".format(freqs_days[0]*365.25), file=ofile)
+
+    psd_model = white_plus_qp_nudot(freqs_days, *medians)
+    fig=plt.figure()
+    plt.loglog(freqs_days,psd)
+    plt.loglog(freqs_days,model_psd)
+    plt.loglog(freqs_days,psd_model)
+    fig.savefig("whiteQP.spec.pdf")
+
+    #spec_var = (psd_model * freqs_days[0] * 365.25) * ppf
+    #plt.plot(freqs_days,np.real(complex_spec) / np.sqrt(spec_var))
+    #plt.show()
 
     return res.logz[-1]
 
@@ -206,7 +384,7 @@ def fit_red_plus_qpnudot(freqs_days, psd, complex_spec,model_psd,nthread=4):
 
     log_qp_ratio = parameter.Uniform(-0.5,3)
     f0 = parameter.Uniform(np.log10(freqs_days[4]),np.log10(min(1/20.0,freqs_days[-4])))
-    sig=parameter.Uniform(1e-3,0.5)
+    sig=parameter.Uniform(1e-3,0.25)
     lam = parameter.Uniform(0.1,10)
 
     def loglike(pars):
@@ -227,22 +405,36 @@ def fit_red_plus_qpnudot(freqs_days, psd, complex_spec,model_psd,nthread=4):
     print(sampler.results.summary())
     res = sampler.results
 
-    labels = ["logPyr3", "alpha", "log_QP_ratio","f0", "sig", "lam","log_Pw"]
+    with open("redQP.samples", "wb") as f:
+        pickle.dump(sampler.results, f)
+    labels = ["logPyr3", "alpha", "log_QP_ratio","f0", "sig", "lam","logPw"]
     fig,ax = plotting.traceplot(res,labels=labels)
     fig.savefig("redQP.traceplot.pdf")
 
     fig,ax = plotting.cornerplot(res,labels=labels)
     fig.savefig("redQP.cornerplot.pdf")
 
-    mean, cov = dyfunc.mean_and_cov(res.samples, np.exp(res.logwt - res.logz[-1]))
+    weights = np.exp(res.logwt - res.logz[-1])
+    mean, cov = dyfunc.mean_and_cov(res.samples, weights)
+    medians = np.apply_along_axis(dynesty.utils.quantile, 0, res.samples, 0.500, weights)[0]
+    ul68 = np.apply_along_axis(dynesty.utils.quantile, 0, res.samples, 0.841, weights)[0]
+    ll68 = np.apply_along_axis(dynesty.utils.quantile, 0, res.samples, 0.159, weights)[0]
+    err = (ul68 - ll68) / 2
+
+    psd_10 = pl_plus_qp_nudot(np.concatenate((freqs_days,[0.1/365.25])), *medians,fc=fc)[-1]
     with open("redQP.results","w") as ofile:
         for i,v in enumerate(labels):
-            print("{} {} {}".format(v,mean[i],np.sqrt(cov[i,i])))
-            print("{} {} {}".format(v, mean[i], np.sqrt(cov[i, i])),file=ofile)
+            print("{} {} {}".format(v,medians[i],err[i]))
+            print("{} {} {}".format(v, medians[i], err[i]),file=ofile)
+        print("fc {} 0".format(fc))
+        print("fc {} 0".format(fc), file=ofile)
+        print("psd10 {} 0".format(psd_10))
+        print("psd10 {} 0".format(psd_10), file=ofile)
         print("logZ {} {}".format(res.logz[-1],res.logzerr[-1]))
         print("logZ {} {}".format(res.logz[-1],res.logzerr[-1]),file=ofile)
+        print("deltaf {} 0".format(freqs_days[0]*365.25), file=ofile)
 
-    psd_model = pl_plus_qp_nudot(freqs_days, *mean,fc=fc)
+    psd_model = pl_plus_qp_nudot(freqs_days, *medians,fc=fc)
     fig=plt.figure()
     plt.loglog(freqs_days,psd)
     plt.loglog(freqs_days,model_psd)
@@ -269,7 +461,8 @@ def pl_red_pink(freqs_days, logPyr3, alpha1, alpha2, f_knee, logPwhite,fc):
         np.power((freqs_days / f_knee_days), 2) + 1., -alpha2 / 2.) + 10**logPwhite
 
 def lognorm(freq_days, logPyr3, mu,sig, logPwhite):
-    return (10**logPyr3)*np.exp(-(np.log(freq_days*365.25) - mu)**2/(2*sig**2)) + 10**logPwhite
+    f=np.exp(-(np.log(freq_days[0]*365.25) - mu)**2/(2*sig**2)) # we will scale so that P=1 at freq_days[0]
+    return (10**logPyr3)*np.exp(-(np.log(freq_days*365.25) - mu)**2/(2*sig**2))/f + 10**logPwhite
 
 def white(freq_days, logPyr3):
     return np.ones_like(freq_days)*10**logPyr3
@@ -281,7 +474,7 @@ def qp_term(freq_days, logPyr3, f0, sig, lam):
 
     sigf0 = max(f0*sig,freq_days[0]) # sigma must be at least df to make sense
     for ih in range(1, 20):
-        ret += A * np.exp(-(ih - 1) / lam) * np.exp(-(freq_days - f0 * ih) ** 2 / (2 * (ih * sigf0) ** 2))
+        ret += A * np.exp(-(ih - 1) / lam) * np.exp(-(freq_days - f0 * ih) ** 2 / (2 * (ih * sigf0) ** 2))/ih
     return ret
 
 def pl_plus_qp_nudot(freq_days, logPyr3, alpha, log_ratio_qp, logf0, sig,lam, logPwhite,fc):
@@ -290,4 +483,10 @@ def pl_plus_qp_nudot(freq_days, logPyr3, alpha, log_ratio_qp, logf0, sig,lam, lo
     ifreq = np.argmin(np.abs(freq_days-f0))
     logQP = log_ratio_qp + np.log10(model[ifreq]) ## parameteised by the ratio of QP to red noise
     model += ((freq_days/f0)**-4)*qp_term(freq_days,logQP,f0,sig,lam)
+    return model
+
+def white_plus_qp_nudot(freq_days, logPyr3, logf0, sig,lam, logPwhite):
+    f0=10**logf0
+    model = white(freq_days,logPwhite)
+    model += ((freq_days/f0)**-4)*qp_term(freq_days,logPyr3,f0,sig,lam)
     return model

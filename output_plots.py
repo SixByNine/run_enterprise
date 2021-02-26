@@ -11,6 +11,7 @@ def setup_argparse(parser):
     parser.add_argument('--white-corner', action='store_true', help='Make the efac/equad corner plots')
     parser.add_argument('--all-corner', action='store_true', help='Make corner plots with all params')
     parser.add_argument('--plot-chain', action='store_true', help='Make a plot of the chains/posterior samples')
+    parser.add_argument('--plot-derived', action='store_true', help='Include derived parameters in corner plots etc.')
     parser.add_argument('--burn', default=0.25, help='Fraction of chain to burn-in (MC only; default=0.25)')
     parser.add_argument('--truth-file', default=None, help='Truths values of parameters; default=None') # mod ly
 
@@ -29,7 +30,7 @@ def cornerplot(samples, labels, weights=None, truths=None, truth_color='cyan'): 
     return fig
 
 
-def make_plots(args, psr, samples, loglike, weights, pars,raw_results=None):
+def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names,raw_results=None):
     print("Making plots....")
     if args.dynesty and args.dynesty_plots:
         try:
@@ -43,6 +44,14 @@ def make_plots(args, psr, samples, loglike, weights, pars,raw_results=None):
             fig.savefig("%s.traceplot.pdf" % psr.name)
         except Exception as e:
             print(e)
+
+    if args.plot_derived:
+        derived_names_x = []
+        for n in derived_names:
+            derived_names_x.append("*{}".format(n))
+        pars = np.concatenate((pars,derived_names_x))
+        samples = np.concatenate((samples,derived),axis=1)
+
 
     burn = int(len(samples) * args.burn)
     i_ef = np.array([i for i, v in enumerate(pars) if 'TNEF' in v], dtype=np.int)
@@ -71,8 +80,8 @@ def make_plots(args, psr, samples, loglike, weights, pars,raw_results=None):
                 d[key] = float(val)
         fiducial= [None]*len(pars[n_w])
         for i in range(len(pars[n_w])):
-            if pars[i] in d:
-                fiducial[i] = d[pars[i]]
+            if pars[i].strip("*") in d: # strip * from derived parameters
+                fiducial[i] = d[pars[i].strip("*")]
         fig = cornerplot(samples[burn:, n_w], labels=pars[n_w], weights=weights, truths=fiducial, truth_color='r')
 # mod ly
 

@@ -98,7 +98,7 @@ def run_enterprise(args):
     output_plots.write_results(args,psr,par,parfile,scaled_samples,log_prob,weights,parnames,derived,derived_names)
 
     ### Make plots
-    output_plots.make_plots(args,psr,scaled_samples,log_prob,weights, parnames,raw_results=sampler_info)
+    output_plots.make_plots(args,psr,scaled_samples,log_prob,weights, parnames,derived,derived_names,raw_results=sampler_info)
 
 
 def make_model(args,psr,parfile):

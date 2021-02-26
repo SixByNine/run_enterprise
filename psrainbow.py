@@ -53,6 +53,8 @@ def rainbow(args):
     f, psd_f_yr3, complex_spec, loglike = cholspec.cholspec(psr.residuals,toa,psr.toaerrs,red_cvm,f_max=args.fmax)
     orig_model_psd = cholspec.PSD(f,fc_yr,logA,gamma)
 
+    white_logz = fitspec.fit_white(f, psd_f_yr3, complex_spec, orig_model_psd)
+    white_qpnudot_logz = fitspec.fit_white_plus_qpnudot(f, psd_f_yr3, complex_spec, orig_model_psd)
     ln_logz = fitspec.fit_lognorm(f, psd_f_yr3, complex_spec, orig_model_psd)
     red_qpnudot_logz = fitspec.fit_red_plus_qpnudot(f, psd_f_yr3, complex_spec, orig_model_psd)
     redpink_logz = fitspec.fit_redpink(f, psd_f_yr3, complex_spec, orig_model_psd)
