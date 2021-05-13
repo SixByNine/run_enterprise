@@ -86,7 +86,6 @@ def setup_model(args, psr, parfile):
             # This is the 'old model'
             glitches[gl]['old_model'] = model_glitch(psr.toas, f0, glep, glf0,glf1,glf2,glf0d,gltd)
 
-
             if args.glitch_epoch_range > 0:
                 glep = parameter.Uniform(glitches[gl]['EP']-args.glitch_epoch_range, glitches[gl]['EP']+args.glitch_epoch_range, to_par=to_par)("GLEP_{}".format(gl))
             else:
@@ -125,6 +124,8 @@ def setup_model(args, psr, parfile):
                 glf0t=None
                 glf1 = parameter.Uniform(glf1_range[0]*1e12,glf1_range[1]*1e12,to_par=to_par)("GLF1_{}".format(gl))  # units of 10^-12
 
+            f0d_2 = None
+            td_2 = None
 
             if gl in args.glitch_recovery or gl in args.glitch_double_recovery:
                 f0d = parameter.Uniform(glf0d_range[0]*1e6,glf0d_range[1]*1e6,to_par=to_par)("GLF0D_{}".format(gl))  # units of 10^-6
@@ -134,9 +135,7 @@ def setup_model(args, psr, parfile):
                     f0d_2 = parameter.Uniform(glf0d_range[0]*1e6, glf0d_range[1]*1e6, to_par=to_par)(
                         "GLF0D2_{}".format(gl))  # units of 10^-6
                     td_2 = parameter.Uniform(args.glitch_td_split, args.glitch_td_max, to_par=to_par)("GLTD2_{}".format(gl))
-                else:
-                    f0d_2 = None
-                    td_2 = None
+
             else:
                 f0d = parameter.Constant(0)
                 td = parameter.Constant(0)
