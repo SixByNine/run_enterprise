@@ -1,6 +1,24 @@
-from  . import emcee_solver, dynesty_solver
 
-all = [emcee_solver,dynesty_solver]
+all=[]
+
+try:
+    from  . import emcee_solver
+    all.append(emcee_solver)
+except ImportError:
+    print("Cannot import emcee")
+
+try:
+    from . import dynesty_solver
+    all.append(dynesty_solver)
+except ImportError:
+    print("Cannot import dynesty")
+
+try:
+    from . import zeus_solver
+    all.append(zeus_solver)
+except ImportError:
+    print("Cannot import dynesty")
+
 
 
 def std_args(parser):
