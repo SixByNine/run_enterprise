@@ -60,7 +60,7 @@ with open(tim) as f:
             timlines.append(line)
 
 
-with open(tim+".fix","w") as f:
+with open("fix_"+tim,"w") as f:
     f.writelines(timlines)
 
 nextid = len(glitches)+1
@@ -82,7 +82,7 @@ for ig in gg:
 
 
 
-with open(par+".fix","w") as f:
+with open("fix_"+par,"w") as f:
     f.writelines(parlines)
     for ig in gg:
         for param in glitches[ig]:
