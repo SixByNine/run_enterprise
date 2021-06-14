@@ -9,7 +9,7 @@ from astropy import units as units
 
 def setup_argparse(parser):
     parser.add_argument('--white-corner', action='store_true', help='Make the efac/equad corner plots')
-    parser.add_argument('--all-corner', action='store_true', help='Make corner plots with all params')
+    parser.add_argument('--all-corner', '--corner-all', action='store_true', help='Make corner plots with all params')
     parser.add_argument('--plot-chain', action='store_true', help='Make a plot of the chains/posterior samples')
     parser.add_argument('--plot-derived', action='store_true', help='Include derived parameters in corner plots etc.')
     parser.add_argument('--burn', default=0.25, help='Fraction of chain to burn-in (MC only; default=0.25)')

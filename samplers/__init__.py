@@ -17,7 +17,7 @@ try:
     from . import zeus_solver
     all.append(zeus_solver)
 except ImportError:
-    print("Cannot import dynesty")
+    print("Cannot import zeus")
 
 
 

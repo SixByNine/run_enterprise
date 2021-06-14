@@ -5,8 +5,6 @@ import emcee
 from multiprocessing import Pool
 
 
-from enterprise_extensions import model_utils
-
 
 name="EmceeSolver"
 argdec="Configure for mcmc with EMCEE"
@@ -23,7 +21,8 @@ def run_solve(args,pta,outdir):
     filename = os.path.join(outdir, "chain.h5")
     if args.sample:
         x0 = np.hstack([p.sample() for p in pta.params])
-        sampler = model_utils.setup_sampler(pta, outdir)
+        os.makedirs(outdir,exist_ok=True)
+        #sampler = model_utils.setup_sampler(pta, outdir)
         nwalkers = args.nwalkers
         if nwalkers < 2*len(x0):
             nwalkers = 2*len(x0)
