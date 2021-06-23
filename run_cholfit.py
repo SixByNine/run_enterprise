@@ -3,7 +3,7 @@
 from __future__ import division, print_function
 import matplotlib
 
-#matplotlib.use('Agg')
+matplotlib.use('Agg')
 import numpy as np
 
 import model_components
@@ -23,12 +23,9 @@ import itertools
 
 
 def run_cholfit(args):
-
-    print(vars(args))
-
     par = args.par
-    tim=args.tim
-
+    tim = args.tim
+    print(vars(args))
     print("Read pulsar data")
     psr=Pulsar(par,tim,drop_t2pulsar=False)
 
@@ -38,15 +35,12 @@ def run_cholfit(args):
     with open(par) as f:
         parfile = f.readlines()
 
-
-
-
     ### make model
     model = make_model(args,psr,parfile)
 
-    run_modelfit(args, psr, par, model, parfile)
+    pars, pmax, ul, ll, means, medians, stds, ul68, ll68 = run_modelfit(args, psr, par, model, parfile)
 
-
+    model_components.chol_red_model.make_t2_model(psr, args, dict(zip(pars, pmax)))
 
 
 def make_model(args,psr,parfile):
@@ -131,9 +125,12 @@ class CholModel:
 
         param, p_cvm, chisq = qrfit(white_DM, white_residuals)
 
+        FF = np.dot(white_DM.T, white_DM)
+        sign, log_det_FF = np.linalg.slogdet(FF)
+
         log_det_CVM = log_det_L * 2
 
-        loglike = -0.5 * chisq - 0.5 * log_det_CVM - 0.5 * ntoa * np.log(2 * np.pi)
+        loglike = -0.5 * chisq - 0.5 * log_det_CVM - 0.5 * ntoa * np.log(2 * np.pi) - 0.5*log_det_FF
         return loglike
 
 
@@ -157,6 +154,7 @@ if __name__ == "__main__":
     parser.add_argument('par')
     parser.add_argument('tim')
     parser.add_argument('--outdir', '-o', type=str, help="Output directory for chains etc")
+    parser.add_argument('--TEST',action='store_true')
 
     for model_comp in model_components.cov_models:
         grp = parser.add_argument_group(model_comp.name, model_comp.argdec)

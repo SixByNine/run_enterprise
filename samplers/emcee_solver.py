@@ -11,7 +11,6 @@ argdec="Configure for mcmc with EMCEE"
 
 def setup_argparse(parser):
     parser.add_argument('--emcee', action='store_true', help='Use emcee sampler')
-    parser.add_argument('--nwalkers', type=int, default=0, help="number of walkers (emcee)")
 
 
 def activated(args):

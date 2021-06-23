@@ -45,7 +45,7 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
         except Exception as e:
             print(e)
 
-    if args.plot_derived:
+    if args.plot_derived and len(derived_names)>0:
         derived_names_x = []
         for n in derived_names:
             derived_names_x.append("*{}".format(n))
@@ -172,12 +172,12 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
                 print("Derived Params")
                 print("")
 
-                imax = np.argmax(loglike)
-                pmax = derived[imax, :]
-                ul68,ll68,ul,ll,means,stds,medians=get_stats(derived[burn:, :], weights)
+                dimax = np.argmax(loglike)
+                dpmax = derived[dimax, :]
+                dul68,dll68,dul,dll,dmeans,dstds,dmedians=get_stats(derived[burn:, :], weights)
 
-                for p, v, u, l, mean, median, sig, u68, l68 in zip(derived_names, pmax, ul, ll, means, medians, stds, ul68,
-                                                                   ll68):
+                for p, v, u, l, mean, median, sig, u68, l68 in zip(derived_names, dpmax, dul, dll, dmeans, dmedians, dstds, dul68,
+                                                                   dll68):
                     s = "{:20s} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g}  {:< 10g} {:< 10g} {:< 10g} ".format(p, v,
                                                                                                                   mean,
                                                                                                                   sig,
@@ -191,6 +191,7 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
                 for p,v in zip(derived_names,pmax):
                     outf.write("%s %s\n" % (p, v))
 
+    return pars, pmax, ul, ll, means, medians, stds, ul68, ll68
 
 def get_stats(samps,weights):
     if weights is None:

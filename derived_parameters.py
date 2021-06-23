@@ -32,6 +32,10 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
             derived.append(glf1)
             derived_names.append("GLF1_{}".format(iglitch))
 
+        if p.startswith("T2Chol_QpF0"):
+            derived.append(10**-scaled_samples[:,i])
+            derived_names.append("T2Chol_QpPeriod")
+
     if args.legendre:
         l1=l2=l3=0
         if "L1" in parnames:

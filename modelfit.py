@@ -54,7 +54,9 @@ def run_modelfit(args,psr,par, pta, parfile):
     derived, derived_names = derived_parameters.compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weights,parnames)
 
     ### Write results
-    output_plots.write_results(args,psr,par,parfile,scaled_samples,log_prob,weights,parnames,derived,derived_names)
+    results = output_plots.write_results(args,psr,par,parfile,scaled_samples,log_prob,weights,parnames,derived,derived_names)
 
     ### Make plots
     output_plots.make_plots(args,psr,scaled_samples,log_prob,weights, parnames,derived,derived_names,raw_results=sampler_info)
+
+    return results
