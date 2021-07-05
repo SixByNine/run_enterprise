@@ -22,7 +22,7 @@ with open(par) as f:
             if param=="GLPH":
                 glitches[i]['turns'] = round(float(e[1]))
                 e[1] = "{}".format(float(e[1]) - glitches[i]['turns'])
-
+                continue
 
             glitches[i][param] = " ".join(e[1:])
 
