@@ -13,7 +13,6 @@ argdec="Configure for mcmc with Zeus"
 
 def setup_argparse(parser):
     parser.add_argument('--zeus', action='store_true', help='Use zeus sampler')
-    parser.add_argument('--zeus-nwalkers', type=int, default=0, help="number of walkers (zeus)")
 
 
 def activated(args):
@@ -23,7 +22,7 @@ def run_solve(args,pta,outdir):
     filename = os.path.join(outdir, "state")
     x0 = np.hstack([p.sample() for p in pta.params])
     if args.sample:
-        nwalkers = args.zeus_nwalkers
+        nwalkers = args.nwalkers
         if nwalkers < 2*len(x0):
             nwalkers = 2*len(x0)
 

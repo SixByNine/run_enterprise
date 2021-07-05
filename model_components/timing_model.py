@@ -188,7 +188,7 @@ def setup_model(args, psr, parfile):
 def to_par(self, p, chain):
     global orig_f2
     if p == "F2":
-        return "F2", (chain + orig_f2)*1e-27
+        return "F2", chain*1e-27 + orig_f2
     if "px_px" in p:
         return "PX", chain
     if "pm_angle" in p:

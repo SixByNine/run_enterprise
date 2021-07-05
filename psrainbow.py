@@ -2,18 +2,18 @@
 import sys
 import numpy as np
 import matplotlib
-#matplotlib.use('Agg')
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 import argparse
-import enterprise.pulsar
+from enterprise.pulsar import Pulsar
 
 from spectrum import cholspec
 from spectrum import fitspec
 
 
 def rainbow(args):
-    psr=enterprise.pulsar.Pulsar(args.par,args.tim,drop_t2pulsar=False)
+    psr=Pulsar(args.par,args.tim,drop_t2pulsar=False)
     is_binary=False
     logA=gamma=F0=F1=PB=0
     with open(args.par) as f:

@@ -19,7 +19,12 @@ def fit_red(freqs_days, psd, complex_spec,model_psd,nthread=4):
     ## Try fitting the model to the model, to just get initial params
     Pw_guess = np.median(psd[-8:])
     p0=[np.log10(psd[0]), 4,np.log10(Pw_guess),freqs_days[0]*365.25/4]
-    popt,pcov = opt.curve_fit(lambda *x: np.log(pl_red(*x)),freqs_days,np.log(model_psd+Pw_guess),p0=p0)
+    try:
+        popt,pcov = opt.curve_fit(lambda *x: np.log(pl_red(*x)),freqs_days,np.log(model_psd+Pw_guess),p0=p0)
+    except Exception as e:
+        print("Error in curve fit")
+        print(e)
+        popt=p0
 
     print(p0)
     print(popt)
@@ -231,7 +236,13 @@ def fit_redpink(freqs_days, psd, complex_spec,model_psd,nthread=4):
     ## Try fitting the model to the model, to just get initial params
     Pw_guess = np.median(psd[-8:])
     p0 = [np.log10(psd[0]), 4, np.log10(Pw_guess), freqs_days[0] * 365.25 / 4]
-    popt, pcov = opt.curve_fit(lambda *x: np.log(pl_red(*x)), freqs_days, np.log(model_psd + Pw_guess), p0=p0)
+    try:
+        popt, pcov = opt.curve_fit(lambda *x: np.log(pl_red(*x)), freqs_days, np.log(model_psd + Pw_guess), p0=p0)
+    except Exception as e:
+        print("Error in curve fit")
+        print(e)
+        popt=p0
+
     print(p0)
     print(popt)
 
@@ -447,7 +458,13 @@ def fit_red_plus_qpnudot_cut(freqs_days, psd, complex_spec,model_psd,nthread=4):
     ## Try fitting the model to the model, to just get initial params
     Pw_guess = np.median(psd[-8:])
     p0 = [np.log10(psd[0]), 4, np.log10(Pw_guess), freqs_days[0] * 365.25 / 4]
-    popt, pcov = opt.curve_fit(lambda *x: np.log(pl_red(*x)), freqs_days, np.log(model_psd + Pw_guess), p0=p0)
+    try:
+        popt, pcov = opt.curve_fit(lambda *x: np.log(pl_red(*x)), freqs_days, np.log(model_psd + Pw_guess), p0=p0)
+    except Exception as e:
+        print("Error in curve fit")
+        print(e)
+        popt=p0
+
     print(p0)
     print(popt)
 
