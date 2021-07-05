@@ -33,6 +33,9 @@ psrn="??"
 glep=np.zeros(100)
 glf0=np.zeros(100)
 glf1=np.zeros(100)
+
+glf0d=np.zeros(100)
+gltd=np.zeros(100)
 max_glitch=0
 PB=0
 
@@ -53,6 +56,12 @@ with open(par) as f:
         if e[0].startswith("GLF0_"):
             i=int(e[0][5:])
             glf0[i-1] = float(e[1])
+        if e[0].startswith("GLTD_"):
+            i=int(e[0][5:])
+            gltd[i-1] = float(e[1])
+        if e[0].startswith("GLF0D_"):
+            i=int(e[0][6:])
+            glf0d[i-1] = float(e[1])
         if e[0].startswith("GLF1_"):
             i=int(e[0][5:])
             glf1[i-1] = float(e[1])
@@ -283,14 +292,19 @@ yd = ddM.dot(beta_mod)
 ed=np.sqrt(np.diag(ddCo))
 
 tt=(t-pepoch)*86400.0
-yd2 = yd + 1e15*(F2*tt + F1)
+yd_model=np.zeros_like(yd)
+yd_model += 1e15*(F2*tt + F1)
 
 i=0
 for ge in glep:
     print("Glitch {} = {} >> {}".format(i,ge,1e15*glf1[i]))
-    yd2[t>ge] += 1e15*glf1[i]
+    yd_model[t>ge] += 1e15*glf1[i]
+    if gltd[i] > 0:
+        print("Exponential")
+        yd_model[t>ge] -= 1e15 * glf0d[i] * np.exp(-(t[t>ge]-glep[i])/gltd[i]) / (gltd[i]*86400.0)
     i+=1
 
+yd2 = yd + yd_model
 
 dCoo    = dM.dot(cvm_mod).dot(dM.T)                         
 dCof    = dM.dot(cvm_mod).dot(M2.T)        
@@ -311,6 +325,8 @@ i=0
 for ge in glep:
     gt=(t-ge)*86400.0
     yf2[t>ge] += glf1[i] * gt[t>ge] + glf0[i]
+    if gltd[i] > 0:
+        yf2[t>ge] += glf0d[i] * np.exp(-(t[t>ge]-glep[i])/gltd[i])
     i+=1
 
 
@@ -328,7 +344,13 @@ with open("white_ifunc.par","w") as f:
 
 with open("nudot.asc","w") as f:
     for i in range(len(yd)):
-        f.write("{} {}\n".format(t[i],yd[i]))
+        f.write("{} {} {} {}\n".format(t[i],yd[i],yd_model[i],yd2[i]))
+
+with open("deltanu.asc","w") as f:
+    for i in range(len(yf2)):
+        f.write("{} {}\n".format(t[i],yf2[i]))
+
+
 
 
 
@@ -494,6 +516,7 @@ ax3.set_xlabel("Year")
 
 
 ax = fig.add_subplot(324)
+plt.plot(t,yd_model,color='lightblue',ls='--')
 plt.plot(t,yd2,color='blue')
 plt.fill_between(t,yd2-ed,yd2+ed,color='blue',alpha=0.5)
 
