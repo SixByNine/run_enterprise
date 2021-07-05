@@ -24,7 +24,7 @@ with open(par) as f:
             if param=="GLPH":
                 glitches[i]['turns'] = round(float(e[1]))
                 e[1] = "{}".format(float(e[1]) - glitches[i]['turns'])
-
+                continue
 
             glitches[i][param] = " ".join(e[1:])
 
@@ -82,7 +82,7 @@ for ig in gg:
         idxpost = next((idx for idx in glitches if glitches[idx]['newid'] == nowid+1), None)
         if glitches[ig]['epoch'] == glitches[idxpre]['epoch']:
             print("Merge glitch[{}] to double recovery glitch[{}]".format(ig, idxpre))
-            if glitches[ig]['GLTD'] < glitches[idxpre]['GLTD']:
+            if float(glitches[ig]['GLTD']) < float(glitches[idxpre]['GLTD']):
                 print("Sort recovery of glitch[{}] as the first recovery of glitch[{}]".format(ig, idxpre))
                 glitches[idxpre]['GLF0D2'] = glitches[idxpre]['GLF0D']
                 glitches[idxpre]['GLTD2'] = glitches[idxpre]['GLTD']
@@ -94,7 +94,7 @@ for ig in gg:
             del glitches[ig]
         elif glitches[ig]['epoch'] == glitches[idxpost]['epoch']:
             print("Merge glitch[{}] to double recovery glitch[{}]".format(ig, idxpost))
-            if glitches[ig]['GLTD'] < glitches[idxpost]['GLTD']:
+            if float(glitches[ig]['GLTD']) < float(glitches[idxpost]['GLTD']):
                 print("Sort recovery of glitch[{}] as the first recovery of glitch[{}]".format(ig, idxpost))
                 glitches[idxpost]['GLF0D2'] = glitches[idxpost]['GLF0D']
                 glitches[idxpost]['GLTD2'] = glitches[idxpost]['GLTD']
@@ -106,6 +106,14 @@ for ig in gg:
             del glitches[ig]
         else:
             print("Glitch[{}] cannot merge as double recovery of glitch[{}] or [{}]".format(ig, idxpre, idxpost))
+    if float(glitches[ig]['GLTD']) > float(glitches[ig]['GLTD2']):
+        print("Sort the order of two recoveries in glitch[{}]".format(ig))
+        tmp_glf0d = glitches[ig]['GLF0D']
+        tmp_gltd = glitches[ig]['GLTD']
+        glitches[ig]['GLF0D'] = glitches[ig]['GLF0D2']
+        glitches[ig]['GLTD'] = glitches[ig]['GLTD2']
+        glitches[ig]['GLF0D2'] = tmp_glf0d
+        glitches[ig]['GLTD2'] = tmp_gltd
 
 newgg = sorted(glitches,key=lambda x: glitches[x]['epoch'])
 print("New time-order is",newgg)
