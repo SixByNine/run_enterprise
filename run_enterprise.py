@@ -4,14 +4,12 @@ from __future__ import division, print_function
 import matplotlib
 
 
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 import numpy as np
 
 import model_components
 import samplers
 
-import matplotlib
-matplotlib.use('Agg')
 
 import argparse
 
