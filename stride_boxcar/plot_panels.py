@@ -137,6 +137,9 @@ tf1 = F1 * x
 sf2 = 0.5 * sfx * sfx * F2
 tf2 = 0.5 * x * x * F2
 
+dsf2 = sfx * F2
+dtf2 = x * F2
+
 sfglf0 = np.zeros_like(sft)
 sfglf1 = np.zeros_like(sft)
 sfglf2 = np.zeros_like(sft)
@@ -246,8 +249,8 @@ numod = nu - tf2 # why only f2? deltanu=nu-F0-f1?
 mc = ma.array(numod)
 mc[mask_len] = ma.masked # mc: mask data at glep
 
-
-md = ma.array(nudot_model) 
+#md = ma.array(no_nudot+(dglf1+dglf2-dexp)/1e-15)
+md = ma.array(nudot_model-(F1+dtf2)*1e15)  # In principle the same after convert the units
 md[mask_len] = ma.masked # md: mask data at glep
 
 
@@ -274,7 +277,7 @@ if all(f0d==0 for f0d in pglf0d): # remove the 3rd panel
 
     plt.subplot(413)
     plt.plot(t-glep, md/1e5, 'k-', zorder=2)
-    plt.errorbar(sft - glep, f1/1e-10, yerr=f1e/1e-10, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
+    plt.errorbar(sft - glep, (f1-F1-dsf2)/1e-10, yerr=f1e/1e-10, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
     for gls in gleps:
         plt.axvline(gls-glep, color='k', linestyle='dotted', alpha=0.3, linewidth=2)
     plt.ylabel(r'$\dot{\nu}$ ($10^{-10}$ Hz s$^{-1}$)', fontsize=15)
@@ -285,7 +288,7 @@ if all(f0d==0 for f0d in pglf0d): # remove the 3rd panel
 
     plt.subplot(414)
     plt.plot(t-glep, md/1e5-(dglf1+dglf2-dexp)/1e-10, 'k-', zorder=2)
-    plt.errorbar(sft - glep, (f1-dsfglf1-dsfglf2+dsfexp)/1e-10, yerr=f1e/1e-10, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
+    plt.errorbar(sft - glep, (f1-F1-dsf2-dsfglf1-dsfglf2+dsfexp)/1e-10, yerr=f1e/1e-10, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
     for gls in gleps:
         plt.axvline(gls-glep, color='k', linestyle='dotted', alpha=0.3, linewidth=2)
     plt.ylabel(r'$\dot{\nu}_{\mathrm{ng}}$ ($10^{-10}$ Hz s$^{-1}$)', fontsize=15)
@@ -330,7 +333,7 @@ else:
 
     plt.subplot(514)
     plt.plot(t-glep, md/1e5, 'k-', zorder=2)
-    plt.errorbar(sft - glep, f1/1e-10, yerr=f1e/1e-10, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
+    plt.errorbar(sft - glep, (f1-F1-dsf2)/1e-10, yerr=f1e/1e-10, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
     for gls in gleps:
         plt.axvline(gls-glep, color='k', linestyle='dotted', alpha=0.3, linewidth=2)
     plt.ylabel(r'$\dot{\nu}$ ($10^{-10}$ Hz s$^{-1}$)', fontsize=15)
@@ -341,7 +344,7 @@ else:
 
     plt.subplot(515)
     plt.plot(t-glep, md/1e5-(dglf1+dglf2-dexp)/1e-10, 'k-', zorder=2)
-    plt.errorbar(sft - glep, (f1-dsfglf1-dsfglf2+dsfexp)/1e-10, yerr=f1e/1e-10, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
+    plt.errorbar(sft - glep, (f1-F1-dsf2-dsfglf1-dsfglf2+dsfexp)/1e-10, yerr=f1e/1e-10, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
     for gls in gleps:
         plt.axvline(gls-glep, color='k', linestyle='dotted', alpha=0.3, linewidth=2)
     plt.ylabel(r'$\dot{\nu}_{\mathrm{ng}}$ ($10^{-10}$ Hz s$^{-1}$)', fontsize=15)
