@@ -84,8 +84,10 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
                 d[key] = float(val)
         fiducial= [None]*len(pars[n_w])
         for i in range(len(pars[n_w])):
-            if pars[i].strip("*") in d: # strip * from derived parameters
-                fiducial[i] = d[pars[i].strip("*")]
+            if pars[n_w][i].strip("*") in d: # strip * from derived parameters
+                fiducial[i] = d[pars[n_w][i].strip("*")]
+        print("Parameters:", pars[n_w])
+        print("Reference values:", fiducial)
         fig = cornerplot(samples[burn:, n_w], labels=pars[n_w], weights=weights, truths=fiducial, truth_color='r')
 # mod ly
 
@@ -93,14 +95,53 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
 
     # Make optional corner plots
     if args.all_corner:
-        fig = cornerplot(samples[burn:, :], labels=pars, weights=weights,truths=pmax);
-        fig.savefig("%s.corner_all.pdf" % psr.name)
+        if args.truth_file:
+            d = {}
+            with open(args.truth_file) as f:
+                for line in f:
+                    key, val = line.rsplit(maxsplit=1)
+                    d[key] = float(val)
+            fiducial= [None]*len(pars)
+            for i in range(len(pars)):
+                if pars[i].strip("*") in d: # strip * from derived parameters
+                    fiducial[i] = d[pars[i].strip("*")]
+            print("Parameters:", pars)
+            print("Reference values:", fiducial)
+            fig = cornerplot(samples[burn:, :], labels=pars, weights=weights, truths=fiducial, truth_color='r')
+        else:
+            fig = cornerplot(samples[burn:, :], labels=pars, weights=weights,truths=pmax);
+            fig.savefig("%s.corner_all.pdf" % psr.name)
 
     if args.white_corner:
-        fig = cornerplot(samples[burn:, m_ef], labels=pars[m_ef], weights=weights,truths=pmax[m_ef]);
-        fig.savefig("%s.corner_efac.pdf" % psr.name)
-        fig = cornerplot(samples[burn:, m_eq], labels=pars[m_eq], weights=weights,truths=pmax[m_eq]);
-        fig.savefig("%s.corner_equad.pdf" % psr.name)
+        if args.truth_file:
+            d = {}
+            with open(args.truth_file) as f:
+                for line in f:
+                    key, val = line.rsplit(maxsplit=1)
+                    d[key] = float(val)
+
+            fiducial_ef= [None]*len(pars[m_ef])
+            for i in range(len(pars[m_ef])):
+                if pars[m_ef][i].strip("*") in d: # strip * from derived parameters
+                    fiducial_ef[i] = d[pars[m_ef][i].strip("*")]
+            print("Parameters EFAC:", pars[m_ef])
+            print("Reference values:", fiducial_ef)
+            fig = cornerplot(samples[burn:, m_ef], labels=pars[m_ef], weights=weights, truths=fiducial_ef, truth_color='r')
+            fig.savefig("%s.corner_efac.pdf" % psr.name)
+
+            fiducial_eq= [None]*len(pars[m_eq])
+            for i in range(len(pars[m_eq])):
+                if pars[m_eq][i].strip("*") in d: # strip * from derived parameters
+                    fiducial_eq[i] = d[pars[m_eq][i].strip("*")]
+            print("Parameters EQUAD:", pars[m_eq])
+            print("Reference values:", fiducial_eq)
+            fig = cornerplot(samples[burn:, m_eq], labels=pars[m_eq], weights=weights, truths=fiducial_eq, truth_color='r')
+            fig.savefig("%s.corner_equad.pdf" % psr.name)
+        else:
+            fig = cornerplot(samples[burn:, m_ef], labels=pars[m_ef], weights=weights,truths=pmax[m_ef]);
+            fig.savefig("%s.corner_efac.pdf" % psr.name)
+            fig = cornerplot(samples[burn:, m_eq], labels=pars[m_eq], weights=weights,truths=pmax[m_eq]);
+            fig.savefig("%s.corner_equad.pdf" % psr.name)
 
     # Plot posterior if requested.
     if args.plot_chain:

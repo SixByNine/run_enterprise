@@ -16,7 +16,7 @@ def setup_argparse(parser):
    parser.add_argument('--no-red-noise',dest='red',default=True,action='store_false', help='Disable Power Law Red Noise search')
    parser.add_argument('--Ared-max','-A',type=float,default=-12,help='Max log10A_Red')
    parser.add_argument('--Ared-min',type=float,default=-18,help='Min log10A_Red')
-   parser.add_argument('--red-gamma-max',type=float,default=8,help='Max gamma red')
+   parser.add_argument('--red-gamma-max',type=float,default=10,help='Max gamma red')
    parser.add_argument('--red-gamma-min',type=float,default=0,help='Min gamma red')
    parser.add_argument('--red-prior-log',action='store_true',help='Use uniform prior in log space for red noise amplitude')
    parser.add_argument('--red-ncoeff',type=int,default=60,help='Number of red noise coefficients (nC)')

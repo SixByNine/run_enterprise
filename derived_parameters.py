@@ -8,7 +8,7 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
 
     for i,p in enumerate(parnames):
         if p.startswith("GLF0(instant)"):
-            iglitch = int(p.split()[1])
+            iglitch = int(p.split('_')[1])
             if "GLF0D_{}".format(iglitch) in parnames:
                 glf0d = scaled_samples[:, parnames == "GLF0D_{}".format(iglitch)][:, 0]
                 glf0 = scaled_samples[:,i] - glf0d
@@ -19,7 +19,7 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
             derived_names.append("GLF0_{}".format(iglitch))
 
         if p.startswith("GLF0(T="):
-            iglitch = int(p.split()[1])
+            iglitch = int(p.split('_')[1])
             glaltf0t = int(args.glitch_alt_f0t)
             glf0_at_t =scaled_samples[:,i]
             if "GLF0D_{}".format(iglitch) in parnames:
@@ -28,7 +28,22 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
             else:
                 glf0d=0
                 gltd=1
-            glf1 = (glf0_at_t - glf0d * (np.exp(-glaltf0t / gltd) - 1)) / (glaltf0t * 86400.0)
+            if "GLF0D2_{}".format(iglitch) in parnames:
+                glf0d2 =scaled_samples[:,parnames=="GLF0D2_{}".format(iglitch)][:,0]
+                gltd2 = scaled_samples[:, parnames == "GLTD2_{}".format(iglitch)][:, 0]
+            else:
+                glf0d2=0
+                gltd2=1
+            # mod ly
+            if args.alt_f0t_gltd:
+                for line in parfile:
+                    e = line.strip().split()
+                    if len(e) > 1:
+                        if e[0].startswith("GLTD_"):
+                            if int(e[0][5:])==iglitch:
+                                glaltf0t = int(float(e[1]))
+            # mod ly
+            glf1 = (glf0_at_t - glf0d * (np.exp(-glaltf0t / gltd) - 1) - glf0d2 * (np.exp(-glaltf0t / gltd2) - 1)) / (glaltf0t * 86400.0)
             derived.append(glf1)
             derived_names.append("GLF1_{}".format(iglitch))
 
