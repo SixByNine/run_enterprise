@@ -14,6 +14,8 @@ def setup_argparse(parser):
     parser.add_argument('--plot-derived', action='store_true', help='Include derived parameters in corner plots etc.')
     parser.add_argument('--burn', default=0.25, help='Fraction of chain to burn-in (MC only; default=0.25)')
     parser.add_argument('--truth-file', default=None, help='Truths values of parameters; default=None') # mod ly
+    parser.add_argument('--dump-samples', default=0,type=int, help='Dump N samples of final scaled parameters')
+    parser.add_argument('--skip-plots', action='store_true', help="Skip all plotting (for debugging I guess)")
 
 def cornerplot(samples, labels, weights=None, truths=None, truth_color='cyan'): # mod ly
 
@@ -31,6 +33,8 @@ def cornerplot(samples, labels, weights=None, truths=None, truth_color='cyan'): 
 
 
 def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names,raw_results=None):
+    if args.skip_plots:
+        return
     print("Making plots....")
     if args.dynesty and args.dynesty_plots:
         try:
@@ -116,6 +120,29 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
 
 def write_results(args, psr, par, parfile, samples, loglike, weights, pars, derived,derived_names):
     burn = int(len(samples) * args.burn)
+
+    if args.dump_samples > 0:
+        print("Dump samples...")
+        with open(par+".samples","w") as outf:
+            for p in pars:
+                outf.write("{} ".format(p.replace(" ","_")))
+            outf.write("\n")
+            if weights is None:
+                equal_samples = samples[burn:, :len(pars)]
+            else:
+                equal_samples = dynesty.utils.resample_equal(samples[burn:, :len(pars)], weights)
+
+            idx = np.arange(len(equal_samples))
+            for i in np.random.choice(idx,args.dump_samples,replace=False):
+                s = equal_samples[i]
+                for p in s:
+                    outf.write("{} ".format(p))
+                outf.write("\n")
+
+
+
+
+
     outpar = par + ".post"
     resfname = par + ".results"
     with open(outpar, "w") as outf:
