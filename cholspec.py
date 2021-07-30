@@ -19,6 +19,7 @@ parser.add_argument("--simmodel", default=None, type=str, help="Overplot this si
 parser.add_argument("--export-sim", action='store_true')
 parser.add_argument("--test-fit", action='store_true')
 parser.add_argument("--savefig", default=None, type=str, help="Save Figure")
+parser.add_argument("--savetxt", action='store_true')
 
 parser.add_argument("--plot-samples",default=None,type=str,nargs="*")
 parser.add_argument("--samples-percentiles",action='store_true')
@@ -150,6 +151,8 @@ fig=plt.figure()
 
 f2 = np.logspace(np.log10(np.amin(f)),np.log10(np.amax(f)),1024)
 
+df = 86400.0 / (np.amax(psr.toas) - np.amin(psr.toas))
+
 if not args.plot_samples is None:
     for ff in args.plot_samples:
         with open(ff) as infile:
@@ -190,7 +193,7 @@ if not args.plot_samples is None:
             sigs = dat[pars == "T2Chol_QpSig", :][0]
             lams = dat[pars == "T2Chol_QpLam", :][0]
             for i,pp in enumerate(zip(amps,alphas,rats,f0s,sigs,lams)):
-                ff[i] =chol_red_model.pl_plus_qp_nudot_cutoff(f2, *pp, fref=0.1, fc=0.01)
+                ff[i] =chol_red_model.pl_plus_qp_nudot_cutoff(f2, *pp, fref=0.1, fc=0.01,df=df)
             ppplot(f2, ff, 'lightgreen', alpha)
 
 
@@ -203,6 +206,9 @@ if not args.plot_samples is None:
 
 plt.loglog(f,psd_f_yr3,color='blue')
 
+if args.savetxt:
+    np.savetxt("spec.txt", [f, psd_f_yr3])
+
 if not args.plot_t2 is None:
     x,y = np.loadtxt(args.plot_t2,usecols=(0,1),unpack=True)
     plt.loglog(x,y,color='black',label=args.plot_t2)
@@ -214,11 +220,15 @@ if logA!=0 and gamma!=0:
 if args.t2model:
     for fn in t2funcs:
         plt.loglog(f2,fn(f2),color='lightgreen',label='T2Model')
+        if args.savetxt:
+            np.savetxt("t2fun.txt",[f2,fn(f2)])
 
 if args.refmodel:
     _, reffuncs = read_t2_model(args.refmodel, psr, makecvm=False)
     for fn in reffuncs:
         plt.loglog(f2, fn(f2), color='green', label='Ref T2Model')
+        if args.savetxt:
+            np.savetxt("ref.txt",[f2,fn(f2)])
 
 if args.simmodel:
     CVM, simfuncs = read_t2_model(args.simmodel, psr, makecvm=args.export_sim)
@@ -234,10 +244,14 @@ if args.simmodel:
 if not args.reftn is None:
     tnModel_psd = cholspec.PSD(f2/365.25, fc_yr, *args.reftn)
     plt.loglog(f2, tnModel_psd, color='pink', label='Ref TN')
+    if args.savetxt:
+        np.savetxt("tn.txt",[f2,tnModel_psd])
 
 if not args.reftn_qp is None:
     tnModel_psd = cholspec.PSD_QP(f2/365.25, fc_yr, *args.reftn_qp,1/tspan)
     plt.loglog(f2, tnModel_psd, color='magenta', label='Ref TN QP')
+    if args.savetxt:
+        np.savetxt("tnqp.txt",[f2,tnModel_psd])
 
 
 

@@ -215,7 +215,7 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
 
             for line in parfile:
                 e = line.split()
-                if e[0] in pars \
+                if e[0] in pars or e[0] in derived_names \
                         or (e[0]=="RAJ" and "dRAJ" in pars) \
                         or (e[0]=="DECJ" and "dDECJ" in pars):
                     outf.write("#"+line)
@@ -256,7 +256,7 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
                                                                                                                   u)
                     resf.write(s + "\n")
                     print(s)
-                for p,v in zip(derived_names,pmax):
+                for p,v in zip(derived_names,dpmax):
                     outf.write("%s %s\n" % (p, v))
 
     return pars, pmax, ul, ll, means, medians, stds, ul68, ll68
