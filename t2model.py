@@ -23,6 +23,7 @@ def read_t2_model(file, psr, makecvm=True):
 
 
 def parse_model_line(line, psr, makecvm):
+    df = 86400.0/(np.amax(psr.toas)-np.amin(psr.toas))
     e = line.split()
     if e[0] == "MODEL":
         if e[1] == "T2PowerLaw":
@@ -41,11 +42,15 @@ def parse_model_line(line, psr, makecvm):
             qp_f0 = float(e[6])
             sig = float(e[7])
             lam = float(e[8])
+            print("sig",sig)
+            print("lam",lam)
+            if makecvm:
+                print("MODEL T2PowerLaw_QPc",alpha,A,fc,log_qp_ratio,qp_f0,sig,lam)
             cvm = None if not makecvm else chol_red_model.psd2cov(psr.toas, chol_red_model.pl_plus_qp_nudot_cutoff,
                                                                   np.log10(A), alpha,
-                                                                  log_qp_ratio, np.log10(qp_f0), sig, lam, fc, fc)
+                                                                  log_qp_ratio, np.log10(qp_f0), sig, lam, fc, fc,df)
             return cvm, lambda \
                     f: chol_red_model.pl_plus_qp_nudot_cutoff(f, np.log10(A), alpha, log_qp_ratio, np.log10(qp_f0),
-                                                              sig, lam, fc, fc)
+                                                              sig, lam, fc, fc,df)
         else:
             raise Exception("Sorry don't understand this model file", line)

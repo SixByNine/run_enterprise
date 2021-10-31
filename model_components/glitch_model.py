@@ -51,14 +51,14 @@ def setup_model(args, psr, parfile):
                 glitches[int(e[0][5:])] = {'EP': float(e[1])}
             elif e[0].startswith("GLF0D_"):
                 glitches[int(e[0][6:])]['F0D'] = float(e[1])
-                if args.auto_add and float(e[1]) != 0:
+                if args.auto_add:
                     args.glitch_recovery.append(int(e[0][6:]))
                     print("Add glitch[{}] to recovery".format(int(e[0][6:]))) # mod ly
             elif e[0].startswith("GLTD_"):
                 glitches[int(e[0][5:])]['TD'] = float(e[1])
             elif e[0].startswith("GLF0D2_"):
                 glitches[int(e[0][7:])]['F0D2'] = float(e[1])
-                if args.auto_add and float(e[1]) != 0:
+                if args.auto_add:
                     args.glitch_double_recovery.append(int(e[0][7:]))
                     print("Add glitch[{}] to double recovery".format(int(e[0][7:]))) # mod ly
             elif e[0].startswith("GLTD2_"):
@@ -73,6 +73,9 @@ def setup_model(args, psr, parfile):
         for gl in args.glitch_recovery:
             if "GLF0D_{}".format(gl) in psr.fitpars or "GLTD_{}".format(gl) in psr.fitpars:
                 print("ERROR: Can't fit for GLF0D/GLTD in both MCMC and least-squares")
+                sys.exit(1)
+            if "GLF0D2_{}".format(gl) in psr.fitpars or "GLT2D_{}".format(gl) in psr.fitpars:
+                print("ERROR: Can't fit for GLF0D2/GLTD2 in both MCMC and least-squares")
                 sys.exit(1)
         for gl in args.glitches:
             if "GLF0_{}".format(gl) in psr.fitpars or "GLF1_{}".format(gl) in psr.fitpars:
@@ -104,16 +107,13 @@ def setup_model(args, psr, parfile):
                 glf0d = glitches[gl]['F0D']
             if 'TD' in glitches[gl]:
                 gltd = glitches[gl]['TD']
-            # mod ly
             if 'F0D2' in glitches[gl]:
                 glf0d2 = glitches[gl]['F0D2']
             if 'TD2' in glitches[gl]:
                 gltd2 = glitches[gl]['TD2']
-            # mod ly
             # This is the 'old model'
 
-            glitches[gl]['old_model'] = model_glitch(psr.toas, f0, glep, glf0, glf1, glf2, glf0d, gltd)
-            glitches[gl]['old_model'] += model_glitch(psr.toas, f0, glep, glf0d=glf0d2, gltd=gltd2) # mod ly
+            glitches[gl]['old_model'] = model_glitch(psr.toas, f0, glep, glf0, glf1, glf2, glf0d, gltd, glf0d2, gltd2)
     
             # mod ly
             if args.glitch_alt_f0t:
@@ -123,9 +123,9 @@ def setup_model(args, psr, parfile):
                     glf0t = int(args.glitch_alt_f0t)
                 k_pre, k_post, k_200 = slope_range(psr.toas, f0*psr.residuals, psr.toaerrs, glep, glf0t, np.abs(args.measured_sigma))
                 if args.measured_without:
-                    glf0_i_range, glf0_t_range = prior_range(k_pre, k_post, k_200, glf0t, None, None, None, None)
+                    glf0_i_range, glf0_t_range = prior_range(k_pre, k_post, k_200, glf0t, None, None, glf0d, gltd, glf0d2, gltd2)
                 else:
-                    glf0_i_range, glf0_t_range = prior_range(k_pre, k_post, k_200, glf0t, glf0, glf1, glf0d, gltd)
+                    glf0_i_range, glf0_t_range = prior_range(k_pre, k_post, k_200, glf0t, glf0, glf1, glf0d, gltd, glf0d2, gltd2)
                 print("Measured mean GLF0(instant):", glf0_i_range[1])
                 print("Measured mean GLF0(T=%d):"%glf0t, glf0_t_range[1])
                 print("Measured range", glf0_i_range, glf0_t_range)
@@ -141,10 +141,11 @@ def setup_model(args, psr, parfile):
             glf0_range = sorted([glf0 - args.glitch_f0_range*glf0, glf0 + args.glitch_f0_range*glf0])
             glf1_range = sorted([glf1 - args.glitch_f1_range*glf1, glf1 + args.glitch_f1_range*glf1])
             glf0d_range = [-args.glitch_f0d_range*abs(glf0)+glf0d, args.glitch_f0d_range*abs(glf0)+glf0d]
+            glf0d2_range = [-args.glitch_f0d_range*abs(glf0)+glf0d2, args.glitch_f0d_range*abs(glf0)+glf0d2]
             if args.glitch_f0d_positive and glf0d_range[0]<0:
                 glf0d_range[0]=0
 
-            if args.glitch_f2_range is None:
+            if glf2==0 or args.glitch_f2_range is None:
                 glf2=parameter.Constant(glf2*1e18)
             else:
                 glf2_range = sorted([glf2 - args.glitch_f2_range * glf2, glf2 + args.glitch_f2_range * glf2])
@@ -155,7 +156,7 @@ def setup_model(args, psr, parfile):
                     glf0_alt_range = glf0_i_range
                     glf0_alt = parameter.Uniform(glf0_alt_range[0] * 1e6, glf0_alt_range[1] * 1e6, to_par=to_par)("GLF0(instant)_{}".format(gl))
                 else:
-                    glf0_alt_range = [glf0_range[0] + glf0d_range[0], glf0_range[1] + glf0d_range[1]]
+                    glf0_alt_range = [glf0_range[0] + glf0d_range[0] + glf0d2_range[0], glf0_range[1] + glf0d_range[1] + glf0d2_range[1]]
                     glf0_alt = parameter.Uniform(glf0_alt_range[0] * 1e6, glf0_alt_range[1] * 1e6, to_par=to_par)("GLF0(instant)_{}".format(gl))
                 print("GLF0(instant) range", glf0_alt_range)# mod ly
             else:
@@ -173,7 +174,7 @@ def setup_model(args, psr, parfile):
                     glf0t = parameter.Constant(glf0t)
                 else:
                     #glf0t = int(args.glitch_alt_f0t)
-                    glf0_at_t_range = [glf0t * 86400 * glf1_range[0] - glf0d_range[1], glf0t * 86400 * glf1_range[1]]
+                    glf0_at_t_range = [glf0t * 86400 * glf1_range[0] - glf0d_range[1] - glf0d2_range[1], glf0t * 86400 * glf1_range[1]]
                     glf0_at_t = parameter.Uniform(glf0_at_t_range[0] * 1e6, glf0_at_t_range[1] * 1e6, to_par=to_par)("GLF0(T={:d})_{}".format(glf0t,gl))  # units of 10^-6
                     print("GLF0(T=%d) range"%glf0t, glf0_at_t_range)# mod ly
                     glf1=None
@@ -197,26 +198,26 @@ def setup_model(args, psr, parfile):
                 if gl in args.glitch_double_recovery:
                     if args.glitch_td_range is None:
                         td = parameter.Uniform(args.glitch_td_min, args.glitch_td_split, to_par=to_par)("GLTD_{}".format(gl))
-                        f0d_2 = parameter.Uniform(glf0d_range[0]*1e6, glf0d_range[1]*1e6, to_par=to_par)(
+                        f0d_2 = parameter.Uniform(glf0d2_range[0]*1e6, glf0d2_range[1]*1e6, to_par=to_par)(
                         "GLF0D2_{}".format(gl))  # units of 10^-6
                         td_2 = parameter.Uniform(args.glitch_td_split, args.glitch_td_max, to_par=to_par)("GLTD2_{}".format(gl))
                     else:
                         gltd_range = sorted([10**(-args.glitch_td_range)*gltd, 10**(args.glitch_td_range)*gltd])
-                        gltd2_range = sorted([10**(-args.glitch_td_range)*gltd, 10**(args.glitch_td_range)*gltd])
+                        gltd2_range = sorted([10**(-args.glitch_td_range)*gltd2, 10**(args.glitch_td_range)*gltd2])
                         td = parameter.Uniform(np.log10(gltd_range[0]), np.log10(gltd_range[1]), to_par=to_par)("GLTD_{}".format(gl))
-                        f0d_2 = parameter.Uniform(glf0d_range[0]*1e6, glf0d_range[1]*1e6, to_par=to_par)(
+                        f0d_2 = parameter.Uniform(glf0d2_range[0]*1e6, glf0d2_range[1]*1e6, to_par=to_par)(
                         "GLF0D2_{}".format(gl))  # units of 10^-6
                         td_2 = parameter.Uniform(np.log10(gltd2_range[0]), np.log10(gltd2_range[1]), to_par=to_par)("GLTD2_{}".format(gl))
                 # mod ly
                 else:
-                    f0d_2 = None
-                    td_2 = None
+                    f0d_2 = parameter.Constant(0)
+                    td_2 = parameter.Constant(1)
 
             else:
                 f0d = parameter.Constant(0)
-                td = parameter.Constant(0)
+                td = parameter.Constant(1)
                 f0d_2 = parameter.Constant(0)
-                td_2 = parameter.Constant(0)
+                td_2 = parameter.Constant(1)
 
             glexp = model_glitch_residual(f0=parameter.Constant(f0), glep=glep,
                                           glf0=glf0, glf1=glf1, glf0d=f0d, log10_td=td,
@@ -253,7 +254,7 @@ def to_par(self, p, chain):
         return p,chain
 
 
-def model_glitch(toas, f0, glep, glf0=0, glf1=0, glf2=0, glf0d=0, gltd=1):
+def model_glitch(toas, f0, glep, glf0=0, glf1=0, glf2=0, glf0d=0, gltd=1, glf0d2=0, gltd2=1):
     t = toas - glep * 86400.0
     m = t >= 0
     glif = np.zeros_like(toas)
@@ -262,7 +263,10 @@ def model_glitch(toas, f0, glep, glf0=0, glf1=0, glf2=0, glf0d=0, gltd=1):
 
     expf = np.zeros_like(toas) + 1.0  # Cancel recovery when t<0
     expf[m] = np.exp(-t[m] / (gltd * 86400.0))  # No +1.0!
+    expf2 = np.zeros_like(toas) + 1.0  # Cancel recovery when t<0
+    expf2[m] = np.exp(-t[m] / (gltd2 * 86400.0))  # No +1.0!
     phs += - glf0d * gltd * 86400 * (1.0 - expf)
+    phs += - glf0d2 * gltd2 * 86400 * (1.0 - expf2)
 
     return phs / f0
 
@@ -273,18 +277,14 @@ def model_glitch_residual(toas, f0, glep, glf0, glf1=0, glf2=0, glf0d=0, log10_t
 
     ## add conversion for alternative glitch parameters
     if not glf0_alt is None:
-        glf0 = (glf0_alt - glf0d)
+        glf0 = (glf0_alt - glf0d - glf0d2)
 
     if not glf0t is None:
         ## note glf0_at_t and glf0d are in units of 1e-6... glf1 should be in units of 1e-12
-        glf1 = 1e6 * (glf0_at_t - glf0d * (np.exp(-glf0t / 10 ** log10_td) - 1)) / (glf0t * 86400.0)
+        glf1 = 1e6*(glf0_at_t - glf0d*(np.exp(-glf0t/10**log10_td)-1) - glf0d2*(np.exp(-glf0t/10**log10_td2)-1)) / (glf0t*86400.0)
 
-    ret = model_glitch(toas, f0=f0, glep=glep, glf0=glf0 * 1e-6, glf1=glf1 * 1e-12, glf2=glf2 * 1e-18, glf0d=glf0d * 1e-6, gltd=10**log10_td)
+    ret = model_glitch(toas, f0=f0, glep=glep, glf0=glf0*1e-6, glf1=glf1*1e-12, glf2=glf2*1e-18, glf0d=glf0d*1e-6, gltd=10**log10_td, glf0d2=glf0d2*1e-6, gltd2=10**log10_td2) # add 2nd recovery if needed
     ret -= glitches[int(glitch_id)]['old_model'] # remove old glitch
-
-    # add 2nd recovery if needed
-    if not glf0d2 is None:
-        ret += model_glitch(toas, f0=f0, glep=glep, glf0d=glf0d2 * 1e-6, gltd=10 ** log10_td2)
     return ret
 
 # mod ly

@@ -3,7 +3,7 @@
 from __future__ import division, print_function
 import matplotlib
 
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 import numpy as np
 
 import model_components
@@ -107,7 +107,6 @@ class CholModel:
             get_ndiag = getattr(f, "get_ndiag", None)
             if not get_ndiag is None:
                 diags += get_ndiag(params=params)
-
         CVM += np.diag(diags)
         L = linalg.cholesky(CVM, lower=True)
 
