@@ -1,3 +1,5 @@
-__pycache__ 
-samplers/__pycache__
+__pycache__
+__pycache__/* 
+samplers/__pycache__/
+samplers/__pycache__/*
 .idea
