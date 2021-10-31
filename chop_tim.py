@@ -106,14 +106,6 @@ for ig in gg:
             del glitches[ig]
         else:
             print("Glitch[{}] cannot merge as double recovery of glitch[{}] or [{}]".format(ig, idxpre, idxpost))
-    if float(glitches[ig]['GLTD']) > float(glitches[ig]['GLTD2']):
-        print("Sort the order of two recoveries in glitch[{}]".format(ig))
-        tmp_glf0d = glitches[ig]['GLF0D']
-        tmp_gltd = glitches[ig]['GLTD']
-        glitches[ig]['GLF0D'] = glitches[ig]['GLF0D2']
-        glitches[ig]['GLTD'] = glitches[ig]['GLTD2']
-        glitches[ig]['GLF0D2'] = tmp_glf0d
-        glitches[ig]['GLTD2'] = tmp_gltd
 
 newgg = sorted(glitches,key=lambda x: glitches[x]['epoch'])
 print("New time-order is",newgg)
