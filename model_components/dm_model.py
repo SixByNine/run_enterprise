@@ -12,7 +12,7 @@ def setup_argparse(parser):
     parser.add_argument('-D', '--dm', action='store_true', help='Enable DM variation search')
     parser.add_argument('--Adm-max', type=float, default=-12, help='Max log10A_DM')
     parser.add_argument('--Adm-min', type=float, default=-18, help='Min log10A_DM')
-    parser.add_argument('--dm-ncoeff', type=float, default=None, help='Number of DM bins to use')
+    parser.add_argument('--dm-ncoeff', type=int, default=None, help='Number of DM bins to use')
 
 
 
