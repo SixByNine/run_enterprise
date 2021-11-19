@@ -5,6 +5,8 @@ import enterprise.constants as const
 from enterprise.signals.selections import Selection
 from enterprise.signals import selections
 
+from enterprise.signals import deterministic_signals
+
 name="DM Variations"
 argdec="Parameters for fitting dm variations"
 
@@ -15,7 +17,8 @@ def setup_argparse(parser):
     parser.add_argument('--dm-ncoeff', type=int, default=None, help='Number of DM bins to use')
     parser.add_argument('--dm-prior-log', action='store_true',
                         help='Use uniform prior in log space for dm noise amplitude')
-
+    parser.add_argument('--dm1', type=float, default=None, help="fit for DM1")
+    parser.add_argument('--dm2', type=float, default=None, help="fit for DM2")
 
 
 
@@ -44,6 +47,36 @@ def setup_model(args, psr, parfile):
         gamma_dm = parameter.Uniform(0,5,to_par=to_par)('DM_gamma')
         pldm = powerlaw_nogw(log10_A=log10_Adm, gamma=gamma_dm)
         dm = FourierBasisGP_DM(spectrum=pldm, components=nC, Tspan=Tspan)
+
+
+    if (not args.dm1 is None) or (not args.dm2 is None):
+        DMEPOCH=55000
+        orig_dm1=0
+        orig_dm2=0
+        for line in parfile:
+            e = line.strip().split()
+            if len(e) > 1:
+                if e[0] == "DM1":
+                    orig_dm1 = float(e[1])
+                if e[0] == "DM2":
+                    orig_dm1 = float(e[1])
+                elif e[0] == "DMEPOCH":
+                    DMEPOCH = float(e[1])
+        if args.dm1 is None:
+            dm1=parameter.Constant(0)
+        else:
+            dm1 = parameter.Uniform(orig_dm1 - args.dm1, orig_dm1+args.dm1,to_par=to_par)("DM1")
+        if args.dm2 is None:
+            dm2=parameter.Constant(0)
+        else:
+            dm2 = parameter.Uniform(orig_dm2-args.dm2, orig_dm2+args.dm2,to_par=to_par)("DM2")
+        dm_poly = deterministic_signals.Deterministic(fit_dm_poly(dmepoch=parameter.Constant(DMEPOCH),dm1=dm1,dm2=dm2))
+
+        if dm is None:
+            dm=dm_poly
+        else:
+            dm+=dm_poly
+
     return dm
 
 @signal_base.function
@@ -74,5 +107,17 @@ def to_par(self,p,chain):
       return "TNDMAmp", chain - dm_scale_factor
    if "DM_gamma" in p:
       return "TNDMGam", chain
+   if "DM1" in p:
+       return "DM1", chain
+   if "DM2" in p:
+       return "DM2", chain
    else:
-      return None
+       return None
+
+
+@signal_base.function
+def fit_dm_poly(toas, freqs, dmepoch, dm1, dm2):
+    x_yr = (toas/86400.0 - dmepoch)/365.25
+    delta_dm = x_yr*dm1 + 0.5*x_yr*x_yr*dm2
+    t = (freqs**-2)*delta_dm/2.41e-4
+    return t

@@ -102,14 +102,17 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
             poly = leg.convert(kind=polynomial.polynomial.Polynomial, domain=domain,window=domain)
             df0[s] = poly.coef[1]*f0
             df1[s] = 2*poly.coef[2]*f0
-            df2[s] = 6*poly.coef[3]*f0
+            if "L3" in parnames:
+                df2[s] = 6*poly.coef[3]*f0
 
         derived.append(df0)
         derived.append(df1)
-        derived.append(df2)
+        if "L3" in parnames:
+            derived.append(df2)
         derived_names.append("dF0")
         derived_names.append("dF1")
-        derived_names.append("F2")
+        if "L3" in parnames:
+            derived_names.append("F2")
 
     return np.array(derived).T,derived_names
 
