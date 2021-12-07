@@ -4,13 +4,10 @@ import glob
 from argparse import ArgumentParser
 
 parser=ArgumentParser()
-parser.add_argument("-t","--t",default="200",type=float,help="Replace GLF1 with change of spin frequency 'T' days after the glitch")
-parser.add_argument("-fc","--fc",default="0.02",type=float,help="Corner frequency")
-parser.add_argument('-gltd',action='store_true',help="Replace GLF1 with change of spin frequency 'gltd' days after the glitch") # mod ly
+parser.add_argument("-t", "--t", type=int, default=[200]*10, nargs='+', help="Replace GLF1 with change of spin frequency 'T' days after the glitch respectively")
+parser.add_argument("-fc", "--fc", default="0.02", type=float, help="Corner frequency")
+parser.add_argument('-gltd', action='store_true', help="Replace GLF1 with change of spin frequency 'gltd' days after the glitch for all glitches")
 arg=parser.parse_args()
-
-t200 = arg.t
-fc = arg.fc
 
 file_name_list = glob.glob('*_final.par')
 file_name_list.sort()
@@ -37,6 +34,10 @@ for i in range(len(file_name_list)):
                     glitches[int(e[0][7:])]['F0D2'] = float(e[1])
                 elif e[0].startswith("GLTD2_"):
                     glitches[int(e[0][6:])]['TD2'] = float(e[1])
+                elif e[0].startswith("GLF0D3_"):
+                    glitches[int(e[0][7:])]['F0D3'] = float(e[1])
+                elif e[0].startswith("GLTD3_"):
+                    glitches[int(e[0][6:])]['TD3'] = float(e[1])
                 elif e[0].startswith("GLF0_"):
                     glitches[int(e[0][5:])]['F0'] = float(e[1])
                 elif e[0].startswith("GLF1_"):
@@ -52,8 +53,8 @@ for i in range(len(file_name_list)):
     with open('%s_truth.txt'%pulsar_name[i], 'w') as truthfile:
         for gl in glitches:
             glf0=glf1=glf2=glf0_i=glf0_T=None
-            glf0d=glf0d2=0
-            gltd=gltd2=arg.t
+            glf0d=glf0d2=glf0d3=0
+            gltd=gltd2=gltd3=arg.t
             glep = glitches[gl]['EP']
             truthfile.write('GLEP_%i   %f\n'%(gl, glep))
             if 'F0' in glitches[gl]:
@@ -77,16 +78,26 @@ for i in range(len(file_name_list)):
             if 'TD2' in glitches[gl]:
                 gltd2 = glitches[gl]['TD2']
                 truthfile.write('GLTD2_%i   %f\n'%(gl, gltd2))
+            if 'F0D3' in glitches[gl]:
+                glf0d2 = glitches[gl]['F0D3']
+                truthfile.write('GLF0D3_%i   %e\n'%(gl, glf0d3))
+            if 'TD3' in glitches[gl]:
+                gltd3 = glitches[gl]['TD3']
+                truthfile.write('GLTD3_%i   %f\n'%(gl, gltd3))
             if all(p is not None for p in [glf0, glf1]):
                 if arg.gltd:
-                    t200 = gltd
-                glf0_i = glf0 + glf0d + glf0d2
-                glf0_T = glf1*t200*86400+glf0d*(np.exp(-t200/gltd)-1)+glf0d2*(np.exp(-t200/gltd2)-1)
+                    taug = gltd
+                elif gl<=len(arg.t):
+                    taug = arg.t[gl-1]
+                else:
+                    taug = 200
+                glf0_i = glf0 + glf0d + glf0d2 + glf0d3
+                glf0_T = glf1*taug*86400+glf0d*(np.exp(-taug/gltd)-1)+glf0d2*(np.exp(-taug/gltd2)-1)+glf0d3*(np.exp(-taug/gltd3)-1)
                 truthfile.write('GLF0(instant)_%i   %e\n'%(gl, glf0_i))
-                truthfile.write('GLF0(T=%d)_%i   %e\n'%(t200, gl, glf0_T))
+                truthfile.write('GLF0(T=%d)_%i   %e\n'%(taug, gl, glf0_T))
         if all(p is not None for p in [redamp, redgam]):
             alpha = redgam
-            P0 = ((redamp**2)/(12*np.pi**2))*(fc**(-alpha))
+            P0 = ((redamp**2)/(12*np.pi**2))*(arg.fc**(-alpha))
             truthfile.write('TNRedAmp   %f\n'%redamp)
             truthfile.write('TNRedGam   %f\n'%redgam)
             truthfile.close()

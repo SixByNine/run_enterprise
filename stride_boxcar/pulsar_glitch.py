@@ -42,7 +42,7 @@ def lin_fit(t, mjd, yoffs):
 
 class Pulsar:
     '''A pulsar class consists basic info of pulsar'''
-    def __init__(self, parfile, timfile):
+    def __init__(self, parfile, timfile, tidy=False, glf0t="GLTD"):
         '''Initialize pulsar class with corresponding par file and tim file'''
         self.par = parfile
         self.tim = timfile
@@ -50,9 +50,9 @@ class Pulsar:
         self.ra = None
         self.dec = None
         self.PB = None
-        self.F0 = None
-        self.F1 = None
-        self.F2 = None
+        self.F0 = 0
+        self.F1 = 0
+        self.F2 = 0
         self.start = None
         self.finish = None
         self.pepoch = None
@@ -61,9 +61,9 @@ class Pulsar:
         self.truth = None
         self.epochfile = None
         self.datafile = None
-        self.load_info()
+        self.load_info(tidy=tidy, glf0t=glf0t)
 
-    def load_info(self, tidy=False):
+    def load_info(self, tidy=False, glf0t="GLTD"):
         '''Load basic info of pulsar class from par file and tim file'''
         if tidy==False or self.tidypar==None:
             loadpar = self.par
@@ -78,6 +78,8 @@ class Pulsar:
         self.pgltd = np.ones(100)
         self.pglf0d2 = np.zeros(100)
         self.pgltd2 = np.ones(100)
+        self.pglf0d3 = np.zeros(100)
+        self.pgltd3 = np.ones(100)
         self.taug = 200*np.ones(100)
         self.pglf0ins = np.zeros(100)
         self.pglf0tg = np.zeros(100)
@@ -118,6 +120,12 @@ class Pulsar:
                 if e[0].startswith("GLF0D2_"):
                     i = int(e[0][7:])
                     self.pglf0d2[i-1] = float(e[1])
+                if e[0].startswith("GLTD3_"):
+                    i = int(e[0][6:])
+                    self.pgltd3[i-1] = float(e[1])
+                if e[0].startswith("GLF0D3_"):
+                    i = int(e[0][7:])
+                    self.pglf0d3[i-1] = float(e[1])
                 if e[0].startswith("GLF0(T="):
                     i = int(e[0].split('_')[-1])
                     numb = e[0].split('=')[1]
@@ -141,16 +149,28 @@ class Pulsar:
                 if e[0] == "TNRedGam":
                     self.redgam = float(e[1])
         for i in range(self.max_glitch):
+            if glf0t == "GLTD":
+                if self.pgltd[i] != 1:
+                    self.taug[i] = int(self.pgltd[i])
+                if self.pgltd2[i] != 1:
+                    self.taug[i] = int(min(self.taug[i], self.pglt2[i]))
+                if self.pgltd3[i] != 1:
+                    self.taug[i] = int(min(self.taug[i], self.pglt3[i]))
+            elif i<len(glf0t):
+                self.taug[i] = int(glf0t[i])
+            else:
+                continue
             self.pglf0ins[i] = self.pglf0[i]
             self.pglf0tg[i] = self.pglf1[i] * self.taug[i] + 0.5 * self.pglf2[i] * self.taug[i]**2
             if self.pglf0d[i] != 0:
-                if self.taug[i] == 200:
-                    self.taug[i] = int(self.pgltd[i])
                 self.pglf0ins[i] += self.pglf0d[i]
                 self.pglf0tg[i] += self.pglf0d[i]*(np.exp(-self.taug[i]/self.pgltd[i])-1)
             if self.pglf0d2[i] != 0:
                 self.pglf0ins[i] += self.pglf0d2[i]
                 self.pglf0tg[i] += self.pglf0d2[i]*(np.exp(-self.taug[i]/self.pgltd2[i])-1)
+            if self.pglf0d3[i] != 0:
+                self.pglf0ins[i] += self.pglf0d3[i]
+                self.pglf0tg[i] += self.pglf0d3[i]*(np.exp(-self.taug[i]/self.pgltd3[i])-1)
         # Load tim file info
         self.minmjds = 1e6
         self.maxmjds = 0
@@ -204,6 +224,8 @@ class Pulsar:
         self.pgltd = self.pgltd[:self.max_glitch]
         self.pglf0d2 = self.pglf0d2[:self.max_glitch]
         self.pgltd2 = self.pgltd2[:self.max_glitch]
+        self.pglf0d3 = self.pglf0d3[:self.max_glitch]
+        self.pgltd3 = self.pgltd3[:self.max_glitch]
         self.taug = self.taug[:self.max_glitch]
         self.pglf0ins = self.pglf0ins[:self.max_glitch]
         self.pglf0tg = self.pglf0tg[:self.max_glitch]
@@ -229,9 +251,13 @@ class Pulsar:
                     f.write('GLF0D2_%i   %e\n'%(idx, self.pglf0d2[gi]))
                 if self.pgltd2[gi] != 0:
                     f.write('GLTD2_%i   %f\n'%(idx, self.pgltd2[gi]))
+                if self.pglf0d3[gi] != 0:
+                    f.write('GLF0D3_%i   %e\n'%(idx, self.pglf0d3[gi]))
+                if self.pgltd3[gi] != 0:
+                    f.write('GLTD3_%i   %f\n'%(idx, self.pgltd3[gi]))
                 if self.pglf0[gi] != 0 and self.pglf1[gi] != 0:
-                    #glf0_i = glf0 + glf0d + glf0d2
-                    #glf0_T = glf1*t200*86400+glf0d*(np.exp(-t200/gltd)-1)+glf0d2*(np.exp(-t200/gltd2)-1)
+                    #glf0_i = glf0 + glf0d + glf0d2 + glf0d3
+                    #glf0_T = glf1*t200*86400+glf0d*(np.exp(-t200/gltd)-1)+glf0d2*(np.exp(-t200/gltd2)-1)+glf0d3*(np.exp(-t200/gltd3)-1)
                     f.write('GLF0(instant)_%i   %e\n'%(idx, self.pglf0ins[gi]))
                     f.write('GLF0(T=%d)_%i   %e\n'%(self.taug[gi], idx, self.pglf0tg[gi]))
             if all(p is not None for p in [self.redamp, self.redgam]):
@@ -241,10 +267,11 @@ class Pulsar:
                 f.write('TNRedGam   %f\n'%self.redgam)
 
     def tidy_glitch(self, chop=None):
-        ''' Convert double recovery into (old) tempo2 style by creating a new glitch.
+        ''' Sort the recovery terms according to their time scale.
             Chop tim file and only keep TOAs from chop days before first glitch to chop days after the last glitch'''
-        parlines = []
         glitches = {}
+        parlines = []
+        timlines = []
         with open(self.par) as f1:
             for line in f1:
                 if line.startswith("GL"):
@@ -265,12 +292,27 @@ class Pulsar:
         #for ig in glitches:
             #print("glitch[{}] epoch {} turns {}".format(ig,glitches[ig]['epoch'],glitches[ig]['turns']))
         gg = sorted(glitches, key=lambda x: glitches[x]['epoch'])
-        #print("Time-order is",gg)
-        i = 1
         for ig in gg:
-            glitches[ig]['newid'] = i
-            i += 1
-        timlines = []
+            if "GLTD" in glitches[ig]:
+                if "GLTD2" in glitches[ig]: # Swap 1st and 2nd recoveries if the 1st longer than 2nd
+                    if glitches[ig]['GLTD'] > glitches[ig]['GLTD2']:
+                        glitches[ig]['GLF0D'], glitches[ig]['GLF0D2'] = glitches[ig]['GLF0D2'], glitches[ig]['GLF0D']
+                        glitches[ig]['GLTD'], glitches[ig]['GLTD2'] = glitches[ig]['GLTD2'], glitches[ig]['GLTD']
+                if "GLTD3" in glitches[ig]: # Swap 1st and 3rd recoveries if the 1st longer than 3rd
+                    if glitches[ig]['GLTD'] > glitches[ig]['GLTD3']:
+                        glitches[ig]['GLF0D'], glitches[ig]['GLF0D3'] = glitches[ig]['GLF0D3'], glitches[ig]['GLF0D']
+                        glitches[ig]['GLTD'], glitches[ig]['GLTD3'] = glitches[ig]['GLTD3'], glitches[ig]['GLTD']
+                    if "GLTD2" in glitches[ig] and glitches[ig]['GLTD2'] > glitches[ig]['GLTD3']:
+                        glitches[ig]['GLF0D2'], glitches[ig]['GLF0D3'] = glitches[ig]['GLF0D3'], glitches[ig]['GLF0D2']
+                        glitches[ig]['GLTD2'], glitches[ig]['GLTD3'] = glitches[ig]['GLTD3'], glitches[ig]['GLTD2']
+        self.tidypar = "tdy_"+self.par.split('_', 1)[1]
+        with open(self.tidypar,"w") as f1:
+            f1.writelines(parlines)
+            for ig in gg:
+                for param in glitches[ig]:
+                    if param in ["epoch","turns"]:
+                        continue
+                    f1.write("{}_{} {}\n".format(param,glitches[ig]['newid'],glitches[ig][param]))
         with open(self.tim) as f2:
             for line in f2:
                 e = line.split()
@@ -300,30 +342,6 @@ class Pulsar:
             self.tim = "chp_"+self.psrn+".tim"
         with open(self.tim,"w") as f2:
             f2.writelines(timlines)
-        nextid = len(glitches)+1
-        for ig in gg:
-            if "GLF0D2" in glitches[ig]:
-                print("Creating extra glitch {} to account for second recovery term".format(nextid))
-                glitches[nextid] = {}
-                glitches[nextid]['newid'] = nextid
-                glitches[nextid]['turns'] = 0
-                glitches[nextid]['epoch'] = glitches[ig]['epoch']
-                glitches[nextid]['GLEP'] = glitches[ig]['epoch']
-                glitches[nextid]['GLF0D'] = glitches[ig]['GLF0D2']
-                glitches[nextid]['GLTD'] = glitches[ig]['GLTD2']
-                del glitches[ig]['GLF0D2']
-                del glitches[ig]['GLTD2']
-                gg.append(nextid)
-                nextid += 1
-        self.tidypar = "tdy_"+self.par.split('_', 1)[1]
-        with open(self.tidypar,"w") as f:
-            f.writelines(parlines)
-            for ig in gg:
-                for param in glitches[ig]:
-                    if param in ["epoch","turns","newid"]:
-                        continue
-                    f.write("{}_{} {}\n".format(param,glitches[ig]['newid'],glitches[ig][param]))
-
 
     def noglitch_par(self):
         ''' Make a copy of par file without glitch parameters'''
@@ -338,7 +356,7 @@ class Pulsar:
                     parlines.append(line)
                 else:
                     e = line.split()
-                    if len(e) > 2 and float(e[2]) == 1:
+                    if len(e) > 3 and float(e[2]) == 1:
                         # Turn off tempo2 fitting of all other parameters
                         newline = e[0]+'   '+e[1]+'   '+e[3]+'\n'
                         parlines.append(newline)
@@ -436,10 +454,10 @@ class Pulsar:
         sft, f0, f0e, f1, f1e = np.loadtxt(self.datafile, usecols=(0, 1, 2, 3, 4), unpack=True)
         sfx = mjd2sec(sft, self.pepoch)
         sff1, sff2, sfdf2 = self.psr_taylor_terms(sfx)
-        sfglf0, sfglf1, sfglf2, sfexp1, sfexp2, sfdglf1, sfdglf2, sfdexp = self.glitch_terms(sft)
+        sfglf0, sfglf1, sfglf2, sfexp1, sfexp2, sfexp3, sfdglf1, sfdglf2, sfdexp = self.glitch_terms(sft)
         p1y = (f0 - self.F0 - sff1 - sff2)
         p2y = (f0 - self.F0 - sff1 - sff2 - sfglf0 - sfglf1 - sfglf2)
-        p3y = (f0 - self.F0 - sff1 - sff2 - sfglf0 - sfglf1 - sfglf2 - sfexp1 - sfexp2)
+        p3y = (f0 - self.F0 - sff1 - sff2 - sfglf0 - sfglf1 - sfglf2 - sfexp1 - sfexp2 - sfexp3)
         p4y = (f1 - self.F1 - sfdf2)
         p5y = (f1 - self.F1 - sfdf2 - sfdglf1 - sfdglf2 + sfdexp)
         if save:
@@ -495,6 +513,7 @@ class Pulsar:
             print("GLF2:", self.pglf2[index-1])
             print("GLF0D_1:", self.pglf0d[index-1], " - GLTD_1", self.pgltd[index-1])
             print("GLF0D2_1:", self.pglf0d2[index-1], " - GLTD2_1", self.pgltd2[index-1])
+            print("GLF0D3_1:", self.pglf0d3[index-1], " - GLTD3_1", self.pgltd3[index-1])
             print("Initial jump (GLFO(instant)_1):", self.pglf0ins[index-1])
             print("Decay jump (GLFO(tau_g)_1):", self.pglf0tg[index-1])
             print("tau_g:", self.taug[index-1])
@@ -508,6 +527,7 @@ class Pulsar:
                 print("GLF2:", self.pglf2[i])
                 print("GLF0D_1:", self.pglf0d[i], " - GLTD_1", self.pgltd[i])
                 print("GLF0D2_1:", self.pglf0d2[i], " - GLTD2_1", self.pgltd2[i])
+                print("GLF0D3_1:", self.pglf0d3[i], " - GLTD3_1", self.pgltd3[i])
                 print("Initial jump (GLFO(instant)_1):", self.pglf0ins[i])
                 print("Decay jump (GLFO(tau_g)_1):", self.pglf0tg[i])
                 print("tau_g:", self.taug[i])
@@ -520,6 +540,7 @@ class Pulsar:
         glf2 = np.zeros_like(t)
         exp1 = np.zeros_like(t)
         exp2 = np.zeros_like(t)
+        exp3 = np.zeros_like(t)
         dglf1 = np.zeros_like(t)
         dglf2 = np.zeros_like(t)
         dexp = np.zeros_like(t)
@@ -531,9 +552,10 @@ class Pulsar:
             glf2[x > 0] += 0.5 * self.pglf2[gn] * x[x > 0]**2
             exp1[x > 0] += self.pglf0d[gn] * np.exp(-x[x > 0] / (self.pgltd[gn]*86400.0))
             exp2[x > 0] += self.pglf0d2[gn] * np.exp(-x[x > 0] / (self.pgltd2[gn]*86400.0))
+            exp3[x > 0] += self.pglf0d3[gn] * np.exp(-x[x > 0] / (self.pgltd3[gn]*86400.0))
             dglf1[x > 0] += self.pglf1[gn]
             dglf2[x > 0] += self.pglf2[gn] * x[x > 0]
-            dexp[x > 0] += exp1[x > 0] / (self.pgltd[gn]*86400) + exp2[x > 0] / (self.pgltd2[gn]*86400)
+            dexp[x > 0] += exp1[x > 0] / (self.pgltd[gn]*86400) + exp2[x > 0] / (self.pgltd2[gn]*86400) + exp3[x > 0] / (self.pgltd3[gn]*86400)
         else:
             for i in range(self.max_glitch):
                 glep = self.pglep[i]
@@ -543,10 +565,11 @@ class Pulsar:
                 glf2[x > 0] += 0.5 * self.pglf2[i] * x[x > 0]**2
                 exp1[x > 0] += self.pglf0d[i] * np.exp(-x[x > 0] / (self.pgltd[i]*86400.0))
                 exp2[x > 0] += self.pglf0d2[i] * np.exp(-x[x > 0] / (self.pgltd2[i]*86400.0))
+                exp3[x > 0] += self.pglf0d3[i] * np.exp(-x[x > 0] / (self.pgltd3[i]*86400.0))
                 dglf1[x > 0] += self.pglf1[i]
                 dglf2[x > 0] += self.pglf2[i] * x[x > 0]
-                dexp[x > 0] += exp1[x > 0] / (self.pgltd[i]*86400) + exp2[x > 0] / (self.pgltd2[i]*86400)
-        return glf0, glf1, glf2, exp1, exp2, dglf1, dglf2, dexp
+                dexp[x > 0] += exp1[x > 0] / (self.pgltd[i]*86400) + exp2[x > 0] / (self.pgltd2[i]*86400) + exp3[x > 0] / (self.pgltd3[i]*86400)
+        return glf0, glf1, glf2, exp1, exp2, exp3, dglf1, dglf2, dexp
 
     def psr_taylor_terms(self, x):
         '''Calculate the pulsar taylor series terms for array x in second:
@@ -659,8 +682,10 @@ class Pulsar:
             if self.pglf0d[i] > 0:
                 yf2[t>ge] += self.pglf0d[i] * np.exp(-(t[t>ge]-self.pglep[i])/self.pgltd[i])
                 yf2[t>ge] += self.pglf0d2[i] * np.exp(-(t[t>ge]-self.pglep[i])/self.pgltd2[i])
+                yf2[t>ge] += self.pglf0d3[i] * np.exp(-(t[t>ge]-self.pglep[i])/self.pgltd3[i])
                 yd_model[t>ge] -= 1e15*self.pglf0d[i] * np.exp(-(t[t>ge]-self.pglep[i])/self.pgltd[i]) / (self.pgltd[i]*86400.0)
                 yd_model[t>ge] -= 1e15*self.pglf0d2[i] * np.exp(-(t[t>ge]-self.pglep[i])/self.pgltd2[i]) / (self.pgltd2[i]*86400.0)
+                yd_model[t>ge] -= 1e15*self.pglf0d3[i] * np.exp(-(t[t>ge]-self.pglep[i])/self.pgltd3[i]) / (self.pgltd3[i]*86400.0)
         yd2 = yd + yd_model
         ry += np.mean(y_dat-ry)
         with open("ifunc_{}.asc".format(self.psrn), "w") as f:
@@ -701,6 +726,8 @@ class Glitch(Pulsar):
         self.pgltd = self.pgltd[self.index]
         self.pglf0d2 = self.pglf0d2[self.index]
         self.pgltd2 = self.pgltd2[self.index]
+        self.pglf0d3 = self.pglf0d3[self.index]
+        self.pgltd3 = self.pgltd3[self.index]
         self.taug = self.taug[self.index]
         self.pglf0ins = self.pglf0ins[self.index]
         self.pglf0tg = self.pglf0tg[self.index]
