@@ -26,14 +26,15 @@ parser.add_argument('-p', '--parfile', type=str, help='Parameter file', required
 parser.add_argument('-t', '--timfile', type=str, help='TOA file', required=True)
 parser.add_argument('-w', '--width', type=int, default=0, help='Boxcar width (days), defualt: 6*cadence')
 parser.add_argument('-s', '--step', type=int, default=0, help='Size of stride (days), defualt: 3*cadence')
-parser.add_argument('-g', '--gap', type=float, default=0, help='Threshold of gap (days), defualt: 10*cadence')
+parser.add_argument('-a', '--gap', type=float, default=0, help='Threshold of gap (days), defualt: 10*cadence')
+parser.add_argument('-u', '--taug', type=int, default=[200]*10, nargs='+', help="Replace GLF1 with change of spin frequency 'taug' days after the glitch respectively")
 #parser.add_argument('-g', '--glep', type=float, default=[], nargs='+', help='Glitch epochs(MJD)')
 #parser.add_argument('-d', '--data', help='Stride data text file', required=True)
 args = parser.parse_args()
 
     
 # Set Pulsar class sfpsr, load info, generate truth file
-sfpsr = pg.Pulsar(args.parfile, args.timfile)
+sfpsr = pg.Pulsar(args.parfile, args.timfile, glf0t=args.taug)
 sfpsr.delete_null()
 sfpsr.print_info()
 #sfpsr.generate_truth()
@@ -196,8 +197,8 @@ plt.savefig("pwrspec_{}.pdf".format(sfpsr.psrn))
 plt.close()
 
 # Do stride fitting, calculate stride fitting results, save in panels
-#sfpsr.sf_main(width=args.width, step=args.step)
-#sfpsr.sf_calculate_data()
+sfpsr.sf_main(width=args.width, step=args.step)
+sfpsr.sf_calculate_data()
 
 # Load analytic model, and stride data from panels
 t, nu = np.loadtxt("deltanu_{}.asc".format(sfpsr.psrn), unpack=True)
@@ -211,12 +212,12 @@ p5_mjd, p5_nudot, p5_err = np.loadtxt("panel5_{}.txt".format(sfpsr.psrn), unpack
 # Calculating analytic model terms
 x = pg.mjd2sec(t, sfpsr.pepoch)
 tf1, tf2, tdf2 = sfpsr.psr_taylor_terms(x)
-tglf0, tglf1, tglf2, texp1, texp2, tdglf1, tdglf2, tdexp = sfpsr.glitch_terms(t)
+tglf0, tglf1, tglf2, texp1, texp2, texp3, tdglf1, tdglf2, tdexp = sfpsr.glitch_terms(t)
 
 # Calculating stride fitting terms
 sfx = pg.mjd2sec(p1_mjd, sfpsr.pepoch)
 sftf1, sftf2, sftdf2 = sfpsr.psr_taylor_terms(sfx)
-sftglf0, sftglf1, sftglf2, sftexp1, sftexp2, sftdglf1, sftdglf2, sftdexp = sfpsr.glitch_terms(p1_mjd)
+sftglf0, sftglf1, sftglf2, sftexp1, sftexp2, sftexp3, sftdglf1, sftdglf2, sftdexp = sfpsr.glitch_terms(p1_mjd)
 
 nu_panel = nu - tf2 # why only f2? deltanu=nu-F0-f1?
 manu = sfpsr.mask_glep(t, nu_panel)
@@ -316,8 +317,8 @@ else:
     plt.subplot(513)
     #plt.ylabel(r'$\nu-\nu_{sd}-\nu_{gp}-\nu_{gt}$ ($\mu$Hz)', fontsize=15)
     plt.ylabel(r'$\delta \nu-\nu_{g}$ ($\mu$Hz)', fontsize=15)
-    plt.plot(t_mask-glep,1e6*(manu-tglf0-tglf1-tglf2-texp1-texp2), 'k-', zorder=2)
-    plt.plot(t_inverse-glep,1e6*(manu-tglf0-tglf1-tglf2-texp1-texp2), 'g-', zorder=2, alpha=0.8)
+    plt.plot(t_mask-glep,1e6*(manu-tglf0-tglf1-tglf2-texp1-texp2-texp3), 'k-', zorder=2)
+    plt.plot(t_inverse-glep,1e6*(manu-tglf0-tglf1-tglf2-texp1-texp2-texp3), 'g-', zorder=2, alpha=0.8)
     plt.errorbar(p3_mjd - glep, p3_nu, yerr=p3_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
     for gls in gleps:
         plt.axvline(gls-glep, color='k', linestyle='dotted', alpha=0.5, linewidth=2)

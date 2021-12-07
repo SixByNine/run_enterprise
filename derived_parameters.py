@@ -9,15 +9,16 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
     for i,p in enumerate(parnames):
         if p.startswith("GLF0(instant)"):
             iglitch = int(p.split('_')[1])
+            glf0=scaled_samples[:,i] ## no glitch recovery so GLF0=GLF0(instant)
             if "GLF0D_{}".format(iglitch) in parnames:
                 glf0d = scaled_samples[:, parnames=="GLF0D_{}".format(iglitch)][:, 0]
-                glf0 = scaled_samples[:,i] - glf0d
-            else:
-                ## no glitch recovery so GLF0=GLF0(instant)
-                glf0=scaled_samples[:,i]
+                glf0 -= glf0d
             if "GLF0D2_{}".format(iglitch) in parnames:
                 glf0d2 = scaled_samples[:, parnames=="GLF0D2_{}".format(iglitch)][:, 0]
                 glf0 -= glf0d2
+            if "GLF0D3_{}".format(iglitch) in parnames:
+                glf0d3 = scaled_samples[:, parnames=="GLF0D3_{}".format(iglitch)][:, 0]
+                glf0 -= glf0d3
             derived.append(glf0)
             derived_names.append("GLF0_{}".format(iglitch))
 
@@ -39,7 +40,12 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
             else:
                 glf0d2=0
                 gltd2=1
-            # mod ly
+            if "GLF0D3_{}".format(iglitch) in parnames:
+                glf0d3 =scaled_samples[:, parnames=="GLF0D3_{}".format(iglitch)][:,0]
+                gltd3 = scaled_samples[:, parnames=="GLTD3_{}".format(iglitch)][:, 0]
+            else:
+                glf0d3=0
+                gltd3=1
             #if args.alt_f0t_gltd:
             #    for line in parfile:
             #        e = line.strip().split()
@@ -47,8 +53,7 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
             #            if e[0].startswith("GLTD_"):
             #                if int(e[0][5:])==iglitch:
             #                    glaltf0t = int(float(e[1]))
-            # mod ly
-            glf1 = (glf0_at_t - glf0d*(np.exp(-glaltf0t/gltd)-1) - glf0d2*(np.exp(-glaltf0t/gltd2)-1)) / (glaltf0t*86400.0)
+            glf1 = (glf0_at_t - glf0d*(np.exp(-glaltf0t/gltd)-1) - glf0d2*(np.exp(-glaltf0t/gltd2)-1) - glf0d3*(np.exp(-glaltf0t/gltd3)-1)) / (glaltf0t*86400.0)
             derived.append(glf1)
             derived_names.append("GLF1_{}".format(iglitch))
 
@@ -102,14 +107,17 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
             poly = leg.convert(kind=polynomial.polynomial.Polynomial, domain=domain,window=domain)
             df0[s] = poly.coef[1]*f0
             df1[s] = 2*poly.coef[2]*f0
-            df2[s] = 6*poly.coef[3]*f0
+            if "L3" in parnames:
+                df2[s] = 6*poly.coef[3]*f0
 
         derived.append(df0)
         derived.append(df1)
-        derived.append(df2)
+        if "L3" in parnames:
+            derived.append(df2)
         derived_names.append("dF0")
         derived_names.append("dF1")
-        derived_names.append("F2")
+        if "L3" in parnames:
+            derived_names.append("F2")
 
     return np.array(derived).T,derived_names
 
