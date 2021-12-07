@@ -258,7 +258,8 @@ if not args.reftn_qp is None:
 plt.ylim(np.amin(psd_f_yr3)*0.25,np.amax(psd_f_yr3)*4)
 
 plt.legend()
-
+plt.xlabel("Frequency (yr$^{-1}$)")
+plt.ylabel("PSD (yr$^3$)")
 plt.title(psr.name)
 if args.savefig:
     plt.savefig(args.savefig)

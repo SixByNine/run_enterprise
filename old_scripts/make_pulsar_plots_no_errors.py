@@ -34,8 +34,13 @@ glep=np.zeros(100)
 glf0=np.zeros(100)
 glf1=np.zeros(100)
 
+
+
+
 glf0d=np.zeros(100)
 gltd=np.zeros(100)
+glf0d2=np.zeros(100)
+gltd2=np.zeros(100)
 max_glitch=0
 PB=0
 
@@ -62,6 +67,13 @@ with open(par) as f:
         if e[0].startswith("GLF0D_"):
             i=int(e[0][6:])
             glf0d[i-1] = float(e[1])
+        if e[0].startswith("GLTD2_"):
+            i=int(e[0][6:])
+            gltd2[i-1] = float(e[1])
+        if e[0].startswith("GLF0D2_"):
+            i=int(e[0][7:])
+            glf0d2[i-1] = float(e[1])
+
         if e[0].startswith("GLF1_"):
             i=int(e[0][5:])
             glf1[i-1] = float(e[1])
@@ -79,7 +91,7 @@ with open(par) as f:
             finish=float(e[1])
         if e[0] == "PEPOCH":
             pepoch=float(e[1])
-            
+           
 glep=glep[:max_glitch]
 omega=meta[0]
 epoch=meta[1]
@@ -203,6 +215,10 @@ for ge in glep:
     if gltd[i] > 0:
         print("Exponential")
         yd_model[t>ge] -= 1e15 * glf0d[i] * np.exp(-(t[t>ge]-glep[i])/gltd[i]) / (gltd[i]*86400.0)
+    if gltd2[i] > 0:
+        print("2xExponential")
+        yd_model[t>ge] -= 1e15 * glf0d2[i] * np.exp(-(t[t>ge]-glep[i])/gltd2[i]) / (gltd2[i]*86400.0)
+
     i+=1
 
 yd2 = yd + yd_model
@@ -217,6 +233,9 @@ for ge in glep:
     yf2[t>ge] += glf1[i] * gt[t>ge] + glf0[i]
     if gltd[i] > 0:
         yf2[t>ge] += glf0d[i] * np.exp(-(t[t>ge]-glep[i])/gltd[i])
+
+    if gltd2[i] > 0:
+        yf2[t>ge] += glf0d2[i] * np.exp(-(t[t>ge]-glep[i])/gltd2[i])
     i+=1
 
 

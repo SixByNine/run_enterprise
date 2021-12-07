@@ -15,6 +15,7 @@ def setup_argparse(parser):
     parser.add_argument('--burn', default=0.25, help='Fraction of chain to burn-in (MC only; default=0.25)')
     parser.add_argument('--truth-file', default=None, help='Truths values of parameters; default=None') # mod ly
     parser.add_argument('--dump-samples', default=0,type=int, help='Dump N samples of final scaled parameters')
+    parser.add_argument('--dump-chain', action='store_true', help='Dump chain after scaling to phyical parameters')
     parser.add_argument('--skip-plots', action='store_true', help="Skip all plotting (for debugging I guess)")
 
 def cornerplot(samples, labels, weights=None, truths=None, truth_color='cyan'): # mod ly
@@ -33,6 +34,20 @@ def cornerplot(samples, labels, weights=None, truths=None, truth_color='cyan'): 
 
 
 def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names,raw_results=None):
+
+    burn = int(len(samples) * args.burn)
+    if args.dump_chain:
+        if weights is None:
+            dumpchain = samples[burn:,:]
+        else:
+            dumpchain = np.concatenate((samples[burn:,:], weights[burn:]),axis=1)
+        np.savetxt("dump_chain.txt",dumpchain)
+        with open("dump_chain_info.txt","w") as outf:
+            for p in pars:
+                outf.write("{}\n".format(p))
+            if not weights is None:
+                outf.write("SAMPLE_WEIGHT\n")
+
     if args.skip_plots:
         return
     print("Making plots....")
@@ -57,7 +72,6 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
         samples = np.concatenate((samples,derived),axis=1)
 
 
-    burn = int(len(samples) * args.burn)
     i_ef = np.array([i for i, v in enumerate(pars) if 'TNEF' in v], dtype=np.int)
     i_eq = np.array([i for i, v in enumerate(pars) if 'TNEQ' in v], dtype=np.int)
 
@@ -155,6 +169,8 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
                 plt.ylabel("%s" % pars[i])
                 pdf.savefig()
                 plt.close()
+
+
 
     print("Plots saved")
 
