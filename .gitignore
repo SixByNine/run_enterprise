@@ -3,4 +3,4 @@ __pycache__/*
 samplers/__pycache__/
 samplers/__pycache__/*
 .idea
-.pyc
+*.pyc
