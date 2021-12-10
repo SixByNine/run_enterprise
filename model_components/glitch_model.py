@@ -1,5 +1,6 @@
 import numpy as np
 import sys
+import bisect
 from scipy.optimize import curve_fit # mod ly
 
 from enterprise.signals import deterministic_signals
@@ -331,15 +332,15 @@ def slope_range(toas, phs, err, glep, glf0t, sigma):
     def qua(x, a, b, c):
         return a*x**2+b*x+c
 
-    idx_gli = np.abs(toas - glep*86400).argmin()
-    idx_200 = np.abs(toas - (glep+glf0t)*86400).argmin()
-    toas_pre = toas[idx_gli-4:idx_gli+1] # in seconds
+    idx_gli = bisect.bisect_left(toas, glep*86400)
+    idx_200 = bisect.bisect_left(toas, (glep+glf0t)*86400)
+    toas_pre = toas[idx_gli-5:idx_gli] # in seconds
     toas_post = toas[idx_gli:idx_gli+5] # in seconds
     toas_200 = toas[idx_200-2:idx_200+3] # in seconds
-    phs_pre = phs[idx_gli-4:idx_gli+1]
+    phs_pre = phs[idx_gli-5:idx_gli]
     phs_post = phs[idx_gli:idx_gli+5]
     phs_200 = phs[idx_200-2:idx_200+3]
-    err_pre = err[idx_gli-4:idx_gli+1]
+    err_pre = err[idx_gli-5:idx_gli]
     err_post = err[idx_gli:idx_gli+5]
     err_200 = err[idx_200-2:idx_200+3]
     opt_pre, cov_pre = curve_fit(lin, toas_pre, phs_pre, sigma=err_pre)
