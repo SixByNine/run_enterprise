@@ -102,7 +102,7 @@ def setup_model(args, psr, parfile):
         print("ERROR: Can't fit for F2 in MCMC and least-squares!")
         sys.exit(1)
 
-    if args.pm or args.px or args.pos or args.legendre:
+    if args.pm or args.px or args.pos:
         if not issorted:
             print("ERROR: Toas must be sorted or wierd things happen with paralax and proper motion")
             sys.exit(1)

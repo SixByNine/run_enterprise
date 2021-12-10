@@ -38,7 +38,7 @@ def setup_model(args, psr, parfile):
 
    components = []
 
-   print('!!!!!!!!!!!!',args.planets,args.mass_max)   
+#   print('!!!!!!!!!!!!',args.planets,args.mass_max)   
 
    if args.fit_planets:
       n = args.planets #number of planets to fit
