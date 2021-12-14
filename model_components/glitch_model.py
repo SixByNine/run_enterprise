@@ -10,6 +10,7 @@ from astropy import coordinates as coord
 from astropy import units as units
 
 from . import xparameter as parameter
+from . import priors
 
 name = "GlitchModel"
 argdec = "Glitch and recovery parameters."
@@ -178,7 +179,8 @@ def setup_model(args, psr, parfile):
                 else:
                     glf0_alt_range = [glf0_range[0] + glf0d_range[0] + glf0d2_range[0] + glf0d3_range[0], glf0_range[1] + glf0d_range[1] + glf0d2_range[1] + glf0d3_range[1]]
                     glf0_alt = parameter.Uniform(glf0_alt_range[0] * 1e6, glf0_alt_range[1] * 1e6, to_par=to_par)("GLF0(instant)_{}".format(gl))
-                print("GLF0(instant) range", glf0_alt_range)# mod ly
+                priors.glf0i_range = glf0_alt_range  # mod ly
+                print("GLF0(instant) range", glf0_alt_range)
             else:
                 glf0_alt = None
                 glf0 = parameter.Uniform(glf0_range[0] * 1e6, glf0_range[1] * 1e6, to_par=to_par)(
@@ -188,15 +190,13 @@ def setup_model(args, psr, parfile):
                 if args.measured_prior:
                     glf0_at_t_range = glf0_t_range
                     glf0_at_t = parameter.Uniform(glf0_at_t_range[0] * 1e6, glf0_at_t_range[1] * 1e6, to_par=to_par)("GLF0(T={:d})_{}".format(glf0t,gl))  # units of 10^-6
-                    print("GLF0(T=%d) range"%glf0t, glf0_at_t_range)# mod ly
-                    glf1=None
-                    glf0t = parameter.Constant(glf0t)
                 else:
                     glf0_at_t_range = [glf0t * 86400 * glf1_range[0] - glf0d_range[1] - glf0d2_range[1] - glf0d3_range[1], glf0t * 86400 * glf1_range[1]]
                     glf0_at_t = parameter.Uniform(glf0_at_t_range[0] * 1e6, glf0_at_t_range[1] * 1e6, to_par=to_par)("GLF0(T={:d})_{}".format(glf0t,gl))  # units of 10^-6
-                    print("GLF0(T=%d) range"%glf0t, glf0_at_t_range)# mod ly
-                    glf1=None
-                    glf0t = parameter.Constant(glf0t)
+                priors.glf0t_range = glf0_at_t_range  # mod ly
+                print("GLF0(T=%d) range"%glf0t, glf0_at_t_range)
+                glf1=None
+                glf0t = parameter.Constant(glf0t)
             else:
                 glf0_at_t = None
                 glf0t=None

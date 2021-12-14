@@ -7,23 +7,26 @@ from dynesty import plotting
 from astropy import coordinates as coord
 from astropy import units as units
 
+from model_components import priors
+from model_components import glitch_model
+
 def setup_argparse(parser):
     parser.add_argument('--white-corner', action='store_true', help='Make the efac/equad corner plots')
     parser.add_argument('--all-corner', '--corner-all', action='store_true', help='Make corner plots with all params')
     parser.add_argument('--plot-chain', action='store_true', help='Make a plot of the chains/posterior samples')
     parser.add_argument('--plot-derived', action='store_true', help='Include derived parameters in corner plots etc.')
     parser.add_argument('--burn', default=0.25, help='Fraction of chain to burn-in (MC only; default=0.25)')
-    parser.add_argument('--truth-file', default=None, help='Truths values of parameters; default=None') # mod ly
+    parser.add_argument('--truth-file', default=None, help='Truths values of parameters; default=None')
     parser.add_argument('--dump-samples', default=0,type=int, help='Dump N samples of final scaled parameters')
     parser.add_argument('--dump-chain', action='store_true', help='Dump chain after scaling to phyical parameters')
     parser.add_argument('--skip-plots', action='store_true', help="Skip all plotting (for debugging I guess)")
 
-def cornerplot(samples, labels, weights=None, truths=None, truth_color='cyan'): # mod ly
+def cornerplot(samples, labels, weights=None, truths=None, truth_color='cyan'):
 
     if weights is None:
         weights = np.ones_like(samples[:,0])
     res={'samples': samples, 'weights':weights}
-    fig,ax= plotting.cornerplot(res,truths=truths,labels=labels,truth_color=truth_color) # mod ly
+    fig,ax= plotting.cornerplot(res,truths=truths,labels=labels,truth_color=truth_color)
     for aa in ax:
         for a in aa:
             if len(a.xaxis.get_label().get_text()) > 0:
@@ -176,6 +179,7 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
 
 
 def write_results(args, psr, par, parfile, samples, loglike, weights, pars, derived,derived_names):
+    global glf0_alt_range, glf0_at_t_range
     burn = int(len(samples) * args.burn)
 
     if args.dump_samples > 0:
@@ -204,6 +208,7 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
     resfname = par + ".results"
     with open(outpar, "w") as outf:
         with open(resfname, "w") as resf:
+            insfracmin=insfracmax=insfracsig=taufracmin=taufracmax=taufracsig=None
             s = ("{:20s} {:10s} {:10s} {:10s} {:10s} {:10s} {:10s} {:10s} {:10s}".format("#param", " max-like", " mean",
                                                                                          " std", "2.5%", " 15.9%", " 50%",
                                                                                          " 84.1%", " 97.5%"))
@@ -227,7 +232,14 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
                                                                                                               u68, u)
                 resf.write(s + "\n")
                 print(s)
-
+                if p.startswith("GLF0(ins"):
+                    insfracmin = (mean - priors.glf0i_range[0])/(priors.glf0i_range[-1] - priors.glf0i_range[0])
+                    insfracmax = (priors.glf0i_range[-1] - mean)/(priors.glf0i_range[-1] - priors.glf0i_range[0])
+                    insfracsig = sig/(priors.glf0i_range[-1] - priors.glf0i_range[0])
+                elif p.startswith("GLF0(T="):
+                    taufracmin = (mean - priors.glf0t_range[0])/(priors.glf0t_range[-1] - priors.glf0t_range[0])
+                    taufracmax = (priors.glf0t_range[-1] - mean)/(priors.glf0t_range[-1] - priors.glf0t_range[0])
+                    taufracsig = sig/(priors.glf0t_range[-1] - priors.glf0t_range[0])
 
             for line in parfile:
                 e = line.split()
@@ -274,6 +286,13 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
                     print(s)
                 for p,v in zip(derived_names,dpmax):
                     outf.write("%s %s\n" % (p, v))
+
+            if all(p is not None for p in [insfracmin, insfracmax, insfracsig]):
+                print("Posterior mean as a fraction of prior width for GLF0(instant):", insfracmin, insfracmax)
+                print("Posterior sigma as a fraction of prior width for GLF0(instant):", insfracsig)
+            if all(p is not None for p in [taufracmin, taufracmax, taufracsig]):
+                print("Posterior mean as a fraction of prior width for GLF0(T=taug):", taufracmin, taufracmax)
+                print("Posterior sigma as a fraction of prior width for GLF0(T=taug):", taufracsig)
 
     return pars, pmax, ul, ll, means, medians, stds, ul68, ll68
 
