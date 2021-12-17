@@ -8,9 +8,26 @@ def read_t2_model(file, psr, makecvm=True):
     funcs = list()
     cvm = np.zeros((ntoa, ntoa))
     with open(file) as f:
+        model1=False
         for line in f:
-            e = line.split()
+            e = line.strip().split()
+            if model1:
+                if e[0]=="ALPHA":
+                    alpha = float(e[1])
+                if e[0]=="FC":
+                    fc = float(e[1])
+                if e[0]=="AMP":
+                    A = float(e[1])
+                    if makecvm:
+                        c = chol_red_model.psd2cov(psr.toas, chol_red_model.pl_red, np.log10(A), alpha, fc, fc)
+                    f = lambda ff: chol_red_model.pl_red(ff, np.log10(A), alpha, fc, fc)
+                    funcs.append(f)
+                    model1=False
+                continue
             if e[0] == "MODEL":
+                if e[1] == "1":
+                    model1=True
+                    continue
                 if e[1] == "T2":
                     continue
                 c, f = parse_model_line(line, psr, makecvm)
@@ -18,7 +35,7 @@ def read_t2_model(file, psr, makecvm=True):
                     cvm += c
                 funcs.append(f)
             else:
-                raise Exception("Sorry don't understand this model file", line)
+                raise Exception("Sorry don't understand this model file", line,e)
     return cvm, funcs
 
 
