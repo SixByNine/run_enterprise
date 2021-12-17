@@ -9,7 +9,7 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
     for i,p in enumerate(parnames):
         if p.startswith("GLF0(instant)"):
             iglitch = int(p.split('_')[1])
-            glf0=scaled_samples[:,i] ## no glitch recovery so GLF0=GLF0(instant)
+            glf0=np.copy(scaled_samples[:,i]) ## no glitch recovery so GLF0=GLF0(instant)
             if "GLF0D_{}".format(iglitch) in parnames:
                 glf0d = scaled_samples[:, parnames=="GLF0D_{}".format(iglitch)][:, 0]
                 glf0 -= glf0d
@@ -27,7 +27,7 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
             numb = p.split('=')[1]
             glaltf0t = int(numb.split(')')[0])
             #glaltf0t = int(args.glitch_alt_f0t)
-            glf0_at_t =scaled_samples[:,i]
+            glf0_at_t = np.copy(scaled_samples[:,i])
             if "GLF0D_{}".format(iglitch) in parnames:
                 glf0d =scaled_samples[:, parnames=="GLF0D_{}".format(iglitch)][:,0]
                 gltd = scaled_samples[:, parnames=="GLTD_{}".format(iglitch)][:, 0]
