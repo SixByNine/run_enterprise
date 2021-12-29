@@ -33,7 +33,6 @@ def run_solve(args,pta,outdir):
             scls = np.std(vv, axis=0)
             offs = np.mean(vv, axis=0)
             np.savetxt(os.path.join(outdir, "scloff"), np.array([scls, offs]).T)
-
         tpool = Pool(args.nthread, initializer=init, initargs=[pta, offs, scls])
         backend = emcee.backends.HDFBackend(filename)
         if args.cont:
@@ -107,6 +106,7 @@ def log_prob(p):
     p *= scls
     p += offs
     lp=pta.get_lnprior(p)
+
     if not np.isfinite(lp):
         return -np.inf, -np.inf
     ll=pta.get_lnlikelihood(p)

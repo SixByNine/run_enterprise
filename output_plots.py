@@ -74,7 +74,6 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
         pars = np.concatenate((pars,derived_names_x))
         samples = np.concatenate((samples,derived),axis=1)
 
-
     i_ef = np.array([i for i, v in enumerate(pars) if 'TNEF' in v], dtype=np.int)
     i_eq = np.array([i for i, v in enumerate(pars) if 'TNEQ' in v], dtype=np.int)
 
@@ -89,8 +88,6 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
 
     plt.rcParams.update({'font.size': 8})
 
-# mod ly
-    #print(pars[n_w])
     if args.truth_file is None:
         fig = cornerplot(samples[burn:, n_w], labels=pars[n_w], weights=weights, truths=pmax[n_w])
     else:
@@ -106,7 +103,6 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
         print("Parameters:", pars[n_w])
         print("Reference values:", fiducial)
         fig = cornerplot(samples[burn:, n_w], labels=pars[n_w], weights=weights, truths=fiducial, truth_color='r')
-# mod ly
 
     fig.savefig("%s.corner.pdf" % psr.name)
 
@@ -173,13 +169,23 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
                 pdf.savefig()
                 plt.close()
 
-
-
     print("Plots saved")
 
 
+def posterior_fractions(pname, mean, sig, priors, gi=0, prt=True):
+    if priors[gi][-1] == priors[gi][0]:
+        return
+    else:
+        fracmin = (mean - priors[gi][0])/(priors[gi][-1] - priors[gi][0])
+        fracmax = (priors[gi][-1] - mean)/(priors[gi][-1] - priors[gi][0])
+        fracsig = sig/(priors[gi][-1] - priors[gi][0])
+    if prt is True:
+        print("Posterior mean's positional fraction in prior width for {}:".format(pname), fracmin, fracmax)
+        print("Posterior sigma as a fraction of prior width for {}:".format(pname), fracsig)
+        print("")
+
+
 def write_results(args, psr, par, parfile, samples, loglike, weights, pars, derived,derived_names):
-    global glf0_alt_range, glf0_at_t_range
     burn = int(len(samples) * args.burn)
 
     if args.dump_samples > 0:
@@ -200,10 +206,6 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
                     outf.write("{} ".format(p))
                 outf.write("\n")
 
-
-
-
-
     outpar = par + ".post"
     resfname = par + ".results"
     with open(outpar, "w") as outf:
@@ -215,31 +217,33 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
             resf.write(s + "\n")
             print(s)
 
-
-
             imax = np.argmax(loglike)
             pmax = samples[imax, :len(pars)]
 
-            ul68,ll68,ul,ll,means,stds,medians=get_stats(samples[burn:, :len(pars)], weights)
+            ul68,ll68,ul,ll,ulm,llm,means,stds,medians=get_stats(samples[burn:, :len(pars)], weights)
 
-
-
-            for p, v, u, l, mean, median, sig, u68, l68 in zip(pars, pmax, ul, ll, means, medians, stds, ul68, ll68):
-                s = "{:20s} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g}  {:< 10g} {:< 10g} {:< 10g} ".format(p, v, mean,
-                                                                                                              sig,
-                                                                                                              l, l68,
-                                                                                                              median,
-                                                                                                              u68, u)
+            for p, v, mean, median, sig, um, lm, u, l, u68, l68 in zip(pars, pmax, means, medians, stds, ulm, llm, ul, ll, ul68, ll68):
+                s = "{:20s} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g}  {:< 10g} {:< 10g} {:< 10g} ".format(p, v, mean, sig, lm, l, l68, median, u68, u, um)
                 resf.write(s + "\n")
                 print(s)
+                if p.startswith("GL"):
+                    gi = int(p.split('_')[-1]) - 1
                 if p.startswith("GLF0(ins"):
-                    insfracmin = (mean - priors.glf0i_range[0])/(priors.glf0i_range[-1] - priors.glf0i_range[0])
-                    insfracmax = (priors.glf0i_range[-1] - mean)/(priors.glf0i_range[-1] - priors.glf0i_range[0])
-                    insfracsig = sig/(priors.glf0i_range[-1] - priors.glf0i_range[0])
+                    posterior_fractions(p, mean, sig, priors.glf0i_range, gi=gi)
                 elif p.startswith("GLF0(T="):
-                    taufracmin = (mean - priors.glf0t_range[0])/(priors.glf0t_range[-1] - priors.glf0t_range[0])
-                    taufracmax = (priors.glf0t_range[-1] - mean)/(priors.glf0t_range[-1] - priors.glf0t_range[0])
-                    taufracsig = sig/(priors.glf0t_range[-1] - priors.glf0t_range[0])
+                    posterior_fractions(p, mean, sig, priors.glf0t_range, gi=gi)
+                elif p.startswith("GLF0D_"):
+                    posterior_fractions(p, mean, sig, priors.glf0d_range, gi=gi)
+                elif p.startswith("GLTD_"):
+                    posterior_fractions(p, mean, sig, priors.gltd_range, gi=gi)
+                elif p.startswith("GLF0D2_"):
+                    posterior_fractions(p, mean, sig, priors.glf0d2_range, gi=gi)
+                elif p.startswith("GLTD2_"):
+                    posterior_fractions(p, mean, sig, priors.gltd2_range, gi=gi)
+                elif p.startswith("GLF0D3_"):
+                    posterior_fractions(p, mean, sig, priors.glf0d3_range, gi=gi)
+                elif p.startswith("GLTD3_"):
+                    posterior_fractions(p, mean, sig, priors.gltd3_range, gi=gi)
 
             for line in parfile:
                 e = line.split()
@@ -262,7 +266,6 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
 
                 outf.write("%s %s\n" % (p, v))
 
-
             if len(derived) > 0:
                 print("")
                 print("Derived Params")
@@ -270,18 +273,10 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
 
                 dimax = np.argmax(loglike)
                 dpmax = derived[dimax, :]
-                dul68,dll68,dul,dll,dmeans,dstds,dmedians=get_stats(derived[burn:, :], weights)
+                dul68,dll68,dul,dll,dulm,dllm,dmeans,dstds,dmedians=get_stats(derived[burn:, :], weights)
 
-                for p, v, u, l, mean, median, sig, u68, l68 in zip(derived_names, dpmax, dul, dll, dmeans, dmedians, dstds, dul68,
-                                                                   dll68):
-                    s = "{:20s} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g}  {:< 10g} {:< 10g} {:< 10g} ".format(p, v,
-                                                                                                                  mean,
-                                                                                                                  sig,
-                                                                                                                  l,
-                                                                                                                  l68,
-                                                                                                                  median,
-                                                                                                                  u68,
-                                                                                                                  u)
+                for p, v, mean, median, sig, um, lm, u, l, u68, l68 in zip(derived_names, dpmax, dmeans, dmedians, dstds, dulm, dllm, dul, dll, dul68, dll68):
+                    s = "{:20s} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g}  {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g} ".format(p, v, mean, sig, lm, l, l68, median, u68, u, um)
                     resf.write(s + "\n")
                     print(s)
                 for p,v in zip(derived_names,dpmax):
@@ -296,12 +291,15 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
 
     return pars, pmax, ul, ll, means, medians, stds, ul68, ll68
 
+
 def get_stats(samps,weights):
     if weights is None:
         ul68 = np.percentile(samps, 84.1, axis=0)
         ll68 = np.percentile(samps, 15.9, axis=0)
         ul = np.percentile(samps, 97.5, axis=0)
         ll = np.percentile(samps, 2.5, axis=0)
+        ulm = np.max(samps, axis=0)
+        llm = np.min(samps, axis=0)
         means = np.mean(samps, axis=0)
         stds = np.std(samps, axis=0)
         medians = np.median(samps, axis=0)
@@ -311,8 +309,10 @@ def get_stats(samps,weights):
         ll68 = np.apply_along_axis(dynesty.utils.quantile, 0, samps, 0.159, weights)[0]
         ul = np.apply_along_axis(dynesty.utils.quantile, 0, samps, 0.975, weights)[0]
         ll = np.apply_along_axis(dynesty.utils.quantile, 0, samps, 0.025, weights)[0]
+        ulm = np.max(samps, axis=0)
+        llm = np.min(samps, axis=0)
         medians = np.apply_along_axis(dynesty.utils.quantile, 0, samps, 0.500, weights)[0]
         means, covs = dynesty.utils.mean_and_cov(samps, weights=weights)
         stds = np.sqrt(np.diag(covs))
 
-    return ul68,ll68,ul,ll,means,stds,medians
+    return ul68,ll68,ul,ll,ulm,llm,means,stds,medians

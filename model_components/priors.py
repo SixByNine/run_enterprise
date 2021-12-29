@@ -1,2 +1,13 @@
-glf0i_range = None
-glf0t_range = None
+glep_range = [0]*10
+glf0_range = [0]*10
+glf1_range = [0]*10
+glf2_range = [0]*10
+glf0i_range = [0]*10
+glf0t_range = [0]*10
+glf0d_range = [0]*10
+gltd_range = [0]*10
+glf0d2_range = [0]*10
+gltd2_range = [0]*10
+glf0d3_range = [0]*10
+gltd3_range = [0]*10
+taug = [0]*10

@@ -1,7 +1,7 @@
 import numpy as np
 import sys
 import bisect
-from scipy.optimize import curve_fit # mod ly
+from scipy.optimize import curve_fit
 
 from enterprise.signals import deterministic_signals
 from enterprise.signals import signal_base
@@ -35,9 +35,9 @@ def setup_argparse(parser):
     parser.add_argument('--glitch-alt-f0', action='store_true', help="Use alternative parameterisation of glitches fitting for instantanious change in F0 rather than GLF0")
     parser.add_argument('--glitch-alt-f0t', type=int, default=[200]*10, nargs='+', help="Replace GLF1 with change of spin frequency 'T' days after the glitches respectively")
     parser.add_argument('--alt-f0t-gltd', action='store_true', help="Replace GLF1 with change of spin frequency 'gltd' days after the glitch for all glitches")
-    parser.add_argument('--measured-prior', action='store_true', help="Use measured prior range for GLF0(instant) and GLF0(T=200)")
-    parser.add_argument('--measured-without',action='store_true',help="Measure prior range without glitch for GLF0(instant) and GLF0(T=200)")
-    parser.add_argument('--measured-sigma', '--sigma-range', type=float, default=30, help="Sigma range of alt f0 and alt f0t")
+    parser.add_argument('--measured-prior', action='store_true', help="Use measured prior range for GLF0(instant) and GLF0(T=taug)")
+    parser.add_argument('--measured-without',action='store_true',help="Measure prior range without glitch for GLF0(instant) and GLF0(T=taug)")
+    parser.add_argument('--measured-sigma', '--sigma-range', type=float, default=[30]*4, nargs='+', help="Minus/Plus sigma range of GLF0(instant), and Minus/Plus sigma range of GLF0(T=taug) respectively")
     parser.add_argument('--auto-add', action='store_true', help="Automatic add all existing glitches recoveries in the par file")
 
 def setup_model(args, psr, parfile):
@@ -140,37 +140,41 @@ def setup_model(args, psr, parfile):
                 else:
                     glf0t = 200 # set tau_g to some default value
                 if args.measured_prior:
-                    k_pre, k_post, k_200 = slope_range(psr.toas, f0*psr.residuals, psr.toaerrs, glep, glf0t, np.abs(args.measured_sigma))
+                    k_pre, k_post, k_p2, k_200 = slope_range(psr.toas, f0*psr.residuals, psr.toaerrs, glep, glf0t, np.abs(args.measured_sigma))
                     if args.measured_without:
-                        glf0_i_range, glf0_t_range = prior_range(k_pre, k_post, k_200, glf0t, None, None, glf0d, gltd, glf0d2, gltd2, glf0d3, gltd3)
+                        glf0_i_range, glf0_t_range = prior_range(k_pre, k_post, k_p2, k_200, glf0t, None, None, glf0d, gltd, glf0d2, gltd2, glf0d3, gltd3)
                     else:
-                        glf0_i_range, glf0_t_range = prior_range(k_pre, k_post, k_200, glf0t, glf0, glf1, glf0d, gltd, glf0d2, gltd2, glf0d3, gltd3)
-                    print("Measured mean GLF0(instant):", glf0_i_range[1])
-                    print("Measured mean GLF0(T=%d):"%glf0t, glf0_t_range[1])
-                    print("Measured range", glf0_i_range, glf0_t_range)
+                        glf0_i_range, glf0_t_range = prior_range(k_pre, k_post, k_p2, k_200, glf0t, glf0, glf1, glf0d, gltd, glf0d2, gltd2, glf0d3, gltd3)
+                    print("Measured ranges for GLF0(instant):", glf0_i_range)
+                    print("Measured ranges for GLF0(T=%d):"%glf0t, glf0_t_range)
                     del glf0_i_range[1], glf0_t_range[1]
 
             if args.glitch_epoch_range > 0:
                 glep = parameter.Uniform(glitches[gl]['EP']-args.glitch_epoch_range, glitches[gl]['EP']+args.glitch_epoch_range, to_par=to_par)("GLEP_{}".format(gl))
+                priors.glep_range[gi] = [glitches[gl]['EP']-args.glitch_epoch_range, glitches[gl]['EP']+args.glitch_epoch_range]
             else:
                 glep=parameter.Constant(glitches[gl]['EP'])
+                priors.glep_range[gi] = glitches[gl]['EP']
 
             glf0_range = sorted([glf0 - args.glitch_f0_range*glf0, glf0 + args.glitch_f0_range*glf0])
             glf1_range = sorted([glf1 - args.glitch_f1_range*glf1, glf1 + args.glitch_f1_range*glf1])
             glf0d_range = [-args.glitch_f0d_range*abs(glf0)+glf0d, args.glitch_f0d_range*abs(glf0)+glf0d]
             glf0d2_range = [-args.glitch_f0d_range*abs(glf0)+glf0d2, args.glitch_f0d_range*abs(glf0)+glf0d2]
             glf0d3_range = [-args.glitch_f0d_range*abs(glf0)+glf0d3, args.glitch_f0d_range*abs(glf0)+glf0d3]
+
             if args.glitch_f0d_positive and glf0d_range[0]<0:
                 glf0d_range[0]=0
 
             if args.glitch_f2_range is None or args.glitch_f2_range==0:
-                glf2=parameter.Constant(glf2*1e18)
+                glf2_range = 0
+                glf2 = parameter.Constant(0)
             elif glf2==0:
                 glf2_range = sorted([glf2 - args.glitch_f2_range * f2, glf2 + args.glitch_f2_range * f2])
                 glf2 = parameter.Uniform(glf2_range[0]*1e18, glf2_range[1]*1e18,to_par=to_par)("GLF2_{}".format(gl))
             else:
                 glf2_range = sorted([glf2 - args.glitch_f2_range * glf2, glf2 + args.glitch_f2_range * glf2])
                 glf2 = parameter.Uniform(glf2_range[0]*1e18, glf2_range[1]*1e18,to_par=to_par)("GLF2_{}".format(gl))
+            priors.glf2_range[gi] = glf2_range
 
             if args.glitch_alt_f0: # Alternate parameterisation for GLF0
                 if args.measured_prior:
@@ -179,8 +183,9 @@ def setup_model(args, psr, parfile):
                 else:
                     glf0_alt_range = [glf0_range[0] + glf0d_range[0] + glf0d2_range[0] + glf0d3_range[0], glf0_range[1] + glf0d_range[1] + glf0d2_range[1] + glf0d3_range[1]]
                     glf0_alt = parameter.Uniform(glf0_alt_range[0] * 1e6, glf0_alt_range[1] * 1e6, to_par=to_par)("GLF0(instant)_{}".format(gl))
-                priors.glf0i_range = glf0_alt_range  # mod ly
-                print("GLF0(instant) range", glf0_alt_range)
+                priors.glf0i_range[gi] = glf0_alt_range
+                glf0_range = 0
+                glf0 = None
             else:
                 glf0_alt = None
                 glf0 = parameter.Uniform(glf0_range[0] * 1e6, glf0_range[1] * 1e6, to_par=to_par)(
@@ -193,69 +198,98 @@ def setup_model(args, psr, parfile):
                 else:
                     glf0_at_t_range = [glf0t * 86400 * glf1_range[0] - glf0d_range[1] - glf0d2_range[1] - glf0d3_range[1], glf0t * 86400 * glf1_range[1]]
                     glf0_at_t = parameter.Uniform(glf0_at_t_range[0] * 1e6, glf0_at_t_range[1] * 1e6, to_par=to_par)("GLF0(T={:d})_{}".format(glf0t,gl))  # units of 10^-6
-                priors.glf0t_range = glf0_at_t_range  # mod ly
-                print("GLF0(T=%d) range"%glf0t, glf0_at_t_range)
-                glf1=None
+                priors.glf0t_range[gi] = glf0_at_t_range
+                glf1_range = 0
+                glf1 = None
+                taug = glf0t
                 glf0t = parameter.Constant(glf0t)
             else:
                 glf0_at_t = None
-                glf0t=None
+                taug = 0
+                glf0t = None
                 glf1 = parameter.Uniform(glf1_range[0]*1e12,glf1_range[1]*1e12,to_par=to_par)("GLF1_{}".format(gl))  # units of 10^-12
 
             if gl in args.glitch_recovery or gl in args.glitch_double_recovery or gl in args.glitch_triple_recovery:
                 f0d = parameter.Uniform(glf0d_range[0]*1e6,glf0d_range[1]*1e6,to_par=to_par)("GLF0D_{}".format(gl))  # units of 10^-6
                 if gl in args.glitch_triple_recovery:
                     if args.glitch_td_range is None:
-                        td = parameter.Uniform(args.glitch_td_min, args.glitch_td_split[0], to_par=to_par)("GLTD_{}".format(gl))
+                        gltd_range = sorted([args.glitch_td_min, args.glitch_td_split[0]])
+                        gltd2_range = sorted([args.glitch_td_split[0], args.glitch_td_split[1]])
+                        gltd3_range = sorted([args.glitch_td_split[1], args.glitch_td_max])
+                        td = parameter.Uniform(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
                         f0d_2 = parameter.Uniform(glf0d2_range[0]*1e6, glf0d2_range[1]*1e6, to_par=to_par)(
                         "GLF0D2_{}".format(gl))  # units of 10^-6
-                        td_2 = parameter.Uniform(args.glitch_td_split[0], args.glitch_td_split[1], to_par=to_par)("GLTD2_{}".format(gl))
+                        td_2 = parameter.Uniform(gltd2_range[0], gltd2_range[1], to_par=to_par)("GLTD2_{}".format(gl))
                         f0d_3 = parameter.Uniform(glf0d3_range[0]*1e6, glf0d3_range[1]*1e6, to_par=to_par)(
                         "GLF0D3_{}".format(gl))  # units of 10^-6
-                        td_3 = parameter.Uniform(args.glitch_td_split[1], args.glitch_td_max, to_par=to_par)("GLTD3_{}".format(gl))
+                        td_3 = parameter.Uniform(gltd3_range[0], gltd3_range[1], to_par=to_par)("GLTD3_{}".format(gl))
                     else:
-                        gltd_range = sorted([10**(-args.glitch_td_range)*gltd, 10**(args.glitch_td_range)*gltd])
-                        gltd2_range = sorted([10**(-args.glitch_td_range)*gltd2, 10**(args.glitch_td_range)*gltd2])
-                        gltd3_range = sorted([10**(-args.glitch_td_range)*gltd3, 10**(args.glitch_td_range)*gltd3])
-                        td = parameter.Uniform(np.log10(gltd_range[0]), np.log10(gltd_range[1]), to_par=to_par)("GLTD_{}".format(gl))
+                        gltd_range = sorted([gltd+np.log10(1-args.glitch_td_range), gltd+np.log10(1+args.glitch_td_range)])
+                        gltd2_range = sorted([gltd2+np.log10(1-args.glitch_td_range), gltd2+np.log10(1+args.glitch_td_range)])
+                        gltd3_range = sorted([gltd3+np.log10(1-args.glitch_td_range), gltd3+np.log10(1+args.glitch_td_range)])
+                        td = parameter.Uniform(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
                         f0d_2 = parameter.Uniform(glf0d2_range[0]*1e6, glf0d2_range[1]*1e6, to_par=to_par)(
                         "GLF0D2_{}".format(gl))  # units of 10^-6
-                        td_2 = parameter.Uniform(np.log10(gltd2_range[0]), np.log10(gltd2_range[1]), to_par=to_par)("GLTD2_{}".format(gl))
+                        td_2 = parameter.Uniform(gltd2_range[0], gltd2_range[1], to_par=to_par)("GLTD2_{}".format(gl))
                         f0d_3 = parameter.Uniform(glf0d3_range[0]*1e6, glf0d3_range[1]*1e6, to_par=to_par)(
                         "GLF0D3_{}".format(gl))  # units of 10^-6
-                        td_3 = parameter.Uniform(np.log10(gltd3_range[0]), np.log10(gltd3_range[1]), to_par=to_par)("GLTD3_{}".format(gl))
+                        td_3 = parameter.Uniform(gltd3_range[0], gltd3_range[1], to_par=to_par)("GLTD3_{}".format(gl))
                 elif gl in args.glitch_double_recovery:
                     if args.glitch_td_range is None:
-                        td = parameter.Uniform(args.glitch_td_min, args.glitch_td_split[0], to_par=to_par)("GLTD_{}".format(gl))
+                        gltd_range = sorted([args.glitch_td_min, args.glitch_td_split[0]])
+                        gltd2_range = sorted([args.glitch_td_split[0], args.glitch_td_max])
+                        td = parameter.Uniform(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
                         f0d_2 = parameter.Uniform(glf0d2_range[0]*1e6, glf0d2_range[1]*1e6, to_par=to_par)(
                         "GLF0D2_{}".format(gl))  # units of 10^-6
-                        td_2 = parameter.Uniform(args.glitch_td_split[0], args.glitch_td_max, to_par=to_par)("GLTD2_{}".format(gl))
+                        td_2 = parameter.Uniform(gltd2_range[0], gltd2_range[1], to_par=to_par)("GLTD2_{}".format(gl))
                     else:
-                        gltd_range = sorted([10**(-args.glitch_td_range)*gltd, 10**(args.glitch_td_range)*gltd])
-                        gltd2_range = sorted([10**(-args.glitch_td_range)*gltd2, 10**(args.glitch_td_range)*gltd2])
-                        td = parameter.Uniform(np.log10(gltd_range[0]), np.log10(gltd_range[1]), to_par=to_par)("GLTD_{}".format(gl))
+                        gltd_range = sorted([gltd+np.log10(1-args.glitch_td_range), gltd+np.log10(1+args.glitch_td_range)])
+                        gltd2_range = sorted([gltd2+np.log10(1-args.glitch_td_range), gltd2+np.log10(1+args.glitch_td_range)])
+                        td = parameter.Uniform(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
                         f0d_2 = parameter.Uniform(glf0d2_range[0]*1e6, glf0d2_range[1]*1e6, to_par=to_par)(
                         "GLF0D2_{}".format(gl))  # units of 10^-6
-                        td_2 = parameter.Uniform(np.log10(gltd2_range[0]), np.log10(gltd2_range[1]), to_par=to_par)("GLTD2_{}".format(gl))
+                        td_2 = parameter.Uniform(gltd2_range[0], gltd2_range[1], to_par=to_par)("GLTD2_{}".format(gl))
+                    glf0d3_range = 0
+                    gltd3_range = 0
                     f0d_3 = parameter.Constant(0)
                     td_3 = parameter.Constant(1)
                 else:
                     if args.glitch_td_range is None:
                         td = parameter.Uniform(args.glitch_td_min, args.glitch_td_max,to_par=to_par)("GLTD_{}".format(gl))
                     else:
-                        gltd_range = sorted([10**(-args.glitch_td_range)*gltd, 10**(args.glitch_td_range)*gltd])
-                        td = parameter.Uniform(np.log10(gltd_range[0]), np.log10(gltd_range[1]),to_par=to_par)("GLTD_{}".format(gl))
+                        gltd_range = sorted([gltd+np.log10(1-args.glitch_td_range), gltd+np.log10(1+args.glitch_td_range)])
+                        td = parameter.Uniform(gltd_range[0], gltd_range[1],to_par=to_par)("GLTD_{}".format(gl))
+                    glf0d2_range = 0
+                    gltd2_range = 0
+                    glf0d3_range = 0
+                    gltd3_range = 0
                     f0d_2 = parameter.Constant(0)
                     td_2 = parameter.Constant(1)
                     f0d_3 = parameter.Constant(0)
                     td_3 = parameter.Constant(1)
             else:
+                glf0d_range = 0
+                gltd_range = 0
+                glf0d2_range = 0
+                gltd2_range = 0
+                glf0d3_range = 0
+                gltd3_range = 0
                 f0d = parameter.Constant(0)
                 td = parameter.Constant(1)
                 f0d_2 = parameter.Constant(0)
                 td_2 = parameter.Constant(1)
                 f0d_3 = parameter.Constant(0)
                 td_3 = parameter.Constant(1)
+            priors.glf0_range[gi] = glf0_range
+            priors.glf1_range[gi] = glf1_range
+            priors.glf0d_range[gi] = glf0d_range
+            priors.gltd_range[gi] = np.power(10, gltd_range)
+            priors.glf0d2_range[gi] = glf0d2_range
+            priors.gltd2_range[gi] = np.power(10, gltd2_range)
+            priors.glf0d3_range[gi] = glf0d3_range
+            priors.gltd3_range[gi] = np.power(10, gltd3_range)
+            priors.taug[gi] = taug
+            print_prior_ranges(gl)
 
             glexp = model_glitch_residual(f0=parameter.Constant(f0), glep=glep,
                                           glf0=glf0, glf1=glf1, glf0d=f0d, log10_td=td,
@@ -266,7 +300,6 @@ def setup_model(args, psr, parfile):
             glexp_f = deterministic_signals.Deterministic(glexp, name="gl{}:".format(gl))
             components.append(glexp_f)
 
-
     if len(components) > 0:
         model = components[0]
         for m in components[1:]:
@@ -274,6 +307,29 @@ def setup_model(args, psr, parfile):
         return model
     else:
         return None
+
+
+def print_prior_ranges(gl=None):
+    global glitches
+    if isinstance(gl, int) and 0 < gl <= len(glitches):
+        gi = gl -1
+        print("Prior information for glitch {}:".format(gl))
+        print("GLEP range", priors.glep_range[gi])
+        print("GLF0 range", priors.glf0_range[gi])
+        print("GLF1 range", priors.glf1_range[gi])
+        print("GLF2 range", priors.glf2_range[gi])
+        print("GLF0(instant) range", priors.glf0i_range[gi])
+        print("GLF0(T={}) range".format(priors.taug[gi]), priors.glf0t_range[gi])
+        print("GLF0D range", priors.glf0d_range[gi])
+        print("GLTD range", priors.gltd_range[gi])
+        print("GLF0D2 range", priors.glf0d2_range[gi])
+        print("GLTD2 range", priors.gltd2_range[gi])
+        print("GLF0D3 range", priors.glf0d3_range[gi])
+        print("GLTD3 range", priors.gltd3_range[gi])
+        print("")
+    else:
+        for gi, gl in enumerate(glitches):
+            print_prior_ranges(gl)
 
 
 def to_par(self, p, chain):
@@ -312,7 +368,7 @@ def model_glitch(toas, f0, glep, glf0=0, glf1=0, glf2=0, glf0d=0, gltd=1, glf0d2
 
 
 @signal_base.function
-def model_glitch_residual(toas, f0, glep, glf0, glf1=0, glf2=0, glf0d=0, log10_td=0, glitch_id=1, glf0d2=0, log10_td2=0, glf0d3=0, log10_td3=0, glf0_alt=None, glf0_at_t=None, glf0t=None):
+def model_glitch_residual(toas, f0, glep, glf0=0, glf1=0, glf2=0, glf0d=0, log10_td=0, glitch_id=1, glf0d2=0, log10_td2=0, glf0d3=0, log10_td3=0, glf0_alt=None, glf0_at_t=None, glf0t=None):
     global glitches
     ## add conversion for alternative glitch parameters
     if not glf0_alt is None:
@@ -332,6 +388,15 @@ def slope_range(toas, phs, err, glep, glf0t, sigma):
     def qua(x, a, b, c):
         return a*x**2+b*x+c
 
+    while len(sigma)<4:
+        sigma = np.append(sigma, None)
+    if sigma[1] is None:
+        sigma[1]=sigma[0]
+    if sigma[2] is None:
+        sigma[2]=sigma[0]
+    if sigma[3] is None:
+        sigma[3]=sigma[2]
+
     idx_gli = bisect.bisect_left(toas, glep*86400)
     idx_200 = bisect.bisect_left(toas, (glep+glf0t)*86400)
     toas_pre = toas[idx_gli-5:idx_gli] # in seconds
@@ -349,17 +414,18 @@ def slope_range(toas, phs, err, glep, glf0t, sigma):
     dev_pre = np.sqrt(np.diag(cov_pre))
     dev_post = np.sqrt(np.diag(cov_post))
     dev_200 = np.sqrt(np.diag(cov_200))
-    k_pre = [opt_pre[0]-sigma*dev_pre[0], opt_pre[0], opt_pre[0]+sigma*dev_pre[0]]
-    k_post = [opt_post[0]-sigma*dev_post[0], opt_post[0], opt_post[0]+sigma*dev_post[0]]
-    k_200 = [opt_200[0]-sigma*dev_200[0], opt_200[0], opt_200[0]+sigma*dev_200[0]]
-    return k_pre, k_post, k_200
+    k_pre = [opt_pre[0]-sigma[0]*dev_pre[0], opt_pre[0], opt_pre[0]+sigma[1]*dev_pre[0]]
+    k_post = [opt_post[0]-sigma[1]*dev_post[0], opt_post[0], opt_post[0]+sigma[0]*dev_post[0]]
+    k_p2 = [opt_post[0]-sigma[2]*dev_post[0], opt_post[0], opt_post[0]+sigma[3]*dev_post[0]]
+    k_200 = [opt_200[0]-sigma[3]*dev_200[0], opt_200[0], opt_200[0]+sigma[2]*dev_200[0]]
+    return k_pre, k_post, k_p2, k_200
 
 
-def prior_range(k_pre, k_post, k_200, glf0t, glf0, glf1, glf0d, gltd, glf0d2=0, gltd2=1, glf0d3=0, gltd3=1):
-    gi = sorted([k_pre[-1]-k_post[0], k_pre[1]-k_post[1], k_pre[0]-k_post[-1]])
-    gt = sorted([k_post[-1]-k_200[0], k_post[1]-k_200[1], k_post[0]-k_200[-1]])
-    print("Delta_k gi:", gi[1])
-    print("Delta_k gt:", gt[1])    
+def prior_range(k_pre, k_post, k_p2, k_200, glf0t, glf0, glf1, glf0d, gltd, glf0d2=0, gltd2=1, glf0d3=0, gltd3=1):
+    gi = sorted([k_pre[0]-k_post[-1], k_pre[1]-k_post[1], k_pre[-1]-k_post[0]])
+    gt = sorted([k_p2[0]-k_200[-1], k_p2[1]-k_200[1], k_p2[-1]-k_200[0]])
+    print("Delta_k gi:", gi)
+    print("Delta_k gt:", gt)    
     gpara = [glf0, glf1, glf0d, gltd]
     if all(para is not None for para in gpara):
         glf0_i = [gli + glf0 + glf0d + glf0d2 + glf0d3 for gli in gi]

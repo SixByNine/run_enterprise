@@ -505,33 +505,26 @@ class Pulsar:
         print("F1:", self.F1)
         print("F2:", self.F2)
         print("")
+        self.print_glitch_info(index)
+
+    def print_glitch_info(self, index=None):
+        '''Print basic info of the index glitch in the pulsar'''
         if isinstance(index, int) and 0 < index <= self.max_glitch:
             print("The {} glitch".format(index))
             print("Glitch epoch:", self.pglep[index-1])
             print("GLF0:", self.pglf0[index-1])
             print("GLF1:", self.pglf1[index-1])
             print("GLF2:", self.pglf2[index-1])
-            print("GLF0D_1:", self.pglf0d[index-1], " - GLTD_1", self.pgltd[index-1])
-            print("GLF0D2_1:", self.pglf0d2[index-1], " - GLTD2_1", self.pgltd2[index-1])
-            print("GLF0D3_1:", self.pglf0d3[index-1], " - GLTD3_1", self.pgltd3[index-1])
+            print("GLF0D:", self.pglf0d[index-1], " - GLTD", self.pgltd[index-1])
+            print("GLF0D2:", self.pglf0d2[index-1], " - GLTD2", self.pgltd2[index-1])
+            print("GLF0D3:", self.pglf0d3[index-1], " - GLTD3", self.pgltd3[index-1])
             print("Initial jump (GLFO(instant)_1):", self.pglf0ins[index-1])
             print("Decay jump (GLFO(tau_g)_1):", self.pglf0tg[index-1])
             print("tau_g:", self.taug[index-1])
             print("")
         else:
             for i in range(self.max_glitch):
-                print("The {} glitch".format(i+1))
-                print("Glitch epoch:", self.pglep[i])
-                print("GLF0:", self.pglf0[i])
-                print("GLF1:", self.pglf1[i])
-                print("GLF2:", self.pglf2[i])
-                print("GLF0D_1:", self.pglf0d[i], " - GLTD_1", self.pgltd[i])
-                print("GLF0D2_1:", self.pglf0d2[i], " - GLTD2_1", self.pgltd2[i])
-                print("GLF0D3_1:", self.pglf0d3[i], " - GLTD3_1", self.pgltd3[i])
-                print("Initial jump (GLFO(instant)_1):", self.pglf0ins[i])
-                print("Decay jump (GLFO(tau_g)_1):", self.pglf0tg[i])
-                print("tau_g:", self.taug[i])
-                print("")
+                self.print_glitch_info(i+1)
 
     def glitch_terms(self, t, gn=None):
         '''Calculate the glitch terms for MJD arrays t and the No.gn glitch in pulsar: x = time since glitch epoch in seconds'''
