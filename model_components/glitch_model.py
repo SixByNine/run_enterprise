@@ -109,7 +109,7 @@ def setup_model(args, psr, parfile):
         if args.glitch_all or gl in args.glitches: # or gl in args.glitch_recovery:
             ## pre-compute the model for the existing glitch
             glf0=glf1=glf2=glf0d=glf0d2=glf0d3=0
-            gltd=gltd2=gltd3=1
+            gltd=gltd2=gltd3=200
             glep = glitches[gl]['EP']
             if 'F0' in glitches[gl]:
                 glf0 = glitches[gl]['F0']
@@ -255,6 +255,7 @@ def setup_model(args, psr, parfile):
                     td_3 = parameter.Constant(1)
                 else:
                     if args.glitch_td_range is None:
+                        gltd_range = sorted([args.glitch_td_min, args.glitch_td_max])
                         td = parameter.Uniform(args.glitch_td_min, args.glitch_td_max,to_par=to_par)("GLTD_{}".format(gl))
                     else:
                         gltd_range = sorted([gltd+np.log10(1-args.glitch_td_range), gltd+np.log10(1+args.glitch_td_range)])
