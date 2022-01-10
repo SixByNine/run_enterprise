@@ -232,6 +232,12 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
                     posterior_fractions(p, mean, sig, priors.glf0i_range, gi=gi)
                 elif p.startswith("GLF0(T="):
                     posterior_fractions(p, mean, sig, priors.glf0t_range, gi=gi)
+                #elif p.startswith("GLF0_"):
+                #    posterior_fractions(p, mean, sig, priors.glf0_range, gi=gi)
+                #elif p.startswith("GLF1_"):
+                #    posterior_fractions(p, mean, sig, priors.glf1_range, gi=gi)
+                elif p.startswith("GLF2_"):
+                    posterior_fractions(p, mean, sig, priors.glf2_range, gi=gi)
                 elif p.startswith("GLF0D_"):
                     posterior_fractions(p, mean, sig, priors.glf0d_range, gi=gi)
                 elif p.startswith("GLTD_"):
