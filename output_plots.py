@@ -16,7 +16,7 @@ def setup_argparse(parser):
     parser.add_argument('--plot-chain', action='store_true', help='Make a plot of the chains/posterior samples')
     parser.add_argument('--plot-derived', action='store_true', help='Include derived parameters in corner plots etc.')
     parser.add_argument('--burn', default=0.25, help='Fraction of chain to burn-in (MC only; default=0.25)')
-    parser.add_argument('--truth-file', default=None, help='Truths values of parameters; default=None')
+    parser.add_argument('--truth-file', default=None, help='Truths values of parameters; maxlike=maximum likelihood, default=None')
     parser.add_argument('--dump-samples', default=0,type=int, help='Dump N samples of final scaled parameters')
     parser.add_argument('--dump-chain', action='store_true', help='Dump chain after scaling to phyical parameters')
     parser.add_argument('--skip-plots', action='store_true', help="Skip all plotting (for debugging I guess)")
@@ -89,6 +89,8 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
     plt.rcParams.update({'font.size': 8})
 
     if args.truth_file is None:
+        fig = cornerplot(samples[burn:, n_w], labels=pars[n_w], weights=weights)
+    elif args.truth_file == "maxlike":
         fig = cornerplot(samples[burn:, n_w], labels=pars[n_w], weights=weights, truths=pmax[n_w])
     else:
         d = {}
