@@ -197,7 +197,7 @@ plt.savefig("pwrspec_{}.pdf".format(sfpsr.psrn))
 plt.close()
 
 # Do stride fitting, calculate stride fitting results, save in panels
-sfpsr.sf_main(width=args.width, step=args.step)
+sfpsr.sf_main(width=args.width, step=args.step, F1e=5e-15)
 sfpsr.sf_calculate_data()
 
 # Load analytic model, and stride data from panels
@@ -222,6 +222,8 @@ sftglf0, sftglf1, sftglf2, sftexp1, sftexp2, sftexp3, sftdglf1, sftdglf2, sftdex
 nu_panel = nu - tf2 # why only f2? deltanu=nu-F0-f1?
 manu = sfpsr.mask_glep(t, nu_panel)
 #nudot_panel = nudot + (tdglf1 + tdglf2 - tdexp)*1e15 # In principle the same after convert the units
+nudot_p2 = nudot_sum - sfpsr.F1*1e15  
+manudot2 = sfpsr.mask_glep(t, nudot_p2)
 nudot_panel = nudot_sum - (sfpsr.F1 + tdf2)*1e15  
 manudot = sfpsr.mask_glep(t, nudot_panel)
 glep = sfpsr.pglep[0]
@@ -260,25 +262,27 @@ if all(f0d==0 for f0d in sfpsr.pglf0d): # remove the 3rd panel
     frame = plt.gca()
     #frame.axes.xaxis.set_ticklabels([])
     plt.subplot(413)
-    plt.plot(t_mask-glep, manudot/1e5, 'k-', zorder=2)
-    plt.plot(t_inverse-glep, manudot/1e5, 'g-', zorder=2, alpha=0.8)
-    plt.errorbar(p4_mjd - glep, p4_nudot, yerr=p4_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
+    plt.plot(t_mask-glep, manudot2/1e5, 'k-', zorder=2)
+    plt.plot(t_inverse-glep, manudot2/1e5, 'g-', zorder=2, alpha=0.8)
+    plt.errorbar(p4_mjd - glep, p4_nudot, yerr=p4_err, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
     for gls in gleps:
         plt.axvline(gls-glep, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     #plt.ylabel(r'$\dot{\nu}-\dot{\nu_{sd}}$ ($10^{-10}$Hz$^{2}$)', fontsize=15)
     plt.ylabel(r'$\delta \dot{\nu}$ ($10^{-10}$Hz$^{2}$)', fontsize=15)
+    #plt.ylim(5*np.min(np.min(manudot2/1e5), 0), 5*np.max(np.max(manudot2/1e5), 0))
     plt.subplots_adjust(wspace=0, hspace=0.002)
     frame = plt.gca()
     #frame.axes.xaxis.set_ticklabels([])
     plt.subplot(414)
     plt.plot(t_mask-glep, manudot/1e5-(tdglf1+tdglf2-tdexp)/1e-10, 'k-', zorder=2)
     plt.plot(t_inverse-glep, manudot/1e5-(tdglf1+tdglf2-tdexp)/1e-10, 'g-', zorder=2, alpha=0.8)
-    plt.errorbar(p5_mjd - glep, p5_nudot, yerr=p5_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
+    plt.errorbar(p5_mjd - glep, p5_nudot, yerr=p5_err, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
     for gls in gleps:
         plt.axvline(gls-glep, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     #plt.ylabel(r'$\dot{\nu}-\dot{\nu_{sd}}-\dot{\nu_{gp}}-\dot{\nu_{gt}}$ ($10^{-10}$Hz$^{2}$)', fontsize=15)
     plt.ylabel(r'$\delta \dot{\nu}-\dot{\nu_{g}}$ ($10^{-10}$Hz$^{2}$)', fontsize=15)
     plt.xlabel("Days since first glitch epoch", fontsize=15)
+    #plt.ylim(5*np.min(np.min(manudot/1e5-(tdglf1+tdglf2-tdexp)/1e-10), 0), 5*np.max(np.max(manudot/1e5-(tdglf1+tdglf2-tdexp)/1e-10), 0))
     plt.subplots_adjust(wspace=0, hspace=0.002)
     plt.tight_layout()
     plt.savefig("nu_nudot_gp_{}.pdf".format(sfpsr.psrn), format='pdf', dpi=400)
@@ -325,25 +329,27 @@ else:
     frame = plt.gca()
     #frame.axes.xaxis.set_ticklabels([])
     plt.subplot(514)
-    plt.plot(t_mask-glep, manudot/1e5, 'k-', zorder=2)
-    plt.plot(t_inverse-glep, manudot/1e5, 'g-', zorder=2, alpha=0.8)
-    plt.errorbar(p4_mjd - glep, p4_nudot, yerr=p4_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
+    plt.plot(t_mask-glep, manudot2/1e5, 'k-', zorder=2)
+    plt.plot(t_inverse-glep, manudot2/1e5, 'g-', zorder=2, alpha=0.8)
+    plt.errorbar(p4_mjd - glep, p4_nudot, yerr=p4_err, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
     for gls in gleps:
         plt.axvline(gls-glep, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     #plt.ylabel(r'$\dot{\nu}-\dot{\nu_{sd}}$ ($10^{-10}$Hz$^{2}$)', fontsize=15)
     plt.ylabel(r'$\delta \dot{\nu}$ ($10^{-10}$Hz$^{2}$)', fontsize=15)
+    #plt.ylim(5*np.min(np.min(manudot2/1e5), 0), 5*np.max(np.max(manudot2/1e5), 0))
     plt.subplots_adjust(wspace=0, hspace=0.002)
     frame = plt.gca()
     #frame.axes.xaxis.set_ticklabels([])
     plt.subplot(515)
     plt.plot(t_mask-glep, manudot/1e5-(tdglf1+tdglf2-tdexp)/1e-10, 'k-', zorder=2)
     plt.plot(t_inverse-glep, manudot/1e5-(tdglf1+tdglf2-tdexp)/1e-10, 'g-', zorder=2, alpha=0.8)
-    plt.errorbar(p5_mjd - glep, p5_nudot, yerr=p5_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
+    plt.errorbar(p5_mjd - glep, p5_nudot, yerr=p5_err, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
     for gls in gleps:
         plt.axvline(gls-glep, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     #plt.ylabel(r'$\dot{\nu}-\dot{\nu_{sd}}-\dot{\nu_{gp}}-\dot{\nu_{gt}}$ ($10^{-10}$Hz$^{2}$)', fontsize=15)
     plt.ylabel(r'$\delta \dot{\nu}-\dot{\nu_{g}}$ ($10^{-10}$Hz$^{2}$)', fontsize=15)
     plt.xlabel("Days since first glitch epoch", fontsize=15)
+    #plt.ylim(5*np.min(np.min(manudot/1e5-(tdglf1+tdglf2-tdexp)/1e-10), 0), 5*np.max(np.max(manudot/1e5-(tdglf1+tdglf2-tdexp)/1e-10), 0))
     plt.subplots_adjust(wspace=0, hspace=0.002)
     plt.tight_layout()
     plt.savefig("nu_nudot_gp_{}.pdf".format(sfpsr.psrn), format='pdf', dpi=400)

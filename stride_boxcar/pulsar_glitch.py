@@ -417,7 +417,7 @@ class Pulsar:
         except UnboundLocalError:
             return None
 
-    def sf_main(self, width, step):
+    def sf_main(self, width, step, F0e=1e-7, F1e=1e-14, F2e=1e-17):
         '''Main function for stride fitting'''
         if step <= 0:
             step = 3*int(self.cadence)
@@ -443,7 +443,7 @@ class Pulsar:
             for i, (start_value, end_value) in enumerate(zip(starts, ends)):
                 self.sf_create_global(start_value, end_value, width, step)
                 epoch = fitepochs[i]
-                out = self.sf_run_fit(epoch)
+                out = self.sf_run_fit(epoch, F0e, F1e, F2e)
                 os.remove("global.par")
                 if out:
                     print(out[0], out[1], out[2], out[3], out[4], out[5], out[6], starts[i], ends[i], file=f2)
@@ -458,7 +458,7 @@ class Pulsar:
         p1y = (f0 - self.F0 - sff1 - sff2)
         p2y = (f0 - self.F0 - sff1 - sff2 - sfglf0 - sfglf1 - sfglf2)
         p3y = (f0 - self.F0 - sff1 - sff2 - sfglf0 - sfglf1 - sfglf2 - sfexp1 - sfexp2 - sfexp3)
-        p4y = (f1 - self.F1 - sfdf2)
+        p4y = (f1 - self.F1) #- sfdf2)
         p5y = (f1 - self.F1 - sfdf2 - sfdglf1 - sfdglf2 + sfdexp)
         if save:
             with open("panel1_{}.txt".format(self.psrn), "w") as file1:
