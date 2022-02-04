@@ -225,7 +225,7 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
             ul68,ll68,ul,ll,ulm,llm,means,stds,medians=get_stats(samples[burn:, :len(pars)], weights)
 
             for p, v, mean, median, sig, um, lm, u, l, u68, l68 in zip(pars, pmax, means, medians, stds, ulm, llm, ul, ll, ul68, ll68):
-                s = "{:20s} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g}  {:< 10g} {:< 10g} {:< 10g} ".format(p, v, mean, sig, lm, l, l68, median, u68, u, um)
+                s = "{:20s} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g}  {:< 10g}".format(p, v, mean, sig, l, l68, median, u68, u)
                 resf.write(s + "\n")
                 print(s)
                 if p.startswith("GL"):
@@ -284,7 +284,7 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
                 dul68,dll68,dul,dll,dulm,dllm,dmeans,dstds,dmedians=get_stats(derived[burn:, :], weights)
 
                 for p, v, mean, median, sig, um, lm, u, l, u68, l68 in zip(derived_names, dpmax, dmeans, dmedians, dstds, dulm, dllm, dul, dll, dul68, dll68):
-                    s = "{:20s} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g}  {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g} ".format(p, v, mean, sig, lm, l, l68, median, u68, u, um)
+                    s = "{:20s} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g}  {:< 10g} {:< 10g} {:< 10g}".format(p, v, mean, sig, l, l68, median, u68, u)
                     resf.write(s + "\n")
                     print(s)
                 for p,v in zip(derived_names,dpmax):
