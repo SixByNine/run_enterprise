@@ -5,7 +5,6 @@ import zeus
 from multiprocessing import Pool
 import pickle
 
-from enterprise_extensions import model_utils
 
 
 name="ZeusSolver"

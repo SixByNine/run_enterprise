@@ -15,6 +15,14 @@ from astropy import constants as aconst
 name="Planet"
 argdec="Planet Orbital parameters."
 
+from inspect import getsourcefile
+from os.path import abspath
+
+path_to_here = abspath(getsourcefile(lambda:0))
+path_to_ecc = path_to_here.split('planet_model.py')[0]
+
+
+
 def setup_argparse(parser):
 
    parser.add_argument('--fit-planets','-P',action='store_true', help='Fit for 1st planet orbit parameters')
@@ -129,7 +137,7 @@ def fit_planet_app2(toas,psrMass,mass,period,phase,omega,ecc,ismasslog = False):
         e_app = np.around(e,decimals=5)
         #print('\n????? Dir: ',os.getcwd())
 
-        sampled_mean_anom,sampled_E = np.load('model_components/E_e_5dig/E_e=%.5f.npy' %e_app)
+        sampled_mean_anom,sampled_E = np.load(path_to_ecc+'E_e_5dig/E_e=%.5f.npy' %e_app)
         E_from_m = interpolate.interp1d(sampled_mean_anom,sampled_E,copy=False,kind='cubic')
         #if (mean_anom<1e-6).any():
         #    print(e,e_app)

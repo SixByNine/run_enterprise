@@ -21,7 +21,6 @@ def run_solve(args,pta,outdir):
     if args.sample:
         x0 = np.hstack([p.sample() for p in pta.params])
         os.makedirs(outdir,exist_ok=True)
-        #sampler = model_utils.setup_sampler(pta, outdir)
         nwalkers = args.nwalkers
         if nwalkers < 2*len(x0):
             nwalkers = 2*len(x0)

@@ -45,6 +45,7 @@ def run_enterprise(args):
 
     ### make model
     model = make_model(args,psr,parfile)
+
     pta = signal_base.PTA(model(psr))
 
     run_modelfit(args, psr, par, pta, parfile)

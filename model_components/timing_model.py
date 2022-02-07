@@ -11,6 +11,10 @@ from . import xparameter as parameter
 
 import numpy.polynomial as polynomial
 
+from collections import OrderedDict
+import libstempo
+
+
 name = "BasicTimingModel"
 argdec = "Basic pulsar spin and astrometric parameters."
 
@@ -30,6 +34,7 @@ def setup_argparse(parser):
     parser.add_argument('--leg-df1', type=float, default=0, help="Max offset in f1 parameters")
     parser.add_argument('--wrap',type=float,nargs='+',help="Fit for missing phase wraps at this epoch")
     parser.add_argument('--wrap-range',type=int, default = 2,help="Max number of wraps missing")
+    parser.add_argument('--tm-fit-file', type=str,default=None, help="Use setup file for timing model parameters ONLY WORKS WITH Multinest/MPI")
 
 
 def setup_model(args, psr, parfile):
@@ -175,6 +180,23 @@ def setup_model(args, psr, parfile):
             cmp = deterministic_signals.Deterministic(fit_wrap(epoch=parameter.Constant(w_epoch),f0=parameter.Constant(f0),turns=w))
             components.append(cmp)
 
+    if not(args.tm_fit_file is None):
+        keys = np.loadtxt(args.tm_fit_file,usecols=(0),dtype=str)
+        fitrange = np.loadtxt(args.tm_fit_file,usecols=(1))
+        tm_params=dict()
+        psr.tmparams_orig = dict()
+        for p,v in zip(psr.t2pulsar.pars(which='set'), psr.t2pulsar.vals(which='set')):
+            psr.tmparams_orig[p]=v
+        for i,k in enumerate(keys):
+            if k in psr.fitpars:
+                print("ERROR: Can't fit for {} in both MCMC and least-squares".format(k))
+                sys.exit(1)
+            lo=-fitrange[i]
+            hi=fitrange[i]
+            print("Adding {} to fit {} -> {}".format(k,lo,hi))
+            tm_params[k] = parameter.Uniform(lo, hi, to_par=to_par)
+        tm = deterministic_signals.Deterministic(tempo2_timing_model(keys=keys, **tm_params))
+        components.append(tm)
 
     if len(components) > 0:
         model = components[0]
@@ -309,3 +331,26 @@ def fit_pos(toas, ra_off, dec_off):
 def fit_legendre(toas, l1, l2, l3):
     p = polynomial.legendre.Legendre([0,l1,l2,l3], domain=(toas[0],toas[-1]))
     return p(toas)
+
+
+## This code based on enterprise extentions code, but just uses values directly.
+# Doesn't work with emcee or any code using thread pools right now
+@signal_base.function
+def tempo2_timing_model(residuals, t2pulsar, tmparams_orig, keys, **params):
+    orig_params = np.array([tmparams_orig[key] for key in keys])
+    vals = []
+    for p in keys:
+        vals.append(params[p] + tmparams_orig[p])
+    tmparams_vary = OrderedDict(zip(keys, vals))
+
+    # set to new values
+    t2pulsar.vals(tmparams_vary)
+    new_res = np.double(t2pulsar.residuals().copy())
+
+    # remmeber to set values back to originals
+    t2pulsar.vals(OrderedDict(zip(keys,
+                                  np.atleast_1d(np.double(orig_params)))))
+    # Return the 'positive' signal that this updated timing model fits out
+    # The final residual is the origina residual minus the return from this function
+    # Note that this has been corrected from the enterprise extensions code
+    return residuals - new_res
