@@ -17,6 +17,7 @@ def setup_argparse(parser):
     parser.add_argument('--dm-ncoeff', type=int, default=None, help='Number of DM bins to use')
     parser.add_argument('--dm-prior-log', action='store_true',
                         help='Use uniform prior in log space for dm noise amplitude')
+    parser.add_argument('--dm-tspan-mult', type=float, default=1, help='Multiplier for tspan for dm')
     parser.add_argument('--dm1', type=float, default=None, help="fit for DM1")
     parser.add_argument('--dm2', type=float, default=None, help="fit for DM2")
 
@@ -31,6 +32,8 @@ def setup_model(args, psr, parfile):
             nC = args.dm_ncoeff
 
         Tspan = psr.toas.max() - psr.toas.min()
+        Tspan *= args.dm_tspan_mult
+        nC = int(nC*args.dm_tspan_mult)
 
         parfile.append("TNDMC {}\n".format(nC))
 
