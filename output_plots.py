@@ -19,6 +19,7 @@ def setup_argparse(parser):
     parser.add_argument('--truth-file', default=None, help='Truths values of parameters; maxlike=maximum likelihood, default=None')
     parser.add_argument('--dump-samples', default=0,type=int, help='Dump N samples of final scaled parameters')
     parser.add_argument('--dump-chain', action='store_true', help='Dump chain after scaling to phyical parameters')
+    parser.add_argument('--plotname', default=None, help="Set plot output file name stem")
     parser.add_argument('--skip-plots', action='store_true', help="Skip all plotting (for debugging I guess)")
 
 def cornerplot(samples, labels, weights=None, truths=None, truth_color='cyan'):
@@ -53,17 +54,23 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
 
     if args.skip_plots:
         return
+
+    if args.plotname is None:
+        plotname=psr.name
+    else:
+        plotname=args.plotname
+
     print("Making plots....")
     if args.dynesty and args.dynesty_plots:
         try:
             fig,ax = plotting.runplot(raw_results)
-            fig.savefig("%s.runplot.pdf" % psr.name)
+            fig.savefig("%s.runplot.pdf" % plotname)
         except Exception as e:
             print(e)
 
         try:
             fig,ax = plotting.traceplot(raw_results, labels=pars)
-            fig.savefig("%s.traceplot.pdf" % psr.name)
+            fig.savefig("%s.traceplot.pdf" % plotname)
         except Exception as e:
             print(e)
 
@@ -106,7 +113,7 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
         print("Reference values:", fiducial)
         fig = cornerplot(samples[burn:, n_w], labels=pars[n_w], weights=weights, truths=fiducial, truth_color='r')
 
-    fig.savefig("%s.corner.pdf" % psr.name)
+    fig.savefig("%s.corner.pdf" % plotname)
 
     # Make optional corner plots
     if args.all_corner:
@@ -125,7 +132,7 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
             fig = cornerplot(samples[burn:, :], labels=pars, weights=weights, truths=fiducial, truth_color='r')
         else:
             fig = cornerplot(samples[burn:, :], labels=pars, weights=weights,truths=pmax);
-            fig.savefig("%s.corner_all.pdf" % psr.name)
+            fig.savefig("%s.corner_all.pdf" % plotname)
 
     if args.white_corner:
         if args.truth_file:
@@ -142,7 +149,7 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
             print("Parameters EFAC:", pars[m_ef])
             print("Reference values:", fiducial_ef)
             fig = cornerplot(samples[burn:, m_ef], labels=pars[m_ef], weights=weights, truths=fiducial_ef, truth_color='r')
-            fig.savefig("%s.corner_efac.pdf" % psr.name)
+            fig.savefig("%s.corner_efac.pdf" % plotname)
 
             fiducial_eq= [None]*len(pars[m_eq])
             for i in range(len(pars[m_eq])):
@@ -151,17 +158,17 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
             print("Parameters EQUAD:", pars[m_eq])
             print("Reference values:", fiducial_eq)
             fig = cornerplot(samples[burn:, m_eq], labels=pars[m_eq], weights=weights, truths=fiducial_eq, truth_color='r')
-            fig.savefig("%s.corner_equad.pdf" % psr.name)
+            fig.savefig("%s.corner_equad.pdf" % plotname)
         else:
             fig = cornerplot(samples[burn:, m_ef], labels=pars[m_ef], weights=weights,truths=pmax[m_ef]);
-            fig.savefig("%s.corner_efac.pdf" % psr.name)
+            fig.savefig("%s.corner_efac.pdf" % plotname)
             fig = cornerplot(samples[burn:, m_eq], labels=pars[m_eq], weights=weights,truths=pmax[m_eq]);
-            fig.savefig("%s.corner_equad.pdf" % psr.name)
+            fig.savefig("%s.corner_equad.pdf" % plotname)
 
     # Plot posterior if requested.
     if args.plot_chain:
         x = np.arange(samples.shape[0])
-        with PdfPages("%s.chain.pdf" % psr.name) as pdf:
+        with PdfPages("%s.chain.pdf" % plotname) as pdf:
             for i in range(len(pars)):
                 fig = plt.figure(figsize=(16, 8))
                 plt.plot(x[:burn], samples[:burn, i], '.', color='gray')
