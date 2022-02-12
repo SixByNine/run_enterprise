@@ -58,7 +58,7 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
     if args.plotname is None:
         plotname=psr.name
     else:
-        plotname=args.plotname
+        plotname=psr.name+'_'+args.plotname
 
     print("Making plots....")
     if args.dynesty and args.dynesty_plots:
