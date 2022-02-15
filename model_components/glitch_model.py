@@ -84,20 +84,21 @@ def setup_model(args, psr, parfile):
             elif e[0].startswith("GLF2_"):
                 glitches[int(e[0][5:])]['F2'] = float(e[1])
 
-        for gl in args.glitch_recovery:
-            if "GLF0D_{}".format(gl) in psr.fitpars or "GLTD_{}".format(gl) in psr.fitpars:
-                print("ERROR: Can't fit for GLF0D/GLTD in both MCMC and least-squares")
-                sys.exit(1)
-            if "GLF0D2_{}".format(gl) in psr.fitpars or "GLTD2_{}".format(gl) in psr.fitpars:
-                print("ERROR: Can't fit for GLF0D2/GLTD2 in both MCMC and least-squares")
-                sys.exit(1)
-            if "GLF0D3_{}".format(gl) in psr.fitpars or "GLTD3_{}".format(gl) in psr.fitpars:
-                print("ERROR: Can't fit for GLF0D3/GLTD3 in both MCMC and least-squares")
-                sys.exit(1)
         for gl in args.glitches:
             if "GLF0_{}".format(gl) in psr.fitpars or "GLF1_{}".format(gl) in psr.fitpars:
                 print("ERROR: Can't fit for GLF0/GLF1 in both MCMC and least-squares")
                 sys.exit(1)
+            if gl in args.glitch_recovery:
+                if "GLF0D_{}".format(gl) in psr.fitpars or "GLTD_{}".format(gl) in psr.fitpars:
+                    print("ERROR: Can't fit for GLF0D/GLTD in both MCMC and least-squares")
+                    sys.exit(1)
+                if "GLF0D2_{}".format(gl) in psr.fitpars or "GLTD2_{}".format(gl) in psr.fitpars:
+                    print("ERROR: Can't fit for GLF0D2/GLTD2 in both MCMC and least-squares")
+                    sys.exit(1)
+                if "GLF0D3_{}".format(gl) in psr.fitpars or "GLTD3_{}".format(gl) in psr.fitpars:
+                    print("ERROR: Can't fit for GLF0D3/GLTD3 in both MCMC and least-squares")
+                    sys.exit(1)
+
 
     components = []
     if args.glitches is None:
@@ -191,7 +192,7 @@ def setup_model(args, psr, parfile):
                 glf0 = parameter.Uniform(glf0_range[0] * 1e6, glf0_range[1] * 1e6, to_par=to_par)(
                     "GLF0_{}".format(gl))  # units of 10^-6
 
-            if args.glitch_alt_f0t: # Alternate parameterisation for GLF1
+            if args.glitch_alt_f0 and args.glitch_alt_f0t: # Alternate parameterisation for GLF1
                 if args.measured_prior:
                     glf0_at_t_range = glf0_t_range
                     glf0_at_t = parameter.Uniform(glf0_at_t_range[0] * 1e6, glf0_at_t_range[1] * 1e6, to_par=to_par)("GLF0(T={:d})_{}".format(glf0t,gl))  # units of 10^-6
