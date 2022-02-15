@@ -98,8 +98,9 @@ rx,ry,re = np.loadtxt("out.res",usecols=(0,5,6),unpack=True)
 
 dat_t=rx
 dat_e=re
+NSAMPLES=1000
 
-t=np.linspace(start-0.5,finish+0.5,1000)
+t=np.linspace(start-0.5,finish+0.5,NSAMPLES)
 y=np.zeros_like(t)
 
 cosidx=lab[1]=='param_red_cos'
@@ -361,7 +362,7 @@ with open("white_ifunc.par","w") as f:
 
 with open("nudot.asc","w") as f:
     for i in range(len(yd)):
-        f.write("{} {} {} {}\n".format(t[i],yd[i],yd_model[i],yd2[i]))
+        f.write("{} {} {} {} {}\n".format(t[i],yd[i],yd_model[i],yd2[i],ed[i]))
 
 with open("deltanu.asc","w") as f:
     for i in range(len(yf2)):

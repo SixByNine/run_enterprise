@@ -192,7 +192,11 @@ def setup_model(args, psr, parfile):
                 glf0 = parameter.Uniform(glf0_range[0] * 1e6, glf0_range[1] * 1e6, to_par=to_par)(
                     "GLF0_{}".format(gl))  # units of 10^-6
 
+<<<<<<< HEAD
             if args.glitch_alt_f0 and args.glitch_alt_f0t: # Alternate parameterisation for GLF1
+=======
+            if args.glitch_alt_f0: # Alternate parameterisation for GLF1
+>>>>>>> c2ce8dd80eeab8504efbbea56c225c62872532d9
                 if args.measured_prior:
                     glf0_at_t_range = glf0_t_range
                     glf0_at_t = parameter.Uniform(glf0_at_t_range[0] * 1e6, glf0_at_t_range[1] * 1e6, to_par=to_par)("GLF0(T={:d})_{}".format(glf0t,gl))  # units of 10^-6
