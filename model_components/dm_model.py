@@ -14,6 +14,8 @@ def setup_argparse(parser):
     parser.add_argument('-D', '--dm', action='store_true', help='Enable DM variation search')
     parser.add_argument('--Adm-max', type=float, default=-12, help='Max log10A_DM')
     parser.add_argument('--Adm-min', type=float, default=-18, help='Min log10A_DM')
+    parser.add_argument('--dm-gamma-max', type=float, default=5, help='Max gamma red')
+    parser.add_argument('--dm-gamma-min', type=float, default=0, help='Min gamma red')
     parser.add_argument('--dm-ncoeff', type=int, default=None, help='Number of DM bins to use')
     parser.add_argument('--dm-prior-log', action='store_true',
                         help='Use uniform prior in log space for dm noise amplitude')
@@ -47,7 +49,7 @@ def setup_model(args, psr, parfile):
             log10_Adm = parameter.Uniform(A_min, A_max, to_par=to_par)('DM_A')
         else:
             log10_Adm = parameter.LinearExp(A_min, A_max, to_par=to_par)('DM_A')
-        gamma_dm = parameter.Uniform(0,5,to_par=to_par)('DM_gamma')
+        gamma_dm = parameter.Uniform(args.dm_gamma_min,args.dm_gamm_max,to_par=to_par)('DM_gamma')
         pldm = powerlaw_nogw(log10_A=log10_Adm, gamma=gamma_dm)
         dm = FourierBasisGP_DM(spectrum=pldm, components=nC, Tspan=Tspan)
 
