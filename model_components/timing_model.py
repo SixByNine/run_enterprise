@@ -66,8 +66,6 @@ def setup_model(args, psr, parfile):
             elif e[0] == "DECJ":
                 psr_dec = e[1]
 
-    psr_coord = coord.SkyCoord(psr_ra, psr_dec, unit=(units.hourangle, units.degree))
-    psr.coord = psr_coord
     psr.earthssb = psr.t2pulsar.earth_ssb
     psr.observatory_earth = psr.t2pulsar.observatory_earth
 
@@ -108,6 +106,8 @@ def setup_model(args, psr, parfile):
         sys.exit(1)
 
     if args.pm or args.px or args.pos:
+        psr_coord = coord.SkyCoord(psr_ra, psr_dec, unit=(units.hourangle, units.degree))
+        psr.coord = psr_coord
         if not issorted:
             print("ERROR: Toas must be sorted or wierd things happen with paralax and proper motion")
             sys.exit(1)

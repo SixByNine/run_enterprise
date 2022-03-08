@@ -13,6 +13,9 @@ def setup_argparse(parser):
     parser.add_argument('--white-prior-log', action='store_true', help='Use uniform prior in log space for Equad')
     parser.add_argument('--efac-max', type=float, default=5, help='Max for efac prior')
     parser.add_argument('--efac-min', type=float, default=0.2, help='Min for efac prior')
+
+    parser.add_argument('--equad-max', type=float, default=None, help='Max for equad prior (default based on median error)')
+    parser.add_argument('--equad-min', type=float, default=None, help='Min for equad prior (default based on median error)')
     parser.add_argument('--ngecorr', action='store_true', help='Add ECORR for the nanograv backends')
 
 
@@ -46,12 +49,21 @@ def setup_model(args, psr, parfile):
     if args.white:
         medianlogerr = np.log10(np.median(psr.toaerrs))
         efac = parameter.Uniform(args.efac_min, args.efac_max, to_par=to_par)
-        if (args.white_prior_log):
-            equad = parameter.Uniform(medianlogerr - 2, medianlogerr + 2, to_par=to_par)
+        if args.equad_min is None:
+            equad_min = medianlogerr - 2
         else:
-            equad = parameter.LinearExp(medianlogerr - 2, medianlogerr + 2, to_par=to_par)
+            equad_min = args.equad_min
+        if args.equad_max is None:
+            equad_max = medianlogerr + 2
+        else:
+            equad_max = args.equad_max
+
+        if (args.white_prior_log):
+            equad = parameter.Uniform(equad_min,equad_max, to_par=to_par)
+        else:
+            equad = parameter.LinearExp(equad_min,equad_max, to_par=to_par)
         ef = white_signals.MeasurementNoise(efac=efac, selection=selection)
-        eq = white_signals.EquadNoise(log10_equad=equad, selection=selection)
+        eq = white_signals.TNEquadNoise(log10_tnequad=equad, selection=selection)
         model = ef + eq
     else:
         ef = white_signals.MeasurementNoise(efac=parameter.Constant(1.0), selection=selection)
