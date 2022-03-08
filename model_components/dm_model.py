@@ -49,7 +49,7 @@ def setup_model(args, psr, parfile):
             log10_Adm = parameter.Uniform(A_min, A_max, to_par=to_par)('DM_A')
         else:
             log10_Adm = parameter.LinearExp(A_min, A_max, to_par=to_par)('DM_A')
-        gamma_dm = parameter.Uniform(args.dm_gamma_min,args.dm_gamm_max,to_par=to_par)('DM_gamma')
+        gamma_dm = parameter.Uniform(args.dm_gamma_min,args.dm_gamma_max,to_par=to_par)('DM_gamma')
         pldm = powerlaw_nogw(log10_A=log10_Adm, gamma=gamma_dm)
         dm = FourierBasisGP_DM(spectrum=pldm, components=nC, Tspan=Tspan)
 
