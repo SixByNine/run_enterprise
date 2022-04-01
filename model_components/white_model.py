@@ -51,7 +51,7 @@ def setup_model(args, psr, parfile):
         else:
             equad = parameter.LinearExp(medianlogerr - 2, medianlogerr + 2, to_par=to_par)
         ef = white_signals.MeasurementNoise(efac=efac, selection=selection)
-        eq = white_signals.EquadNoise(log10_equad=equad, selection=selection)
+        eq = white_signals.TNEquadNoise(log10_tnequad=equad, selection=selection)
         model = ef + eq
     else:
         ef = white_signals.MeasurementNoise(efac=parameter.Constant(1.0), selection=selection)

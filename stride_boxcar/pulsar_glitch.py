@@ -83,6 +83,7 @@ class Pulsar:
         self.taug = 200*np.ones(100)
         self.pglf0ins = np.zeros(100)
         self.pglf0tg = np.zeros(100)
+        self.numofexp = np.zeros(100)
         self.redamp = None
         self.redgam = None
         with open(loadpar) as f1:
@@ -114,18 +115,21 @@ class Pulsar:
                 if e[0].startswith("GLF0D_"):
                     i = int(e[0][6:])
                     self.pglf0d[i-1] = float(e[1])
+                    self.numofexp[i-1] = max(1, self.numofexp[i-1])
                 if e[0].startswith("GLTD2_"):
                     i = int(e[0][6:])
                     self.pgltd2[i-1] = float(e[1])
                 if e[0].startswith("GLF0D2_"):
                     i = int(e[0][7:])
                     self.pglf0d2[i-1] = float(e[1])
+                    self.numofexp[i-1] = max(2, self.numofexp[i-1])
                 if e[0].startswith("GLTD3_"):
                     i = int(e[0][6:])
                     self.pgltd3[i-1] = float(e[1])
                 if e[0].startswith("GLF0D3_"):
                     i = int(e[0][7:])
                     self.pglf0d3[i-1] = float(e[1])
+                    self.numofexp[i-1] = max(3, self.numofexp[i-1])
                 if e[0].startswith("GLF0(T="):
                     i = int(e[0].split('_')[-1])
                     numb = e[0].split('=')[1]
@@ -229,6 +233,7 @@ class Pulsar:
         self.taug = self.taug[:self.max_glitch]
         self.pglf0ins = self.pglf0ins[:self.max_glitch]
         self.pglf0tg = self.pglf0tg[:self.max_glitch]
+        self.numofexp = self.numofexp[:self.max_glitch]
 
     def generate_truth(self):
         ''' Generate truth file'''
@@ -343,6 +348,133 @@ class Pulsar:
         with open(self.tim,"w") as f2:
             f2.writelines(timlines)
 
+    def split_tim(self, glitchnum=None, startnum=0, endnum=-1):
+        '''Split the tim file and only keep the ToAs relevant for glitch No.glitchnum.
+           Alternatively chop tthe tim file between the glitch No.startnum and glitch No.endnum, 0 is the start and -1 is the end of tim'''
+        if isinstance(glitchnum, int):
+            if glitchnum <= self.max_glitch:
+                startnum = glitchnum - 1
+                endnum = glitchnum + 1
+                if endnum > self.max_glitch:
+                    endnum = -1
+        if startnum<0:
+            startnum = 0
+        if endnum>self.max_glitch:
+            endnum = -1
+        if startnum == 0:
+            startmjds = self.minmjds
+        else:
+            startmjds = self.pglep[startnum-1]
+        if endnum == -1:
+            endmjds = self.maxmjds
+        else:
+            endmjds = self.pglep[endnum-1]
+        timlines = []
+        with open(self.tim) as f1:
+            for line in f1:
+                e = line.split()
+                if "-pn" in e:
+                    epoch = float(e[2])
+                    ii = e.index("-pn")
+                    pn = int(e[ii+1])
+                    newline = " ".join(e[:ii])+" -pn {} ".format(pn)+(" ".join(e[ii+2:]))
+                    if startmjds <= epoch <= endmjds:
+                        timlines.append(" "+newline+"\n")
+                elif len(e)>3:
+                    epoch = float(e[3])
+                    if startmjds <= epoch <= endmjds:
+                        timlines.append(line)
+                else:
+                    timlines.append(line)
+        if isinstance(glitchnum, int):
+            self.splittim = "chp_"+self.psrn+"_"+str(glitchnum)+".tim"
+        else:
+            self.splittim = "chp_"+self.psrn+"_"+str(startnum)+":"+str(endnum)+".tim"
+        with open(self.splittim,"w") as f2:
+            f2.writelines(timlines)
+
+    def generate_par(self, splittim=None, glitchnum=None, recoveries=0, GLF2=False):
+        '''Generate new par file of different models for MCMC fit, move PEPOCH to the center with epoch centre.
+           Glitchnum and recoveries specify the number of recovery terms in model for the glitch to be fit'''
+        if splittim is None:
+            splittim = self.splittim
+        if isinstance(glitchnum, int) and glitchnum <= self.max_glitch:
+            pass
+        else:
+            glitchnum = int(self.splittim.split('_')[-1].split('.')[0].split(':')[0])
+        if isinstance(recoveries, int) and 0 <= recoveries <= 3:
+            pass
+        else:
+            recoveries = 0
+        if recoveries==0:
+            modelname = 'f'
+        elif recoveries==1:
+            modelname = 'r'
+        elif recoveries==2:
+            modelname = 'd'
+        elif recoveries==3:
+            modelname = 't'
+        if GLF2 is True:
+            self.splitpar = "glf_"+self.psrn+"_"+str(glitchnum)+modelname+".par"
+        else:
+            self.splitpar = "bst_"+self.psrn+"_"+str(glitchnum)+modelname+".par"
+        subprocess.call(["tempo2", "-epoch", "centre", "-nofit", "-f", self.par, splittim, "-outpar", self.splitpar])
+        parlines = []
+        with open(self.splitpar) as f1:
+            for line in f1:
+                if any(line.startswith(ls) for ls in ["GLEP", "GLF0_", "GLF1_", "GLF2_", "GLF0(", "JUMP"]):
+                    parlines.append(line)
+                elif line.startswith("TN"):
+                    continue
+                elif any(line.startswith(ls) for ls in ["RA", "DEC", "PX", "PM", "DM", "F0", "F1", "F2"]):
+                    e = line.split()
+                    if len(e) >= 3:
+                        # Turn off tempo2 fitting of all other parameters
+                        newline = e[0]+'   '+e[1]+'   '+'1'+'   '+e[2]+'\n'
+                        parlines.append(newline)
+                    elif len(e) == 2:
+                        newline = e[0]+'   '+e[1]+'   '+'1'+'\n'
+                        parlines.append(newline)
+                elif line.startswith("GLF0D_") or line.startswith("GLTD_"):
+                    e = line.split()
+                    num = int(e[0].split('_')[-1])
+                    if num==glitchnum and recoveries < 1:
+                        continue
+                    else:
+                        parlines.append(line)
+                elif line.startswith("GLF0D2_") or line.startswith("GLTD2_"):
+                    e = line.split()
+                    num = int(e[0].split('_')[-1])
+                    if num==glitchnum and recoveries < 2:
+                        continue
+                    else:
+                        parlines.append(line)
+                elif line.startswith("GLF0D3_") or line.startswith("GLTD3_"):
+                    e = line.split()
+                    num = int(e[0].split('_')[-1])
+                    if num==glitchnum and recoveries < 3:
+                        continue
+                    else:
+                        parlines.append(line)
+                else:
+                    parlines.append(line)
+            expterms = self.numofexp[glitchnum-1]
+            for expnum in range(3):
+                if recoveries > expterms:
+                    if expterms == expnum:
+                        newline = 'GLF0D{}_'.format(str(expnum+1))+str(glitchnum)+'   '+'0'+'\n'
+                        parlines.append(newline)
+                        newline = 'GLTD{}_'.format(str(expnum+1))+str(glitchnum)+'   '+str(50*(4**expnum))+'\n'
+                        parlines.append(newline)
+                        expterms += 1
+        with open(self.splitpar, "w") as f2:
+            f2.writelines(parlines)
+
+#New function
+
+#New function
+
+
     def noglitch_par(self):
         ''' Make a copy of par file without glitch parameters'''
         parlines = []
@@ -352,13 +484,16 @@ class Pulsar:
                     parlines.append(line)
                 elif line.startswith("GL") or line.startswith("TN"):
                     continue
-                elif any(line.startswith(ls) for ls in ["JUMP", "DM", "PM", "F0", "F1", "F2", "PX"]):
+                elif any(line.startswith(ls) for ls in ["RA", "DEC", "JUMP", "DM", "PM", "PX", "F0", "F1", "F2"]):
                     parlines.append(line)
                 else:
                     e = line.split()
                     if len(e) > 3 and float(e[2]) == 1:
                         # Turn off tempo2 fitting of all other parameters
                         newline = e[0]+'   '+e[1]+'   '+e[3]+'\n'
+                        parlines.append(newline)
+                    elif len(e) == 3 and float(e[2]) == 1:
+                        newline = e[0]+'   '+e[1]+'\n'
                         parlines.append(newline)
                     else:
                         parlines.append(line)
@@ -521,6 +656,7 @@ class Pulsar:
             print("Initial jump (GLFO(instant)_1):", self.pglf0ins[index-1])
             print("Decay jump (GLFO(tau_g)_1):", self.pglf0tg[index-1])
             print("tau_g:", self.taug[index-1])
+            print("Number of exponentials:", int(self.numofexp[index-1]))
             print("")
         else:
             for i in range(self.max_glitch):
