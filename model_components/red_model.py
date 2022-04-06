@@ -31,6 +31,8 @@ def setup_argparse(parser):
     parser.add_argument('--qp-p-min', type=float, default=None)
     parser.add_argument('--qp-p-max', type=float, default=None)
 
+    parser.add_argument('--plot-Ared-at-T', type=float, default=None, help="Plot derived Ared at freq 1/(T yr)")
+
 
 def setup_model(args, psr, parfile):
     if args.red:

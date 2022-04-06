@@ -19,6 +19,8 @@ argdec = "Configure for nested sampling with pymultinest"
 def setup_argparse(parser):
     parser.add_argument('--multinest', action='store_true', help='Use pymultinest sampler')
     parser.add_argument('--multinest-prefix', default="pmn-", help='Prefix for pymultinest runs')
+    parser.add_argument('--multinest-ce-mode',action="store_true", default=False, help='enable constant efficiency mode')
+    parser.add_argument('--multinest-disable-is', dest='multinest_is_mode',action="store_false", help='disable importance sampling')
 
 
 
@@ -58,7 +60,9 @@ def run_solve(args, _pta, outdir):
     if args.sample:
         print("Run Multinest")
         results = pymultinest.solve(get_lnlikelihood, prior_transform, n_dims=ndim, n_live_points=nlive,
-                                    outputfiles_basename=prefix,resume=args.cont, verbose=True)
+                                    outputfiles_basename=prefix,resume=args.cont, verbose=True,
+                                    const_efficiency_mode = args.multinest_ce_mode,
+                                    importance_nested_sampling=args.multinest_is_mode)
 
     res= {'prefix': prefix, 'npar': len(pta.params)}
     if main_process:

@@ -40,13 +40,18 @@ def cornerplot(samples, labels, weights=None, truths=None, truth_color='cyan'):
 def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names,raw_results=None):
 
     burn = int(len(samples) * args.burn)
+    if args.plotname is None:
+        plotname=psr.name
+    else:
+        plotname=psr.name+'_'+args.plotname
+
     if args.dump_chain:
         if weights is None:
             dumpchain = samples[burn:,:]
         else:
-            dumpchain = np.concatenate((samples[burn:,:], weights[burn:]),axis=1)
-        np.savetxt("dump_chain.txt",dumpchain)
-        with open("dump_chain_info.txt","w") as outf:
+            dumpchain = np.concatenate((samples[burn:,:], weights[burn:,np.newaxis]),axis=1)
+        np.savetxt("{}_chain.txt.gz".format(plotname),dumpchain)
+        with open("{}_chain_info.txt".format(plotname),"w") as outf:
             for p in pars:
                 outf.write("{}\n".format(p))
             if not weights is None:
@@ -55,16 +60,13 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
     if args.skip_plots:
         return
 
-    if args.plotname is None:
-        plotname=psr.name
-    else:
-        plotname=psr.name+'_'+args.plotname
+
 
     print("Making plots....")
     if args.dynesty and args.dynesty_plots:
         try:
             fig,ax = plotting.runplot(raw_results)
-            fig.savefig("%s.runplot.pdf" % plotname)
+            fig.savefig("{}.runplot.pdf".format(plotname))
         except Exception as e:
             print(e)
 
@@ -278,6 +280,12 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
                     p = "DECJ"
                     new_dec = psr.coord.dec + v*units.arcsecond
                     v = new_dec.to_string(unit=units.degree, sep=":",precision=8)
+                if p=="RAJ_rad":
+                    p="RAJ"
+                    v=coord.Angle(v*units.rad).to_string(unit=units.hourangle, sep=":",precision=8)
+                if p=="DECJ_rad":
+                    p="DECJ"
+                    v=coord.Angle(v*units.rad).to_string(unit=units.degree, sep=":",precision=8)
 
                 outf.write("%s %s\n" % (p, v))
 

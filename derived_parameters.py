@@ -119,6 +119,17 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
         if "L3" in parnames:
             derived_names.append("F2")
 
+    ## Check if plot_Ared_at_T is in the args
+    if 'plot_Ared_at_T' in vars(args):
+        if not args.plot_Ared_at_T is None:
+            logAred = scaled_samples[:, parnames=="TNRedAmp"][:, 0]
+            gamma = scaled_samples[:, parnames=="TNRedGam"][:, 0]
+            fref = 1/args.plot_Ared_at_T
+            PredT = 2*logAred - np.log10(12*np.pi*np.pi) - gamma*np.log10(fref)
+            derived.append(PredT)
+            derived_names.append("RedP_T{}".format(args.plot_Ared_at_T))
+
+
     return np.array(derived).T,derived_names
 
 

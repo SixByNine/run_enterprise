@@ -36,7 +36,7 @@ def setup_model(args, psr, parfile):
             return "TNEF %s %s" % (selflag, flag), chain
         if "equad" in p:
             flag = p.split('_', 1)[1]
-            flag = flag[:-12]
+            flag = flag[:-14]
             return "TNEQ %s %s" % (selflag, flag), chain
         if "ecorr" in p:
             flag=p.split('_',1)[1]

@@ -39,6 +39,7 @@ def setup_argparse(parser):
 
 def setup_model(args, psr, parfile):
     global orig_f2
+    global orig_params
     orig_f2=0
     orig_f1=0
     orig_pmra=0
@@ -194,7 +195,8 @@ def setup_model(args, psr, parfile):
             lo=-fitrange[i]
             hi=fitrange[i]
             print("Adding {} to fit {} -> {}".format(k,lo,hi))
-            tm_params[k] = parameter.Uniform(lo, hi, to_par=to_par)
+            tm_params[k] = parameter.Uniform(lo, hi, to_par=to_par_tm)
+        orig_params = psr.tmparams_orig
         tm = deterministic_signals.Deterministic(tempo2_timing_model(keys=keys, **tm_params))
         components.append(tm)
 
@@ -206,24 +208,33 @@ def setup_model(args, psr, parfile):
     else:
         return None
 
+def to_par_tm(self,p,chain):
+    param = p.split("_",1)[1]
+    p_param=param
+    if param=="RAJ":
+        p_param="RAJ_rad"
+    if param=="DECJ":
+        p_param="DECJ_rad"
+    return p_param, chain+orig_params[param]
+
 
 def to_par(self, p, chain):
     global orig_f2
     if p == "F2":
         return "F2", chain*1e-27 + orig_f2
-    if "px_px" in p:
+    elif "px_px" in p:
         return "PX", chain
-    if "pm_angle" in p:
+    elif "pm_angle" in p:
         return "PM-angle", chain
-    if "pm_amp" in p:
+    elif "pm_amp" in p:
         return "PM", chain
-    if "pm_pmra" in p:
+    elif "pm_pmra" in p:
         return 'PMRA', chain
-    if "pm_pmdec" in p:
+    elif "pm_pmdec" in p:
         return 'PMDEC', chain
-    if "position_ra" in p:
+    elif "position_ra" in p:
         return "dRAJ", chain
-    if "position_dec" in p:
+    elif "position_dec" in p:
         return "dDECJ", chain
     else:
         return p,chain
