@@ -28,10 +28,13 @@ parser.add_argument('-w', '--width', type=int, default=0, help='Boxcar width (da
 parser.add_argument('-s', '--step', type=int, default=0, help='Size of stride (days), defualt: 3*cadence')
 parser.add_argument('-a', '--gap', type=float, default=0, help='Threshold of gap (days), defualt: 10*cadence')
 parser.add_argument('-u', '--taug', type=int, default=[200]*10, nargs='+', help="Replace GLF1 with change of spin frequency 'taug' days after the glitch respectively")
+parser.add_argument('-g', '--glitches', type=int, default=[], nargs='+', help='Glitches that need to split tim file for')
+parser.add_argument('-m', '--multiple', type=list, default=[], nargs='+', help='Multiple glitches that need to split tim file together for')
+parser.add_argument('-r', '--recoveries', type=int, default=[], nargs='+', help='Number of recoveries in the best model for each glitch')
+parser.add_argument('--glf2', action='store_true', help="Include GLF2 term in glitch model")
 #parser.add_argument('-g', '--glep', type=float, default=[], nargs='+', help='Glitch epochs(MJD)')
 #parser.add_argument('-d', '--data', help='Stride data text file', required=True)
 args = parser.parse_args()
-
     
 # Set Pulsar class sfpsr, load info, generate truth file
 sfpsr = pg.Pulsar(args.parfile, args.timfile, glf0t=args.taug)
@@ -43,6 +46,9 @@ sfpsr.print_info()
 #sfpsr.tidy_glitch(chop=5000)
 #sfpsr.load_info()
 #sfpsr.delete_null()
+
+# Merge the best model of each glitch into the final par
+sfpsr.final_par(largeglitch=args.glitches, recoveries=args.recoveries, GLF2=args.glf2)
 
 # Calculate data for pulsar plots
 sfpsr.noglitch_par()

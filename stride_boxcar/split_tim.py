@@ -3,8 +3,8 @@
 #from __future__ import print_function
 #import numpy as np
 import argparse
-#import sys, os
-#import subprocess
+import sys, os
+import subprocess
 #import matplotlib
 #matplotlib.use('Agg')
 #import matplotlib.pyplot as plt
@@ -30,11 +30,14 @@ parser.add_argument('-t', '--timfile', type=str, help='TOA file', required=True)
 parser.add_argument('-u', '--taug', type=int, default=[200]*10, nargs='+', help="Replace GLF1 with change of spin frequency 'taug' days after the glitch respectively")
 parser.add_argument('-g', '--glitches', type=int, default=[], nargs='+', help='Glitches that need to split tim file for')
 parser.add_argument('-m', '--multiple', type=list, default=[], nargs='+', help='Multiple glitches that need to split tim file together for')
+parser.add_argument('-r', '--recoveries', type=int, default=[], nargs='+', help='Number of recoveries in the best model for each glitch')
 parser.add_argument('--glf2', action='store_true', help="Include GLF2 term in glitch model")
+parser.add_argument('--glf0d', '--glf0d-range', type=float, default=0.8, help='The prior range for glf0d')
+parser.add_argument('--sigma', '--measured-sigma', type=float, default=[100, 100, 100, 100], nargs='+', help='Minus/Plus sigma range of GLF0(instant), and Minus/Plus sigma range of GLF0(T=taug) respectively')
+parser.add_argument('-a', '--gap', type=float, default=0, help='Threshold of gap (days), defualt: 10*cadence')
 #parser.add_argument('-g', '--glep', type=float, default=[], nargs='+', help='Glitch epochs(MJD)')
 #parser.add_argument('-d', '--data', help='Stride data text file', required=True)
 args = parser.parse_args()
-
     
 # Set Pulsar class sfpsr, load info, generate truth file
 sfpsr = pg.Pulsar(args.parfile, args.timfile, glf0t=args.taug)
@@ -42,14 +45,26 @@ sfpsr.delete_null()
 sfpsr.print_info()
 #sfpsr.generate_truth()
 
+# Convert double recovery to tempo2 style, chop tim file, update info
+#sfpsr.tidy_glitch(chop=5000)
+#sfpsr.load_info()
+#sfpsr.delete_null()
+
+# Merge the best model of each glitch into the final par
+#sfpsr.final_par(largeglitch=args.glitches, recoveries=args.recoveries, GLF2=args.glf2)
+
+# Generating tim files for individual glitches, par files for different models, and run MCMC fit to find best model
 for gi in args.glitches:
     sfpsr.split_tim(glitchnum=gi)
-    sfpsr.generate_par(glitchnum=gi, recoveries=0)
-    sfpsr.generate_par(glitchnum=gi, recoveries=1)
-    sfpsr.generate_par(glitchnum=gi, recoveries=2)
-    sfpsr.generate_par(glitchnum=gi, recoveries=3)
+    for exp in range(1):
+        sfpsr.split_par(glitchnum=gi, recoveries=exp)
+        sfpsr.MCMC_fit(glitchnum=gi, recoveries=exp, GLF2=args.glf2, glf0drange=args.glf0d, sigma=args.sigma)
+        #sfpsr.post_par(glitchnum=gi, recoveries=exp)
+    sfpsr.best_model(glitchnum=gi, recoveries=None, GLF2=args.glf2)
 
+'''
 for multi in args.multiple:
     start = int(multi[0])-1
     end = int(multi[-1])+1
     sfpsr.split_tim(startnum=start, endnum=end)
+'''
