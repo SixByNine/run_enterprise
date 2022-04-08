@@ -30,10 +30,11 @@ parser.add_argument('-t', '--timfile', type=str, help='TOA file', required=True)
 parser.add_argument('-u', '--taug', type=int, default=[200]*10, nargs='+', help="Replace GLF1 with change of spin frequency 'taug' days after the glitch respectively")
 parser.add_argument('-g', '--glitches', type=int, default=[], nargs='+', help='Glitches that need to split tim file for')
 parser.add_argument('-m', '--multiple', type=list, default=[], nargs='+', help='Multiple glitches that need to split tim file together for')
-parser.add_argument('-r', '--recoveries', type=int, default=[], nargs='+', help='Number of recoveries in the best model for each glitch')
+parser.add_argument('-r', '--recoveries', type=int, default=[0, 1], nargs='+', help='Number of recoveries to fit in models for all large glitches')
 parser.add_argument('--glf2', action='store_true', help="Include GLF2 term in glitch model")
 parser.add_argument('--glf0d', '--glf0d-range', type=float, default=0.8, help='The prior range for glf0d')
 parser.add_argument('--sigma', '--measured-sigma', type=float, default=[100, 100, 100, 100], nargs='+', help='Minus/Plus sigma range of GLF0(instant), and Minus/Plus sigma range of GLF0(T=taug) respectively')
+parser.add_argument('--split', '--gltd-split', type=float, default=[1.8, 2.3], nargs='+', help='Where to split gltd priors (in log10) for double and triple recoveries respectively')
 parser.add_argument('-a', '--gap', type=float, default=0, help='Threshold of gap (days), defualt: 10*cadence')
 #parser.add_argument('-g', '--glep', type=float, default=[], nargs='+', help='Glitch epochs(MJD)')
 #parser.add_argument('-d', '--data', help='Stride data text file', required=True)
@@ -56,9 +57,9 @@ sfpsr.print_info()
 # Generating tim files for individual glitches, par files for different models, and run MCMC fit to find best model
 for gi in args.glitches:
     sfpsr.split_tim(glitchnum=gi)
-    for exp in range(1):
-        sfpsr.split_par(glitchnum=gi, recoveries=exp)
-        sfpsr.MCMC_fit(glitchnum=gi, recoveries=exp, GLF2=args.glf2, glf0drange=args.glf0d, sigma=args.sigma)
+    for exp in args.recoveries:
+        sfpsr.split_par(glitchnum=gi, recoveries=exp, GLF2=args.glf2)
+        sfpsr.MCMC_fit(glitchnum=gi, recoveries=exp, GLF2=args.glf2, glf0drange=args.glf0d, sigma=args.sigma, gltdsplit=args.split)
         #sfpsr.post_par(glitchnum=gi, recoveries=exp)
     sfpsr.best_model(glitchnum=gi, recoveries=None, GLF2=args.glf2)
 
