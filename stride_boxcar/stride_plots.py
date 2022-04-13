@@ -39,7 +39,6 @@ args = parser.parse_args()
 # Set Pulsar class sfpsr, load info, generate truth file
 sfpsr = pg.Pulsar(args.parfile, args.timfile, glf0t=args.taug)
 sfpsr.delete_null()
-sfpsr.print_info()
 #sfpsr.generate_truth()
 
 # Convert double recovery to tempo2 style, chop tim file, update info
@@ -47,8 +46,11 @@ sfpsr.print_info()
 #sfpsr.load_info()
 #sfpsr.delete_null()
 
-# Merge the best model of each glitch into the final par
+# Merge the best model of each glitch into the final par and update par info
 sfpsr.final_par(largeglitch=args.glitches, recoveries=args.recoveries, GLF2=args.glf2)
+sfpsr.load_info()
+sfpsr.delete_null()
+sfpsr.print_info()
 
 # Calculate data for pulsar plots
 sfpsr.noglitch_par()

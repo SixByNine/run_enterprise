@@ -32,6 +32,7 @@ parser.add_argument('-g', '--glitches', type=int, default=[], nargs='+', help='G
 parser.add_argument('-m', '--multiple', type=list, default=[], nargs='+', help='Multiple glitches that need to split tim file together for')
 parser.add_argument('-r', '--recoveries', type=int, default=[0, 1], nargs='+', help='Number of recoveries to fit in models for all large glitches')
 parser.add_argument('--glf2', action='store_true', help="Include GLF2 term in glitch model")
+parser.add_argument('--f2', '--glf2-range', type=float, default=10, help='The prior range for glf2')
 parser.add_argument('--glf0d', '--glf0d-range', type=float, default=0.8, help='The prior range for glf0d')
 parser.add_argument('--sigma', '--measured-sigma', type=float, default=[100, 100, 100, 100], nargs='+', help='Minus/Plus sigma range of GLF0(instant), and Minus/Plus sigma range of GLF0(T=taug) respectively')
 parser.add_argument('--split', '--gltd-split', type=float, default=[1.8, 2.3], nargs='+', help='Where to split gltd priors (in log10) for double and triple recoveries respectively')
@@ -59,7 +60,7 @@ for gi in args.glitches:
     sfpsr.split_tim(glitchnum=gi)
     for exp in args.recoveries:
         sfpsr.split_par(glitchnum=gi, recoveries=exp, GLF2=args.glf2)
-        sfpsr.MCMC_fit(glitchnum=gi, recoveries=exp, GLF2=args.glf2, glf0drange=args.glf0d, sigma=args.sigma, gltdsplit=args.split)
+        sfpsr.MCMC_fit(glitchnum=gi, recoveries=exp, GLF2=args.glf2, glf0drange=args.glf0d, sigma=args.sigma, gltdsplit=args.split, glf2range=args.f2)
         #sfpsr.post_par(glitchnum=gi, recoveries=exp)
     sfpsr.best_model(glitchnum=gi, recoveries=None, GLF2=args.glf2)
 

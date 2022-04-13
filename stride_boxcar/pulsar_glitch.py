@@ -158,9 +158,9 @@ class Pulsar:
                 if self.pgltd[i] != 1:
                     self.taug[i] = int(self.pgltd[i])
                 if self.pgltd2[i] != 1:
-                    self.taug[i] = int(min(self.taug[i], self.pglt2[i]))
+                    self.taug[i] = int(min(self.taug[i], self.pgltd2[i]))
                 if self.pgltd3[i] != 1:
-                    self.taug[i] = int(min(self.taug[i], self.pglt3[i]))
+                    self.taug[i] = int(min(self.taug[i], self.pgltd3[i]))
             elif i<len(glf0t):
                 self.taug[i] = int(glf0t[i])
             else:
@@ -468,10 +468,16 @@ class Pulsar:
             for expnum in range(3):
                 if recoveries > expterms:
                     if expterms == expnum:
-                        newline = 'GLF0D{}_'.format(str(expnum+1))+str(glitchnum)+'   '+'0'+'\n'
-                        parlines.append(newline)
-                        newline = 'GLTD{}_'.format(str(expnum+1))+str(glitchnum)+'   '+str(50*(4**expnum))+'\n'
-                        parlines.append(newline)
+                        if expnum == 0:
+                            newline = 'GLF0D_'+str(glitchnum)+'   '+'0'+'\n'
+                            parlines.append(newline)
+                            newline = 'GLTD_'+str(glitchnum)+'   '+str(50*(4**expnum))+'\n'
+                            parlines.append(newline)
+                        else:
+                            newline = 'GLF0D{}_'.format(str(expnum+1))+str(glitchnum)+'   '+'0'+'\n'
+                            parlines.append(newline)
+                            newline = 'GLTD{}_'.format(str(expnum+1))+str(glitchnum)+'   '+str(50*(4**expnum))+'\n'
+                            parlines.append(newline)
                         expterms += 1
             if GLF2 is True:
                 newline = 'GLF2_{}'.format(str(glitchnum))+'   '+'0'+'\n'
@@ -603,6 +609,7 @@ class Pulsar:
         postfix = ".par.post"
         maxlnZ = -np.inf
         bestmodelpar = None
+        bestmodel = None
         if isinstance(recoveries, int) and 0 <= recoveries <= 3:
             if recoveries==0:
                 model = 'f'
@@ -615,7 +622,17 @@ class Pulsar:
             postname = prefix+self.psrn+glnum+model+postfix
             postpar = os.path.join(rootdir, postname)
             if os.path.exists(postpar):
+                ev_file = os.path.join(rootdir,"{}_{}{}".format(self.psrn, glitchnum, model), "pmn-stats.dat")
+                if os.path.exists(ev_file):
+                    with open(ev_file) as f:
+                        line = f.readline()
+                        line = f.readline()
+                        lnev = float(line.split()[5])
+                        maxlnZ = lnev
+                else:
+                    print(">>> Missing evidence file {} <<<".format(ev_file))
                 bestmodelpar = postpar
+                bestmodel = model
         else: 
             for model in ["f", "r", "d", "t"]:
                 postname = prefix+self.psrn+glnum+model+postfix
@@ -695,6 +712,7 @@ class Pulsar:
     def noglitch_par(self):
         ''' Make a copy of par file without glitch parameters'''
         parlines = []
+        print("### Final par for test par is:", self.par)
         with open(self.par) as f:
             for line in f:
                 if line.startswith("GLEP_"):
@@ -940,6 +958,8 @@ class Pulsar:
 
     def pp_create_files(self):
         '''Call tempo2 to generate files for pulsar plots'''
+        print("### Final par for stride fitting is:", self.par)
+        print("### Test par for stride fitting is:", self.testpar)
         subprocess.call(["tempo2", "-output", "exportres", "-f", self.testpar, self.tim, "-nofit"])
         os.rename("out.res", "out2_{}.res".format(self.psrn))
         subprocess.call(["tempo2", "-output", "exportres", "-f", self.par, self.tim, "-writeres"])
