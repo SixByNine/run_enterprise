@@ -35,6 +35,7 @@ def setup_argparse(parser):
     parser.add_argument('--wrap',type=float,nargs='+',help="Fit for missing phase wraps at this epoch")
     parser.add_argument('--wrap-range',type=int, default = 2,help="Max number of wraps missing")
     parser.add_argument('--tm-fit-file', type=str,default=None, help="Use setup file for timing model parameters ONLY WORKS WITH Multinest/MPI")
+    parser.add_argument('--fake-tm', action='store_true', help="Use a design matrix to fake the tm fit")
 
 
 def setup_model(args, psr, parfile):
@@ -197,7 +198,12 @@ def setup_model(args, psr, parfile):
             print("Adding {} to fit {} -> {}".format(k,lo,hi))
             tm_params[k] = parameter.Uniform(lo, hi, to_par=to_par_tm)
         orig_params = psr.tmparams_orig
-        tm = deterministic_signals.Deterministic(tempo2_timing_model(keys=keys, **tm_params))
+
+        if args.fake_tm:
+            setup_fake_design_matrix(psr, keys=keys)
+            tm = deterministic_signals.Deterministic(fake_tempo2_timing_model(keys=keys, **tm_params))
+        else:
+            tm = deterministic_signals.Deterministic(tempo2_timing_model(keys=keys, **tm_params))
         components.append(tm)
 
     if len(components) > 0:
@@ -347,7 +353,9 @@ def fit_legendre(toas, l1, l2, l3):
 ## This code based on enterprise extentions code, but just uses values directly.
 # Doesn't work with emcee or any code using thread pools right now
 @signal_base.function
-def tempo2_timing_model(residuals, t2pulsar, tmparams_orig, keys, **params):
+def tempo2_timing_model(residuals, isort, t2pulsar, tmparams_orig, keys, **params):
+
+    #old_res = np.double(t2pulsar.residuals().copy())
     orig_params = np.array([tmparams_orig[key] for key in keys])
     vals = []
     for p in keys:
@@ -364,4 +372,97 @@ def tempo2_timing_model(residuals, t2pulsar, tmparams_orig, keys, **params):
     # Return the 'positive' signal that this updated timing model fits out
     # The final residual is the origina residual minus the return from this function
     # Note that this has been corrected from the enterprise extensions code
-    return residuals - new_res
+    # Note that new_res must be ordered same as residuals, and thus use the isort indexing
+    return residuals - new_res[isort]
+    #return old_res[isort] - new_res[isort]
+
+
+
+
+def setup_fake_design_matrix(psr,keys):
+    global fake_tm_design_matrix
+    global fake_tm_scalefactors
+    t2psr=psr.t2pulsar
+    # turn fitting on for our parameters
+    for key in keys:
+        t2psr[key].fit = True
+
+
+    full_dm = t2psr.designmatrix()
+
+    ## Make the dm such that it indexes same as keys
+    allparams = ["ZERO"]+list(t2psr.pars())
+    fake_tm_design_matrix = {}
+    fake_tm_scalefactors = {}
+    for k in keys:
+        fake_tm_design_matrix[k] = np.copy(full_dm[psr.isort,allparams.index(k)])
+        fake_tm_scalefactors[k]=1 ## Seems that libstempo already scales the design matrix
+
+
+    # undo setting fit on
+    for key in keys:
+        t2psr[key].fit = False
+
+
+@signal_base.function
+def fake_tempo2_timing_model(isort,residuals, t2pulsar, tmparams_orig, keys, **params):
+    global fake_tm_design_matrix
+    global fake_tm_scalefactors
+    """
+    Here we actually fake as if we were doing the tm analysis, but use a pre-determined design matrix.
+    """
+    # do we need to scale the parameter?
+    ret=np.zeros_like(residuals)
+    for k in keys:
+        ret += fake_tm_scalefactors[k] * params[k] * fake_tm_design_matrix[k]
+
+
+    if False:
+        #### BEGIN DUMBPY MODE!!!
+        if np.random.random() < 0.005:
+            print("dumpy")
+            ## dump 0.5% of samples
+            orig_params = np.array([tmparams_orig[key] for key in keys])
+            vals = []
+            for p in keys:
+                vals.append(params[p] + tmparams_orig[p])
+            tmparams_vary = OrderedDict(zip(keys, vals))
+
+            # set to new values
+            t2pulsar.vals(tmparams_vary)
+            new_res = np.double(t2pulsar.residuals().copy())
+
+            # remmeber to set values back to originals
+            t2pulsar.vals(OrderedDict(zip(keys,
+                                          np.atleast_1d(np.double(orig_params)))))
+            # Return the 'positive' signal that this updated timing model fits out
+            # The final residual is the origina residual minus the return from this function
+            # Note that this has been corrected from the enterprise extensions code
+            correctret =  residuals - new_res[isort]
+            outf="dump_tm_{:020x}.npz".format(int(np.random.random()*1e20))
+
+            dm_version=[]
+            t2_version=[]
+            for k in keys:
+                dm_version.append(fake_tm_scalefactors[k] * params[k] * fake_tm_design_matrix[k])
+                newkeys=[k]
+                orig_params = np.array([tmparams_orig[key] for key in keys])
+                nvals = []
+                for p in newkeys:
+                    nvals.append(params[p] + tmparams_orig[p])
+                tmparams_vary = OrderedDict(zip(newkeys, nvals))
+
+                # set to new values
+                t2pulsar.vals(tmparams_vary)
+                new_res = np.double(t2pulsar.residuals().copy())
+
+                # remmeber to set values back to originals
+                t2pulsar.vals(OrderedDict(zip(keys,
+                                              np.atleast_1d(np.double(orig_params)))))
+                t2_version.append(residuals-new_res[isort])
+                restore_res = np.double(t2pulsar.residuals().copy())[isort]
+
+            np.savez(outf,keys=keys,ret=ret,correctret=correctret,residuals=residuals,dm_version=dm_version,t2_version=t2_version,vals=vals,restore_res=restore_res)
+
+        ####
+    return ret

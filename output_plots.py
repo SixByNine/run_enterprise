@@ -18,6 +18,7 @@ def setup_argparse(parser):
     parser.add_argument('--burn', default=0.25, help='Fraction of chain to burn-in (MC only; default=0.25)')
     parser.add_argument('--truth-file', default=None, help='Truths values of parameters; maxlike=maximum likelihood, default=None')
     parser.add_argument('--dump-samples', default=0,type=int, help='Dump N samples of final scaled parameters')
+    parser.add_argument('--dump-samples-npy', default=0,type=int, help='Dump N samples of final scaled parameters as a numpy file')
     parser.add_argument('--dump-chain', action='store_true', help='Dump chain after scaling to phyical parameters')
     parser.add_argument('--plotname', default=None, help="Set plot output file name stem")
     parser.add_argument('--skip-plots', action='store_true', help="Skip all plotting (for debugging I guess)")
@@ -198,6 +199,23 @@ def posterior_fractions(pname, mean, sig, priors, gi=0, prt=True):
 
 def write_results(args, psr, par, parfile, samples, loglike, weights, pars, derived,derived_names):
     burn = int(len(samples) * args.burn)
+
+
+    if args.dump_samples_npy > 0:
+        print("Dump numpy samples...")
+        ## Make a combines samples array
+        if len(derived) > 0:
+            equal_samples = np.concatenate((samples[burn:, :len(pars)],derived[burn:,:]),axis=1)
+        else:
+            equal_samples = samples[burn:, :len(pars)]
+        ## We might need to re-weight
+        if not weights is None:
+            equal_samples = dynesty.utils.resample_equal(equal_samples, weights)
+
+        idx=np.arange(len(equal_samples))
+        np.random.choice(idx, args.dump_samples, replace=False)
+        np.savez_compressed(par+".samples.npz", pars=np.concatenate((pars,derived_names)), samples=equal_samples[idx,:])
+
 
     if args.dump_samples > 0:
         print("Dump samples...")

@@ -212,7 +212,7 @@ A=dmCof.dot(Lf_inv)
 dmCo = dmCoo - np.dot(A,A.T)
 print("Negative dmCo: ",np.sum(np.diag(dmCo)<0))
 
-ydm = dmM.dot(beta) + dm1*tyr + dm2*tyr*tyr + dm
+ydm = dmM.dot(beta) + dm1*tyr + 0.5*dm2*tyr*tyr + dm
 edm=np.sqrt(np.diag(dmCo))
 
 
