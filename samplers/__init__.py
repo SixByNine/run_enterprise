@@ -19,6 +19,12 @@ try:
 except ImportError:
     print("Cannot import zeus")
 
+try:
+    from . import ptmcmc_solver
+    all.append(ptmcmc_solver)
+except ImportError:
+    print("Cannot import ptmcmc")
+
 
 try:
     from . import multinest_solver
