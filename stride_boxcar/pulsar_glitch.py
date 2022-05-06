@@ -366,10 +366,12 @@ class Pulsar:
             startmjds = self.minmjds
         else:
             startmjds = self.pglep[startnum-1]
+        startmjds = min(startmjds, self.pglep[glitchnum-1]-1000)
         if endnum == -1:
             endmjds = self.maxmjds
         else:
             endmjds = self.pglep[endnum-1]
+        endmjds = max(endmjds, self.pglep[glitchnum-1]+1000)
         timlines = []
         with open(self.tim) as f1:
             for line in f1:
