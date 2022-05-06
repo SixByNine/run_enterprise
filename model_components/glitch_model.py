@@ -33,7 +33,7 @@ def setup_argparse(parser):
     parser.add_argument('--glitch-f0d-positive', '--glf0d-positive', action='store_true', help="Allow only positive GLF0D")
     parser.add_argument('--glitch-td-split', type=float, default=[1.8, 2.8], nargs='+', help="Where to split the td prior for multi exponentials")
     parser.add_argument('--glitch-alt-f0', action='store_true', help="Use alternative parameterisation of glitches fitting for instantanious change in F0 rather than GLF0")
-    parser.add_argument('--glitch-alt-f0t', type=int, default=[200]*10, nargs='+', help="Replace GLF1 with change of spin frequency 'T' days after the glitches respectively")
+    parser.add_argument('--glitch-alt-f0t', type=int, default=[200]*100, nargs='+', help="Replace GLF1 with change of spin frequency 'T' days after the glitches respectively")
     parser.add_argument('--alt-f0t-gltd', action='store_true', help="Replace GLF1 with change of spin frequency 'gltd' days after the glitch for all glitches")
     parser.add_argument('--measured-prior', action='store_true', help="Use measured prior range for GLF0(instant) and GLF0(T=taug)")
     parser.add_argument('--measured-without',action='store_true',help="Measure prior range without glitch for GLF0(instant) and GLF0(T=taug)")

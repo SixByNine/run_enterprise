@@ -4,7 +4,7 @@ import glob
 from argparse import ArgumentParser
 
 parser=ArgumentParser()
-parser.add_argument("-t", "--t", type=int, default=[200]*10, nargs='+', help="Replace GLF1 with change of spin frequency 'T' days after the glitch respectively")
+parser.add_argument("-t", "--t", type=int, default=[200]*100, nargs='+', help="Replace GLF1 with change of spin frequency 'T' days after the glitch respectively")
 parser.add_argument("-fc", "--fc", default="0.02", type=float, help="Corner frequency")
 parser.add_argument('-gltd', action='store_true', help="Replace GLF1 with change of spin frequency 'gltd' days after the glitch for all glitches")
 arg=parser.parse_args()
