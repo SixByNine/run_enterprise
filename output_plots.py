@@ -1,14 +1,13 @@
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
-import corner
-import dynesty
-from dynesty import plotting
+import dynesty # @todo: remove this dependency on dynesty
+from dynesty import plotting # @todo: remove this dependancy on dynesty
+import chainconsumer
 from astropy import coordinates as coord
 from astropy import units as units
 
 from model_components import priors
-from model_components import glitch_model
 
 def setup_argparse(parser):
     parser.add_argument('--white-corner', action='store_true', help='Make the efac/equad corner plots')
@@ -23,18 +22,20 @@ def setup_argparse(parser):
     parser.add_argument('--plotname', default=None, help="Set plot output file name stem")
     parser.add_argument('--skip-plots', action='store_true', help="Skip all plotting (for debugging I guess)")
 
-def cornerplot(samples, labels, weights=None, truths=None, truth_color='cyan'):
+def cornerplot(samples, labels, weights=None, truths=None, truth_color='blue'):
 
-    if weights is None:
-        weights = np.ones_like(samples[:,0])
-    res={'samples': samples, 'weights':weights}
-    fig,ax= plotting.cornerplot(res,truths=truths,labels=labels,truth_color=truth_color)
-    for aa in ax:
-        for a in aa:
-            if len(a.xaxis.get_label().get_text()) > 0:
-                a.ticklabel_format(axis='x', style='sci', scilimits=(-3, 3), useMathText=True)
-            if len(a.yaxis.get_label().get_text()) > 0:
-                a.ticklabel_format(axis='y', style='sci', scilimits=(-3, 3), useMathText=True)
+    ## @todo: Make a chain consumer then generate all stuff from that rather than this piecemeal version.
+    cc = chainconsumer.ChainConsumer()
+    parameters=[p.replace("_","\_") for p in labels]
+
+    cc.add_chain(samples,parameters=parameters, weights=weights)
+    cc.configure(diagonal_tick_labels=False, tick_font_size=8, label_font_size=8, max_ticks=8,
+                 colors="#455A64", shade=True, shade_alpha=0.2, bar_shade=True,
+                 sigmas=[0, 1, 2, 3], sigma2d=True)
+    cc.configure_truth(color=truth_color, ls=":", alpha=0.8)
+    fig = cc.plotter.plot(figsize='grow', truth=truths)
+
+    fig.patch.set_facecolor('white')
     return fig
 
 
@@ -102,6 +103,7 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
         fig = cornerplot(samples[burn:, n_w], labels=pars[n_w], weights=weights)
     elif args.truth_file == "maxlike":
         fig = cornerplot(samples[burn:, n_w], labels=pars[n_w], weights=weights, truths=pmax[n_w])
+        args.truth_file = None ## This logic needs fixing!
     else:
         d = {}
         with open(args.truth_file) as f:
