@@ -33,6 +33,12 @@ def run_solve(args, pta, outdir):
         main_process = rank == 0
 
     if args.sample:
+        cfile = "chain_1.txt"
+        if nprocs > 1:
+            cfile = "chain_1.0.txt"
+
+        with open(os.path.join(outdir, "cname"), "w") as f:
+            f.write(cfile)
 
         x0 = np.hstack([p.sample() for p in pta.params])
         ndim = len(x0)
@@ -56,12 +62,7 @@ def run_solve(args, pta, outdir):
                                    resume=args.cont)
         sampler.sample(x0, int(args.nsample),burn=int(min(10000, 0.1 * args.nsample)))
 
-        cfile = "chain_1.txt"
-        if nprocs > 1:
-            cfile = "chain_1.0.txt"
 
-        with open(os.path.join(outdir, "cname"), "w") as f:
-            f.write(cfile)
     else:
         with open(os.path.join(outdir, "cname"))as f:
             cfile = f.readline().strip()
