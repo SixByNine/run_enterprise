@@ -402,13 +402,14 @@ def slope_range(toas, phs, err, glep, glf0t, sigma):
 
     idx_gli = bisect.bisect_left(toas, glep*86400)
     idx_200 = bisect.bisect_left(toas, (glep+glf0t)*86400)
-    toas_pre = toas[idx_gli-5:idx_gli] # in seconds
+    idx_bgn = max(idx_gli-5, 0) # Ensure non-negative index
+    toas_pre = toas[idx_bgn:idx_gli] # in seconds
     toas_post = toas[idx_gli:idx_gli+5] # in seconds
     toas_200 = toas[idx_200-2:idx_200+3] # in seconds
-    phs_pre = phs[idx_gli-5:idx_gli]
+    phs_pre = phs[idx_bgn:idx_gli]
     phs_post = phs[idx_gli:idx_gli+5]
     phs_200 = phs[idx_200-2:idx_200+3]
-    err_pre = err[idx_gli-5:idx_gli]
+    err_pre = err[idx_bgn:idx_gli]
     err_post = err[idx_gli:idx_gli+5]
     err_200 = err[idx_200-2:idx_200+3]
     opt_pre, cov_pre = curve_fit(lin, toas_pre, phs_pre, sigma=err_pre)

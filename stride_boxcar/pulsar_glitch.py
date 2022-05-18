@@ -913,28 +913,40 @@ class Pulsar:
         if isinstance(gn, int) and 0 <= gn < self.max_glitch:
             glep = self.pglep[gn]
             x = mjd2sec(t, glep)
+            e1 = np.zeros_like(t)
+            e2 = np.zeros_like(t)
+            e3 = np.zeros_like(t)
             glf0[x > 0] += self.pglf0[gn]
             glf1[x > 0] += self.pglf1[gn] * x[x > 0]
             glf2[x > 0] += 0.5 * self.pglf2[gn] * x[x > 0]**2
-            exp1[x > 0] += self.pglf0d[gn] * np.exp(-x[x > 0] / (self.pgltd[gn]*86400.0))
-            exp2[x > 0] += self.pglf0d2[gn] * np.exp(-x[x > 0] / (self.pgltd2[gn]*86400.0))
-            exp3[x > 0] += self.pglf0d3[gn] * np.exp(-x[x > 0] / (self.pgltd3[gn]*86400.0))
+            e1[x > 0] += self.pglf0d[gn] * np.exp(-x[x > 0] / (self.pgltd[gn]*86400.0))
+            e2[x > 0] += self.pglf0d2[gn] * np.exp(-x[x > 0] / (self.pgltd2[gn]*86400.0))
+            e3[x > 0] += self.pglf0d3[gn] * np.exp(-x[x > 0] / (self.pgltd3[gn]*86400.0))
             dglf1[x > 0] += self.pglf1[gn]
             dglf2[x > 0] += self.pglf2[gn] * x[x > 0]
-            dexp[x > 0] += exp1[x > 0] / (self.pgltd[gn]*86400) + exp2[x > 0] / (self.pgltd2[gn]*86400) + exp3[x > 0] / (self.pgltd3[gn]*86400)
+            dexp[x > 0] += e1[x > 0] / (self.pgltd[gn]*86400) + e2[x > 0] / (self.pgltd2[gn]*86400) + e3[x > 0] / (self.pgltd3[gn]*86400)
+            exp1 += e1
+            exp2 += e2
+            exp3 += e3
         else:
             for i in range(self.max_glitch):
                 glep = self.pglep[i]
                 x = mjd2sec(t, glep)
+                e1 = np.zeros_like(t)
+                e2 = np.zeros_like(t)
+                e3 = np.zeros_like(t)
                 glf0[x > 0] += self.pglf0[i]
                 glf1[x > 0] += self.pglf1[i] * x[x > 0]
                 glf2[x > 0] += 0.5 * self.pglf2[i] * x[x > 0]**2
-                exp1[x > 0] += self.pglf0d[i] * np.exp(-x[x > 0] / (self.pgltd[i]*86400.0))
-                exp2[x > 0] += self.pglf0d2[i] * np.exp(-x[x > 0] / (self.pgltd2[i]*86400.0))
-                exp3[x > 0] += self.pglf0d3[i] * np.exp(-x[x > 0] / (self.pgltd3[i]*86400.0))
+                e1[x > 0] += self.pglf0d[i] * np.exp(-x[x > 0] / (self.pgltd[i]*86400.0))
+                e2[x > 0] += self.pglf0d2[i] * np.exp(-x[x > 0] / (self.pgltd2[i]*86400.0))
+                e3[x > 0] += self.pglf0d3[i] * np.exp(-x[x > 0] / (self.pgltd3[i]*86400.0))
                 dglf1[x > 0] += self.pglf1[i]
                 dglf2[x > 0] += self.pglf2[i] * x[x > 0]
-                dexp[x > 0] += exp1[x > 0] / (self.pgltd[i]*86400) + exp2[x > 0] / (self.pgltd2[i]*86400) + exp3[x > 0] / (self.pgltd3[i]*86400)
+                dexp[x > 0] += e1[x > 0] / (self.pgltd[i]*86400) + e2[x > 0] / (self.pgltd2[i]*86400) + e3[x > 0] / (self.pgltd3[i]*86400)
+                exp1 += e1
+                exp2 += e2
+                exp3 += e3
         return glf0, glf1, glf2, exp1, exp2, exp3, dglf1, dglf2, dexp
 
     def psr_taylor_terms(self, x):
