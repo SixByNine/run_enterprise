@@ -7,11 +7,12 @@ import argparse
 import sys, os
 import subprocess
 #import matplotlib
-#matplotlib.use('Agg')
+#matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 #import matplotlib.gridspec as gridspec
 import numpy as np
 import numpy.ma as ma
+import pandas as pd
 #from __future__ import print_function
 from uncertainties import ufloat
 #from scipy.optimize import curve_fit
@@ -50,13 +51,13 @@ def recovery_name(recoveries):
         print("Invalid recoveries value {} is set to 0".format(recoveries))
         recoveries = 0
     if recoveries==0:
-        modelname = 'f'
+        modelname = "f"
     elif recoveries==1:
-        modelname = 'r'
+        modelname = "r"
     elif recoveries==2:
-        modelname = 'd'
+        modelname = "d"
     elif recoveries==3:
-        modelname = 't'
+        modelname = "t"
     return recoveries, modelname
 
 def std_error(parameter, error):
@@ -78,7 +79,7 @@ class Pulsar:
         self.start, self.finish, self.pepoch = [None]*3
         self.tidypar, self.testpar, self.truth = [None]*3
         self.epochfile, self.datafile = [None]*2
-        self.gli_slt, self.noise_slt = [{}]*2
+        self.spin_slt, self.gli_slt, self.noise_slt = [{}]*3
         self.load_info(tidy=tidy, glf0t=glf0t)
 
     def load_info(self, tidy=False, glf0t="GLTD"):
@@ -97,6 +98,7 @@ class Pulsar:
         self.pglf0d, self.pgltd, self.pglf0d2, self.pgltd2, self.pglf0d3, self.pgltd3 = recovery
         self.max_glitch, self.waittime, self.taug, self.numofexp = summary
         self.minmjds, self.maxmjds, self.toanum, self.toaseries, self.toaspan, self.cadence = self.load_tim(self.tim)
+        self.E_dot, self.tau_c, self.B_sur, self.brake = self.calculate_derived()
 
     def load_par(self, par, tidy=False, glf0t="GLTD"):
         '''Load basic info of par file'''
@@ -199,9 +201,9 @@ class Pulsar:
                     pglf0d3[i-1] = float(e[1])
                     numofexp[i-1] = max(3, numofexp[i-1])
                 elif e[0].startswith("GLF0(T="):
-                    i = int(e[0].split('_')[-1])
-                    numb = e[0].split('=')[1]
-                    taug[i-1] = int(numb.split(')')[0])
+                    i = int(e[0].split("_")[-1])
+                    numb = e[0].split("=")[1]
+                    taug[i-1] = int(numb.split(")")[0])
         for i in range(max_glitch):
             if glf0t is "GLTD":
                 if pgltd[i] != 1:
@@ -246,7 +248,7 @@ class Pulsar:
         with open(tim) as f:
             for line in f:
                 e = line.split()
-                if len(e) > 2.0 and e[0] != "C" and "-pn" in e:
+                if len(e) > 2 and e[0] != "C" and "-pn" in e:
                     toaseries.append(float(e[2]))
                     minmjds = min(minmjds, float(e[2]))
                     maxmjds = max(maxmjds, float(e[2]))
@@ -268,12 +270,12 @@ class Pulsar:
         self.toainterval = np.array(self.toainterval)
         if gap<=0:
             gap = 10*self.cadence
-        print('Threshold of gap:', gap)
+        print("Threshold of gap:", gap)
         maski = x<0
         counter = 1
         for i, value in enumerate(self.toainterval):
             if value >= gap:
-                print('The No.%i gap (%f) in TOA is from %f to %f'%(counter, value, self.toaseries[i-1], self.toaseries[i]))
+                print("The No.%i gap (%f) in TOA is from %f to %f"%(counter, value, self.toaseries[i-1], self.toaseries[i]))
                 counter += 1
                 mask1 = self.toaseries[i-1] < x
                 mask2 = x < self.toaseries[i]
@@ -303,38 +305,38 @@ class Pulsar:
     def generate_truth(self):
         ''' Generate truth file'''
         self.truth = "trh_"+self.psrn+".txt"
-        with open(self.truth, 'w') as f:
+        with open(self.truth, "w") as f:
             for gi in range(self.max_glitch):
                 idx = gi + 1
-                f.write('GLEP_%i   %f\n'%(idx, self.pglep[gi]))
+                f.write("GLEP_%i   %f\n"%(idx, self.pglep[gi]))
                 if self.pglf0[gi] != 0:
-                    f.write('GLF0_%i   %e\n'%(idx, self.pglf0[gi]))
+                    f.write("GLF0_%i   %e\n"%(idx, self.pglf0[gi]))
                 if self.pglf1[gi] != 0:
-                    f.write('GLF1_%i   %e\n'%(idx, self.pglf1[gi]))
+                    f.write("GLF1_%i   %e\n"%(idx, self.pglf1[gi]))
                 if self.pglf2[gi] != 0:
-                    f.write('GLF2_%i   %e\n'%(idx, self.pglf2[gi]))
+                    f.write("GLF2_%i   %e\n"%(idx, self.pglf2[gi]))
                 if self.pglf0d[gi] != 0:
-                    f.write('GLF0D_%i   %e\n'%(idx, self.pglf0d[gi]))
+                    f.write("GLF0D_%i   %e\n"%(idx, self.pglf0d[gi]))
                 if self.pgltd[gi] != 0:
-                    f.write('GLTD_%i   %f\n'%(idx, self.pgltd[gi]))
+                    f.write("GLTD_%i   %f\n"%(idx, self.pgltd[gi]))
                 if self.pglf0d2[gi] != 0:
-                    f.write('GLF0D2_%i   %e\n'%(idx, self.pglf0d2[gi]))
+                    f.write("GLF0D2_%i   %e\n"%(idx, self.pglf0d2[gi]))
                 if self.pgltd2[gi] != 0:
-                    f.write('GLTD2_%i   %f\n'%(idx, self.pgltd2[gi]))
+                    f.write("GLTD2_%i   %f\n"%(idx, self.pgltd2[gi]))
                 if self.pglf0d3[gi] != 0:
-                    f.write('GLF0D3_%i   %e\n'%(idx, self.pglf0d3[gi]))
+                    f.write("GLF0D3_%i   %e\n"%(idx, self.pglf0d3[gi]))
                 if self.pgltd3[gi] != 0:
-                    f.write('GLTD3_%i   %f\n'%(idx, self.pgltd3[gi]))
+                    f.write("GLTD3_%i   %f\n"%(idx, self.pgltd3[gi]))
                 if self.pglf0[gi] != 0 and self.pglf1[gi] != 0:
                     #glf0_i = glf0 + glf0d + glf0d2 + glf0d3
                     #glf0_T = glf1*t200*86400+glf0d*(np.exp(-t200/gltd)-1)+glf0d2*(np.exp(-t200/gltd2)-1)+glf0d3*(np.exp(-t200/gltd3)-1)
-                    f.write('GLF0(instant)_%i   %e\n'%(idx, self.pglf0ins[gi]))
-                    f.write('GLF0(T=%d)_%i   %e\n'%(self.taug[gi], idx, self.pglf0tg[gi]))
+                    f.write("GLF0(instant)_%i   %e\n"%(idx, self.pglf0ins[gi]))
+                    f.write("GLF0(T=%d)_%i   %e\n"%(self.taug[gi], idx, self.pglf0tg[gi]))
             if all(p is not None for p in [self.redamp, self.redgam]):
                 #alpha = redgam
                 #P0 = ((redamp**2)/(12*np.pi**2))*(fc**(-alpha))
-                f.write('TNRedAmp   %f\n'%self.redamp)
-                f.write('TNRedGam   %f\n'%self.redgam)
+                f.write("TNRedAmp   %f\n"%self.redamp)
+                f.write("TNRedGam   %f\n"%self.redgam)
 
     def tidy_glitch(self, chop=None):
         ''' Sort the recovery terms according to their time scale.
@@ -350,39 +352,39 @@ class Pulsar:
                     i = int(pp[1])
                     param = pp[0]
                     if not i in glitches:
-                        glitches[i] = {'turns':0}
+                        glitches[i] = {"turns":0}
                     if param == "GLEP":
-                        glitches[i]['epoch'] = float(e[1])
+                        glitches[i]["epoch"] = float(e[1])
                     #if param == "GLPH":
-                        #glitches[i]['turns'] = round(float(e[1]))
-                        #e[1] = "{}".format(float(e[1]) - glitches[i]['turns'])
+                        #glitches[i]["turns"] = round(float(e[1]))
+                        #e[1] = "{}".format(float(e[1]) - glitches[i]["turns"])
                     glitches[i][param] = " ".join(e[1:])
                 else:
                     parlines.append(line)
         #for ig in glitches:
-            #print("glitch[{}] epoch {} turns {}".format(ig,glitches[ig]['epoch'],glitches[ig]['turns']))
-        gg = sorted(glitches, key=lambda x: glitches[x]['epoch'])
+            #print("glitch[{}] epoch {} turns {}".format(ig,glitches[ig]["epoch"],glitches[ig]["turns"]))
+        gg = sorted(glitches, key=lambda x: glitches[x]["epoch"])
         for ig in gg:
             if "GLTD" in glitches[ig]:
                 if "GLTD2" in glitches[ig]: # Swap 1st and 2nd recoveries if the 1st longer than 2nd
-                    if glitches[ig]['GLTD'] > glitches[ig]['GLTD2']:
-                        glitches[ig]['GLF0D'], glitches[ig]['GLF0D2'] = glitches[ig]['GLF0D2'], glitches[ig]['GLF0D']
-                        glitches[ig]['GLTD'], glitches[ig]['GLTD2'] = glitches[ig]['GLTD2'], glitches[ig]['GLTD']
+                    if glitches[ig]["GLTD"] > glitches[ig]["GLTD2"]:
+                        glitches[ig]["GLF0D"], glitches[ig]["GLF0D2"] = glitches[ig]["GLF0D2"], glitches[ig]["GLF0D"]
+                        glitches[ig]["GLTD"], glitches[ig]["GLTD2"] = glitches[ig]["GLTD2"], glitches[ig]["GLTD"]
                 if "GLTD3" in glitches[ig]: # Swap 1st and 3rd recoveries if the 1st longer than 3rd
-                    if glitches[ig]['GLTD'] > glitches[ig]['GLTD3']:
-                        glitches[ig]['GLF0D'], glitches[ig]['GLF0D3'] = glitches[ig]['GLF0D3'], glitches[ig]['GLF0D']
-                        glitches[ig]['GLTD'], glitches[ig]['GLTD3'] = glitches[ig]['GLTD3'], glitches[ig]['GLTD']
-                    if "GLTD2" in glitches[ig] and glitches[ig]['GLTD2'] > glitches[ig]['GLTD3']:
-                        glitches[ig]['GLF0D2'], glitches[ig]['GLF0D3'] = glitches[ig]['GLF0D3'], glitches[ig]['GLF0D2']
-                        glitches[ig]['GLTD2'], glitches[ig]['GLTD3'] = glitches[ig]['GLTD3'], glitches[ig]['GLTD2']
-        self.tidypar = "tdy_"+self.par.split('_', 1)[1]
+                    if glitches[ig]["GLTD"] > glitches[ig]["GLTD3"]:
+                        glitches[ig]["GLF0D"], glitches[ig]["GLF0D3"] = glitches[ig]["GLF0D3"], glitches[ig]["GLF0D"]
+                        glitches[ig]["GLTD"], glitches[ig]["GLTD3"] = glitches[ig]["GLTD3"], glitches[ig]["GLTD"]
+                    if "GLTD2" in glitches[ig] and glitches[ig]["GLTD2"] > glitches[ig]["GLTD3"]:
+                        glitches[ig]["GLF0D2"], glitches[ig]["GLF0D3"] = glitches[ig]["GLF0D3"], glitches[ig]["GLF0D2"]
+                        glitches[ig]["GLTD2"], glitches[ig]["GLTD3"] = glitches[ig]["GLTD3"], glitches[ig]["GLTD2"]
+        self.tidypar = "tdy_"+self.par.split("_", 1)[1]
         with open(self.tidypar,"w") as f1:
             f1.writelines(parlines)
             for ig in gg:
                 for param in glitches[ig]:
                     if param in ["epoch","turns"]:
                         continue
-                    f1.write("{}_{} {}\n".format(param,glitches[ig]['newid'],glitches[ig][param]))
+                    f1.write("{}_{} {}\n".format(param,glitches[ig]["newid"],glitches[ig][param]))
         with open(self.tim) as f2:
             for line in f2:
                 e = line.split()
@@ -391,8 +393,8 @@ class Pulsar:
                     ii = e.index("-pn")
                     pn = int(e[ii+1])
                     for ig in gg:
-                        if epoch > glitches[ig]['epoch']:
-                            pn -= glitches[ig]['turns']
+                        if epoch > glitches[ig]["epoch"]:
+                            pn -= glitches[ig]["turns"]
                     newline = " ".join(e[:ii])+" -pn {} ".format(pn)+(" ".join(e[ii+2:]))
                     if isinstance(chop, int):
                         if self.pglep[0]-chop <= epoch <= self.pglep[-1]+chop:
@@ -470,7 +472,7 @@ class Pulsar:
         if isinstance(glitchnum, int) and 0 < glitchnum <= self.max_glitch:
             pass
         else:
-            glitchnum = int(self.splittim.split('_')[-1].split('.')[0].split(':')[0])
+            glitchnum = int(self.splittim.split("_")[-1].split(".")[0].split(":")[0])
         recoveries, modelname = recovery_name(recoveries)
         if GLF2 is True:
             self.splitpar = "glf_"+self.psrn+"_"+str(glitchnum)+modelname+".par"
@@ -490,13 +492,13 @@ class Pulsar:
                         GLF2=False
                     if small_glitches is True:
                         e = line.split()
-                        if line.startswith("GLF") and int(e[0].split('_')[-1]) in sml_gli:
+                        if line.startswith("GLF") and int(e[0].split("_")[-1]) in sml_gli:
                             # Turn on tempo2 fitting of these parameters for small glitches included in this range
                             if len(e) >= 3:
-                                newline = e[0]+'   '+e[1]+'   '+'1'+'   '+e[-1]+'\n'
+                                newline = e[0]+"   "+e[1]+"   "+"1"+"   "+e[-1]+"\n"
                                 parlines.append(newline)
                             else:
-                                newline = e[0]+'   '+e[1]+'   '+'1'+'\n'
+                                newline = e[0]+"   "+e[1]+"   "+"1"+"\n"
                                 parlines.append(newline)
                             continue                         
                     parlines.append(line)
@@ -506,28 +508,28 @@ class Pulsar:
                     # Turn on tempo2 fitting of these parameters
                     e = line.split()
                     if len(e) >= 3:
-                        newline = e[0]+'   '+e[1]+'   '+'1'+'   '+e[-1]+'\n'
+                        newline = e[0]+"   "+e[1]+"   "+"1"+"   "+e[-1]+"\n"
                         parlines.append(newline)
                     else:
-                        newline = e[0]+'   '+e[1]+'   '+'1'+'\n'
+                        newline = e[0]+"   "+e[1]+"   "+"1"+"\n"
                         parlines.append(newline)
                 elif line.startswith("GLF0D_") or line.startswith("GLTD_"):
                     e = line.split()
-                    num = int(e[0].split('_')[-1])
+                    num = int(e[0].split("_")[-1])
                     if num==glitchnum and recoveries < 1:
                         pass
                     else:
                         parlines.append(line)
                 elif line.startswith("GLF0D2_") or line.startswith("GLTD2_"):
                     e = line.split()
-                    num = int(e[0].split('_')[-1])
+                    num = int(e[0].split("_")[-1])
                     if num==glitchnum and recoveries < 2:
                         pass
                     else:
                         parlines.append(line)
                 elif line.startswith("GLF0D3_") or line.startswith("GLTD3_"):
                     e = line.split()
-                    num = int(e[0].split('_')[-1])
+                    num = int(e[0].split("_")[-1])
                     if num==glitchnum and recoveries < 3:
                         pass
                     else:
@@ -539,18 +541,18 @@ class Pulsar:
                 if recoveries > expterms:
                     if expterms == expnum:
                         if expnum == 0:
-                            newline = 'GLF0D_'+str(glitchnum)+'   '+'0'+'\n'
+                            newline = "GLF0D_"+str(glitchnum)+"   "+"0"+"\n"
                             parlines.append(newline)
-                            newline = 'GLTD_'+str(glitchnum)+'   '+str(50*(4**expnum))+'\n'
+                            newline = "GLTD_"+str(glitchnum)+"   "+str(50*(4**expnum))+"\n"
                             parlines.append(newline)
                         else:
-                            newline = 'GLF0D{}_'.format(str(expnum+1))+str(glitchnum)+'   '+'0'+'\n'
+                            newline = "GLF0D{}_".format(str(expnum+1))+str(glitchnum)+"   "+"0"+"\n"
                             parlines.append(newline)
-                            newline = 'GLTD{}_'.format(str(expnum+1))+str(glitchnum)+'   '+str(50*(4**expnum))+'\n'
+                            newline = "GLTD{}_".format(str(expnum+1))+str(glitchnum)+"   "+str(50*(4**expnum))+"\n"
                             parlines.append(newline)
                         expterms += 1
             if GLF2 is True:
-                newline = 'GLF2_{}'.format(str(glitchnum))+'   '+'0'+'\n'
+                newline = "GLF2_{}".format(str(glitchnum))+"   "+"0"+"\n"
                 parlines.append(newline)
         with open(self.splitpar, "w") as f2:
             f2.writelines(parlines)
@@ -570,7 +572,7 @@ class Pulsar:
         elif glitchnum is None:
             pass
         else:
-            glitchnum = int(self.splittim.split('_')[-1].split('.')[0].split(':')[0])
+            glitchnum = int(self.splittim.split("_")[-1].split(".")[0].split(":")[0])
         recoveries, modelname = recovery_name(recoveries)
         if recoveries == 3:
             gltdsplit[0]=1.8
@@ -599,7 +601,7 @@ class Pulsar:
             solver = "multinest"
         print("######")
         print("Start MCMC fitting")
-        print("taug is:", self.taug)
+        print("Tau_g is:", self.taug)
         print("Directory name is:", dirname)
         print("Par file for MCMC fit:", par)
         print("Tim file for MCMC fit:", tim)
@@ -618,7 +620,7 @@ class Pulsar:
         proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1)
         for line in proc.stdout:
             sys.stdout.buffer.write(line)
-            opt.write(line.decode('utf-8'))
+            opt.write(line.decode("utf-8"))
 
     def post_par(self, par=None, tim=None, glitchnum=1, recoveries=0):
         '''Create final par file for glitch glitchnum's model based on post fit par file'''
@@ -631,7 +633,7 @@ class Pulsar:
         elif glitchnum is None:
             pass
         else:
-            glitchnum = int(self.splittim.split('_')[-1].split('.')[0].split(':')[0])
+            glitchnum = int(self.splittim.split("_")[-1].split(".")[0].split(":")[0])
         recoveries, modelname = recovery_name(recoveries)
         postpar = par+".post"
         self.fnlpar = "fnl_"+par.split("_", 1)[1]
@@ -648,7 +650,7 @@ class Pulsar:
         if isinstance(glitchnum, int) and 0 < glitchnum <= self.max_glitch:
             pass
         else:
-            glitchnum = int(self.splittim.split('_')[-1].split('.')[0].split(':')[0])
+            glitchnum = int(self.splittim.split("_")[-1].split(".")[0].split(":")[0])
         if GLF2 is True:
             prefix = "glf_"
         else:
@@ -722,18 +724,16 @@ class Pulsar:
                 if line.startswith("GL"):
                     e = line.split()
                     glnum = int(e[0].split("_")[-1])
-                    if glnum in largeglitch:
-                        pass
-                    else:
+                    if glnum not in largeglitch:
                         if line.startswith("GLEP"):
-                            newline = e[0]+'   '+e[1]+'\n'
+                            newline = e[0]+"   "+e[1]+"\n"
                         elif line.startswith("GLPH"):
-                            newline = '#'+line
+                            newline = "#"+line
                         else: # Turn on tempo2 fitting of all other glitch parameters for small glitches
                             if len(e) >= 3:
-                                newline = e[0]+'   '+e[1]+'   '+'1'+'   '+e[-1]+'\n'
+                                newline = e[0]+"   "+e[1]+"   "+"1"+"   "+e[-1]+"\n"
                             else:
-                                newline = e[0]+'   '+e[1]+'   '+'1'+'\n'
+                                newline = e[0]+"   "+e[1]+"   "+"1"+"\n"
                         parlines.append(newline)
                 elif line.startswith("TN"):
                     continue
@@ -766,6 +766,7 @@ class Pulsar:
         self.noise_slt = self.read_results_file(self.sum_results, max_like=max_like, noise=True)
         print("<<< The noise solution for pulsar {} is {} >>>".format(self.psrn, self.noise_slt))
         self.par = self.post_par(par=self.sumpar, tim=self.tim, glitchnum=None)
+        self.read_final_par(largeglitch=largeglitch)
         return self.par
 
     def read_results_file(self, res_file, max_like=False, noise=False):
@@ -790,7 +791,7 @@ class Pulsar:
                 if noise is False:
                     if e[0].startswith("GL"):
                         glnum = int(e[0].split("_")[-1])
-                        results[e[0]] = ufloat(float(e[value_idx]), float(e[3]))
+                        glkey = e[0].split("_")[0]
                         if e[0].startswith("GLEP_"):
                             self.pglep[glnum-1] = float(e[value_idx])
                             self.pglepstd[glnum-1] = float(e[3])
@@ -827,9 +828,17 @@ class Pulsar:
                         elif e[0].startswith("GLF0(T="):
                             self.pglf0tg[glnum-1] = float(e[value_idx])
                             self.pglf0tgstd[glnum-1] = float(e[3])
+                            results["Tau_g"] = int(e[0].split("=")[1].split(")")[0])
+                            glkey = "GLF0(T=tau_g)"
+                        if glnum > 1:
+                            glep1 = std_error(self.pglep[glnum-1], self.pglepstd[glnum-1])
+                            glep2 = std_error(self.pglep[glnum-2], self.pglepstd[glnum-2])
+                            delta_glep = glep1 - glep2
+                            self.waittime[glnum-1] = delta_glep.n
+                            results["Waiting time"] = delta_glep
+                        results[glkey] = std_error(float(e[value_idx]), float(e[3]))
                 else:
                     if e[0].startswith("TN"):
-                        results[e[0]] = ufloat(float(e[value_idx]),float(e[3]))
                         if e[0].startswith("TNRedAmp"):
                             self.redamp = float(e[value_idx])
                             self.redampstd = float(e[3])
@@ -841,7 +850,7 @@ class Pulsar:
                             if jbfb == "jbafb":
                                 self.ef_jbafb = float(e[value_idx])
                                 self.ef_jbafbstd = float(e[3])
-                            if jbfb == "jbdfb":
+                            elif jbfb == "jbdfb":
                                 self.ef_jbdfb = float(e[value_idx])
                                 self.ef_jbdfbstd = float(e[3])
                         elif e[0].startswith("TNEQ"):
@@ -849,10 +858,35 @@ class Pulsar:
                             if jbfb == "jbafb":
                                 self.eq_jbafb = float(e[value_idx])
                                 self.eq_jbafbstd = float(e[3])
-                            if jbfb == "jbdfb":
+                            elif jbfb == "jbdfb":
                                 self.eq_jbdfb = float(e[value_idx])
                                 self.eq_jbdfbstd = float(e[3])
+                        results[e[0]] = std_error(float(e[value_idx]),float(e[3]))
         return results
+
+    def read_final_par(self, largeglitch=[1]):
+        '''Read rough estimates of glitch parameters by tempo2 for small glitches from final par file'''
+        for glitchnum in range(self.max_glitch):
+            if glitchnum+1 not in largeglitch:
+                self.gli_slt[str(glitchnum+1)] = {}
+        with open(self.par) as f:
+            f.readline()
+            for line in f:
+                e=line.strip().split()
+                if e[0].startswith("GL"):
+                    glnum = int(e[0].split("_")[-1])
+                    if glnum not in largeglitch:
+                        glkey = e[0].split("_")[0]
+                        std = 0
+                        if len(e) > 3:
+                            std = float(e[3])
+                        if e[0].startswith("GLF0(T="):
+                            self.gli_slt[str(glnum)]["Tau_g"] = int(e[0].split("=")[1].split(")")[0])
+                            glkey = "GLF0(T=tau_g)"
+                        self.gli_slt[str(glnum)][glkey] = std_error(float(e[1]), std)
+        for glitchnum in range(self.max_glitch):
+            if glitchnum+1 not in largeglitch:
+                print("<<< The solution for glitch {} is {} >>>".format(glitchnum+1, self.gli_slt[str(glitchnum+1)]))
 
     def extract_results(self, finalpar=None):
         '''Extract useful results from final par'''
@@ -862,68 +896,41 @@ class Pulsar:
         self.psrn, self.F0, self.F1, self.F2, self.F0std, self.F1std, self.F2std = spin
         self.ra, self.dec, self.pmra, self.pmdec, self.PX, self.DM = position
         self.start, self.finish, self.pepoch = toa
-        self.redamp, self.redgam, self.redc = red
-        self.ef_jbafb, self.ef_jbdfb, self.eq_jbafb, self.eq_jbdfb = white
-        self.pglep, self.pglf0, self.pglf1, self.pglf2, self.pglf0ins, self.pglf0tg = glitch
-        self.pglf0d, self.pgltd, self.pglf0d2, self.pgltd2, self.pglf0d3, self.pgltd3 = recovery
-        self.max_glitch, self.waittime, self.taug, self.numofexp = summary
+        #self.redamp, self.redgam, self.redc = red
+        #self.ef_jbafb, self.ef_jbdfb, self.eq_jbafb, self.eq_jbdfb = white
+        #self.pglep, self.pglf0, self.pglf1, self.pglf2, self.pglf0ins, self.pglf0tg = glitch
+        #self.pglf0d, self.pgltd, self.pglf0d2, self.pgltd2, self.pglf0d3, self.pgltd3 = recovery
+        #self.max_glitch, self.waittime, self.taug, self.numofexp = summary
         self.E_dot, self.tau_c, self.B_sur, self.brake = self.calculate_derived()
         self.delete_null()
         self.print_info()
-        print("### Printing derived parameters for Pulsar {}".format(self.psrn))
-        print("Spin-down luminosity (E_dot) is: {} erg/s".format(self.E_dot))
-        print("Characteristic age (tau_c) is: {} Myr".format(self.tau_c))
-        print("Surface magnetic field strength (B_sur) is: {} G".format(self.B_sur))
-        print("Braking index (n) is: {}".format(self.brake))
-        fnlrslt = "../slt_"+self.psrn+".txt"
-        with open(fnlrslt, "w") as resf:
-            pulsar_para = ("{:15s} {:10s} {:10s} {:10s} {:20s} {:15s} {:15s} {:15s} {:15s}".format("#Pulsar Name ", " F0 ", " F1 ", " F2 ", " Total glitches ", " E_dot(erg/s) ", " Tau_c(Myr) ", " B_sur(Gauss) ", " Braking index"))
-            resf.write(pulsar_para + "\n")
-            print(pulsar_para)
-            pulsar_value = ("{:12s} {:<6g} {:<6g} {:<6g} {:<2g} {:<6g} {:<6g} {:<6g} {:<6g}".format(self.psrn, ufloat(self.F0, self.F0std), ufloat(self.F1, self.F1std), ufloat(self.F2, self.F2std), self.max_glitch, self.E_dot, self.tau_c, self.B_sur, self.brake))
-            resf.write(pulsar_value + "\n")
-            print(pulsar_value)
-            glitch_para = ("{:15s} {:10s} {:10s} {:10s} {:10s} {:15s} {:15s} {:15s} {:10s} {:10s} {:10s} {:10s} {:10s} {:10s}".format("#Glitch No. ", " GLEP ", " GLF0 ", " GLF1 ", " GLF2 ", " GLF0(instant) ", " GLF0(T=taug) ", " Waiting time ", " GLF0D ", " GLTD ", " GLF0D2 ", " GLTD2 ", " GLF0D3 ", " GLTD3"))
-            resf.write(glitch_para + "\n")
-            print(glitch_para)
-            for glitchnum in range(self.max_glitch):
-                if glitchnum == 0:
-                    waittime = self.waittime[glitchnum]
-                else:
-                    waittime = ufloat(self.pglep[glitchnum], self.pglepstd[glitchnum]) - ufloat(self.pglep[glitchnum-1], self.pglepstd[glitchnum-1])
-                glep = std_error(self.pglep[glitchnum], self.pglepstd[glitchnum])
-                glf0 = std_error(self.pglf0[glitchnum], self.pglf0std[glitchnum])
-                glf1 = std_error(self.pglf1[glitchnum], self.pglf1std[glitchnum])
-                glf2 = std_error(self.pglf2[glitchnum], self.pglf2std[glitchnum])
-                glf0ins = std_error(self.pglf0ins[glitchnum], self.pglf0insstd[glitchnum])
-                glf0tg = std_error(self.pglf0tg[glitchnum], self.pglf0tgstd[glitchnum])
-                if self.pglf0d[glitchnum] == 0:
-                    glf0d = np.nan
-                else:
-                    glf0d = std_error(self.pglf0d[glitchnum], self.pglf0dstd[glitchnum])
-                if self.pgltd[glitchnum] == 1:
-                    gltd = np.nan
-                else:
-                    gltd = std_error(self.pgltd[glitchnum], self.pgltdstd[glitchnum])
-                if self.pglf0d2[glitchnum] == 0:
-                    glf0d2 = np.nan
-                else:
-                    glf0d2 = std_error(self.pglf0d2[glitchnum], self.pglf0d2std[glitchnum])
-                if self.pgltd2[glitchnum] == 1:
-                    gltd2 = np.nan
-                else:
-                    gltd2 = std_error(self.pgltd2[glitchnum], self.pgltd2std[glitchnum])
-                if self.pglf0d3[glitchnum] == 0:
-                    glf0d3 = np.nan
-                else:
-                    glf0d3 = std_error(self.pglf0d3[glitchnum], self.pglf0d3std[glitchnum])
-                if self.pgltd3[glitchnum] == 1:
-                    gltd3 = np.nan
-                else:
-                    gltd3 = std_error(self.pgltd3[glitchnum], self.pgltd3std[glitchnum])
-                glitch_value = ("{:<2g}, {:<g}, {:<10g}, {:<20g}, {:<30g}, {:<10g}, {:<20g}, {:<g}, {:<10g}, {:<g}, {:<10g}, {:<g}, {:<10g}, {:<g}".format(glitchnum+1, glep, glf0, glf1, glf2, glf0ins, glf0tg, waittime, glf0d, gltd, glf0d2, gltd2, glf0d3, gltd3))
-                resf.write(glitch_value + "\n")
-                print(glitch_value)
+        self.spin_slt["Pulsar Name"] = self.psrn
+        self.spin_slt["F0"] = std_error(self.F0, self.F0std)
+        self.spin_slt["F1"] = std_error(self.F1, self.F1std)
+        self.spin_slt["F2"] = std_error(self.F2, self.F2std)
+        self.spin_slt["Total glitches"] = self.max_glitch
+        self.spin_slt["E_dot"] = self.E_dot
+        self.spin_slt["Tau_c"] = self.tau_c
+        self.spin_slt["B_sur"] = self.B_sur
+        self.spin_slt["Braking index"] = self.brake
+        fnlrslt = "../slt_"+self.psrn+".csv"
+        entry = []
+        spin_idx = ["F0", "F1", "F2", "E_dot", "Tau_c", "B_sur", "Braking index"]
+        glitch_idx = ["GLEP", "GLF0", "GLF1", "GLF2", "GLF0(instant)", "GLF0(T=tau_g)", "Tau_g", "Waiting time"]
+        recovery_idx = ["GLF0D", "GLTD", "GLF0D2", "GLTD2", "GLF0D3", "GLTD3"]
+        red_idx = ["TNRedAmp", "TNRedGam"]
+        white_idx = ["TNEF -be jbafb", "TNEF -be jbdfb", "TNEQ -be jbafb", "TNEQ -be jbdfb"]
+        sum_idx = spin_idx + glitch_idx + recovery_idx + red_idx #+ white_idx
+        for glitchnum in range(self.max_glitch):
+            sum_slt = {**self.spin_slt, **self.gli_slt[str(glitchnum+1)], **self.noise_slt}
+            series_slt = pd.Series(sum_slt, index=sum_idx)
+            entry.append(series_slt)
+            print(series_slt)
+        fr_name = ["Pulsar name", 'Glitch No.']
+        fr_id = pd.MultiIndex.from_tuples([(self.psrn, i+1) for i in range(self.max_glitch)], names=fr_name)
+        frame_slt = pd.DataFrame(entry, index=fr_id)
+        print(frame_slt)
+        frame_slt.to_csv(fnlrslt)
 
     def calculate_derived(self):
         '''Calculate derived quantities of pulsars from spin parameters'''
@@ -931,8 +938,8 @@ class Pulsar:
         #E_dot = -4e38*(np.pi**2)*self.F0*self.F1 # in W
         E_dot = -4e45*(np.pi**2)*self.F0*self.F1 # in erg/s
         #tau_c = -0.5*self.F0/self.F1 # in seconds
-        tau_c = -0.5/(86400*365.2425e6)*self.F0/self.F1 # in Myr
-        B_surface = 3.2e19*np.sqrt(-self.F1/self.F0**3) # in Gauss
+        tau_c = -0.5/(86400*365.2425e3)*self.F0/self.F1 # in kyr
+        B_surface = 3.2e7*np.sqrt(-self.F1/self.F0**3) # in T(10^12)Gauss
         braking_index = self.F0*self.F2/(self.F1**2)
         return E_dot, tau_c, B_surface, braking_index
 
@@ -951,14 +958,14 @@ class Pulsar:
                 else: # Turn off tempo2 fitting of all other parameters
                     e = line.split()
                     if len(e) > 3 and float(e[2]) == 1:
-                        newline = e[0]+'   '+e[1]+'   '+e[3]+'\n'
+                        newline = e[0]+"   "+e[1]+"   "+e[3]+"\n"
                         parlines.append(newline)
                     elif len(e) == 3 and float(e[2]) == 1:
-                        newline = e[0]+'   '+e[1]+'\n'
+                        newline = e[0]+"   "+e[1]+"\n"
                         parlines.append(newline)
                     else:
                         parlines.append(line)
-        self.testpar = "tst_"+self.par.split('_', 1)[1]
+        self.testpar = "tst_"+self.par.split("_", 1)[1]
         with open(self.testpar, "w") as newf:
             newf.writelines(parlines)
 
@@ -968,7 +975,7 @@ class Pulsar:
             os.remove("global.par")
         except OSError:
             pass
-        with open("global.par", 'a') as glob:
+        with open("global.par", "a") as glob:
             for ge in self.pglep:
                 if ge is not None:
                     if leading < ge and trailing >= ge:
@@ -984,11 +991,11 @@ class Pulsar:
     def sf_run_fit(self, epoch, F0e=1e-7, F1e=1e-14, F2e=1e-17):
         '''Run tempo2 and fit for parameters'''
         epoch = str(epoch)
-        command = ['tempo2', '-f', self.testpar, self.tim, '-nofit', '-global', 'global.par',
-                   '-fit', 'F0', '-fit', 'F1', '-fit', 'F2', '-epoch', epoch]
+        command = ["tempo2", "-f", self.testpar, self.tim, "-nofit", "-global", "global.par",
+                   "-fit", "F0", "-fit", "F1", "-fit", "F2", "-epoch", epoch]
         proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None)
         while proc.poll() is None:
-            line = proc.stdout.readline().decode('utf-8')
+            line = proc.stdout.readline().decode("utf-8")
             fields = line.split()
             if len(fields) > 4:
                 if fields[0] == "PEPOCH":
@@ -1019,13 +1026,13 @@ class Pulsar:
             step = 3*int(self.cadence)
         if width < 2*step:
             width = 2*step
-        print('Stride fitting with box width %d and step size %d'%(width, step))
+        print("Stride fitting with box width %d and step size %d"%(width, step))
         first, last = self.minmjds, self.maxmjds
         leading = first
         trailing = first + width
         counter = 0
-        self.epochfile = self.psrn+'_g'+str(self.max_glitch)+'_w'+str(int(width))+'_s'+str(int(step))+'_epoch.txt'
-        with open(self.epochfile, 'w') as f1:
+        self.epochfile = self.psrn+"_g"+str(self.max_glitch)+"_w"+str(int(width))+"_s"+str(int(step))+"_epoch.txt"
+        with open(self.epochfile, "w") as f1:
             while trailing <= last:
                 leading, trailing = self.sf_create_global(leading, trailing, width, step)
                 epoch = leading + ((trailing - leading)/2.0)
@@ -1034,8 +1041,8 @@ class Pulsar:
                 leading = first + counter*step
                 trailing = first + width + counter*step
         starts, ends, fitepochs = np.loadtxt(self.epochfile, unpack=True)
-        self.datafile = self.psrn+'_g'+str(self.max_glitch)+'_w'+str(int(width))+'_s'+str(int(step))+'_data.txt'
-        with open(self.datafile, 'w') as f2:
+        self.datafile = self.psrn+"_g"+str(self.max_glitch)+"_w"+str(int(width))+"_s"+str(int(step))+"_data.txt"
+        with open(self.datafile, "w") as f2:
             for i, (start_value, end_value) in enumerate(zip(starts, ends)):
                 self.sf_create_global(start_value, end_value, width, step)
                 epoch = fitepochs[i]
@@ -1051,7 +1058,7 @@ class Pulsar:
         sfx = mjd2sec(sft, self.pepoch)
         sff1, sff2, sfdf2 = self.psr_taylor_terms(sfx)
         sfglf0, sfglf1, sfglf2, sfexp1, sfexp2, sfexp3, sfdglf1, sfdglf2, sfdexp = self.glitch_terms(sft)
-        p1y = (f0 - self.F0 - sff1- sff2) # try subtract / not subtract sff1
+        p1y = (f0 - self.F0 - sff1) #- sff2)
         p2y = (f0 - self.F0 - sff1 - sff2 - sfglf0 - sfglf1 - sfglf2)
         p3y = (f0 - self.F0 - sff1 - sff2 - sfglf0 - sfglf1 - sfglf2 - sfexp1 - sfexp2 - sfexp3)
         p4y = (f1 - self.F1) #- sfdf2)
@@ -1059,63 +1066,84 @@ class Pulsar:
         if save:
             with open("panel1_{}.txt".format(self.psrn), "w") as file1:
                 for i, value in enumerate(sft):
-                    file1.write('%f   %e   %e   \n' % (value, 1e6*(p1y[i]), 1e6*f0e[i]))
+                    file1.write("%f   %e   %e   \n" % (value, 1e6*(p1y[i]), 1e6*f0e[i]))
                 file1.close()
             with open("panel2_{}.txt".format(self.psrn), "w") as file2:
                 for i, value in enumerate(sft):
-                    file2.write('%f   %e   %e   \n' % (value, 1e6*(p2y[i]), 1e6*f0e[i]))
+                    file2.write("%f   %e   %e   \n" % (value, 1e6*(p2y[i]), 1e6*f0e[i]))
                 file2.close()
             with open("panel3_{}.txt".format(self.psrn), "w") as file3:
                 for i, value in enumerate(sft):
-                    file3.write('%f   %e   %e   \n' % (value, 1e6*(p3y[i]), 1e6*f0e[i]))
+                    file3.write("%f   %e   %e   \n" % (value, 1e6*(p3y[i]), 1e6*f0e[i]))
                 file3.close()
             with open("panel4_{}.txt".format(self.psrn), "w") as file4:
                 for i, value in enumerate(sft):
-                    file4.write('%f   %e   %e   \n' % (value, 1e10*(p4y[i]), 1e10*f1e[i]))
+                    file4.write("%f   %e   %e   \n" % (value, 1e10*(p4y[i]), 1e10*f1e[i]))
                 file4.close()
             with open("panel5_{}.txt".format(self.psrn), "w") as file5:
                 for i, value in enumerate(sft):
-                    file5.write('%f   %e   %e   \n' % (value, 1e10*(p5y[i]), 1e10*f1e[i]))
+                    file5.write("%f   %e   %e   \n" % (value, 1e10*(p5y[i]), 1e10*f1e[i]))
                 file5.close()
         if plot:
-            plt.errorbar(sft, 1e6*p1y, yerr=1e6*f0e, marker='.', color='k', ecolor='k', linestyle='None')
+            plt.errorbar(sft, 1e6*p1y, yerr=1e6*f0e, marker=".", color="k", ecolor="k", linestyle="None")
             plt.show()
-            plt.errorbar(sft, 1e6*p2y, yerr=1e6*f0e, marker='.', color='k', ecolor='k', linestyle='None')
+            plt.errorbar(sft, 1e6*p2y, yerr=1e6*f0e, marker=".", color="k", ecolor="k", linestyle="None")
             plt.show()
-            plt.errorbar(sft, 1e6*p3y, yerr=1e6*f0e, marker='.', color='k', ecolor='k', linestyle='None')
+            plt.errorbar(sft, 1e6*p3y, yerr=1e6*f0e, marker=".", color="k", ecolor="k", linestyle="None")
             plt.show()
-            plt.errorbar(sft, 1e10*p4y, yerr=1e10*f1e, marker='.', color='k', ecolor='k', linestyle='None')
+            plt.errorbar(sft, 1e10*p4y, yerr=1e10*f1e, marker=".", color="k", ecolor="k", linestyle="None")
             plt.show()
-            plt.errorbar(sft, 1e10*p5y, yerr=1e10*f1e, marker='.', color='k', ecolor='k', linestyle='None')
+            plt.errorbar(sft, 1e10*p5y, yerr=1e10*f1e, marker=".", color="k", ecolor="k", linestyle="None")
             plt.show()
 
     def print_info(self, index=None):
         '''Print basic info of pulsar'''
         print("")
-        print("Parameters in par file")
+        print("<<< Spin and TOA information of pulsar >>>")
         print("Pulsar name:", self.psrn)
+        print("F0:", std_error(self.F0, self.F0std))
+        print("F1:", std_error(self.F1, self.F1std))
+        print("F2:", std_error(self.F2, self.F2std))
         print("Period epoch:", self.pepoch)
-        print("Cadence", self.cadence)
+        print("TOA start:", self.minmjds)
+        print("TOA finish:", self.maxmjds)
         print("TOA length:", self.toanum)
-        print("F0:", self.F0)
-        print("F1:", self.F1)
-        print("F2:", self.F2)
+        print("Cadence", self.cadence)
+        print("")
+        print("<<< Noise information of pulsar >>>")
+        print("Red noise amplitude:", self.redamp)
+        print("Red noise gamma:", self.redgam)
+        print("Red noise constant:", self.redc)
+        print("White noise TNEF jbafb:", self.ef_jbafb)
+        print("White noise TNEF jbdfb:", self.ef_jbdfb)
+        print("White noise TNEQ jbafb:", self.ef_jbafb)
+        print("White noise TNEQ jbdfb:", self.ef_jbdfb)
+        print("")
+        print("<<< Derived information of pulsar >>>")
+        print("Spin-down luminosity E_dot: {} erg/s".format(self.E_dot))
+        print("Characteristic age tau_c: {} kyr".format(self.tau_c))
+        print("Surface magnetic field strength B_sur: {} TG".format(self.B_sur))
+        print("Braking index n: {}".format(self.brake))
         print("")
         self.print_glitch_info(index)
 
     def print_glitch_info(self, index=None):
         '''Print basic info of the index glitch in the pulsar'''
         if isinstance(index, int) and 0 < index <= self.max_glitch:
-            print("The {} glitch".format(index))
-            print("Glitch epoch:", self.pglep[index-1])
-            print("GLF0:", self.pglf0[index-1])
-            print("GLF1:", self.pglf1[index-1])
-            print("GLF2:", self.pglf2[index-1])
-            print("GLF0D:", self.pglf0d[index-1], " - GLTD", self.pgltd[index-1])
-            print("GLF0D2:", self.pglf0d2[index-1], " - GLTD2", self.pgltd2[index-1])
-            print("GLF0D3:", self.pglf0d3[index-1], " - GLTD3", self.pgltd3[index-1])
-            print("Initial jump (GLFO(instant)_1):", self.pglf0ins[index-1])
-            print("Decay jump (GLFO(tau_g)_1):", self.pglf0tg[index-1])
+            print("<<< Glitch information of glitch No.{} >>>".format(index))
+            print("Glitch epoch GLEP_{}: {}".format(index, self.pglep[index-1]))
+            print("GLF0_{}: {}".format(index, self.pglf0[index-1]))
+            print("GLF1_{}: {}".format(index, self.pglf1[index-1]))
+            print("GLF2_{}: {}".format(index, self.pglf2[index-1]))
+            if self.pglf0d[index-1] != 0:
+                print("GLF0D_{}: {}".format(index, self.pglf0d[index-1]), " - GLTD_{}: {}".format(index, self.pgltd[index-1]))
+            if self.pglf0d2[index-1] != 0:
+                print("GLF0D2_{}: {}".format(index, self.pglf0d2[index-1]), " - GLTD2_{}: {}".format(index, self.pgltd2[index-1]))
+            if self.pglf0d3[index-1] != 0:
+                print("GLF0D3_{}: {}".format(index, self.pglf0d3[index-1]), " - GLTD3_{}: {}".format(index, self.pgltd3[index-1]))
+            print("Initial jump (GLFO(instant)_{}): {}".format(index, self.pglf0ins[index-1]))
+            print("Decay jump (GLFO(T=tau_g)_{}): {}".format(index, self.pglf0tg[index-1]))
+            print("Waiting time (Inactive time before glitch No.{}): {}".format(index, self.waittime[index-1]))
             print("tau_g:", self.taug[index-1])
             print("Number of exponentials:", int(self.numofexp[index-1]))
             print("")
@@ -1224,8 +1252,8 @@ class Pulsar:
         else:
             t = np.linspace(self.start-0.5, self.finish+0.5, 1000)
         y = np.zeros_like(t)
-        cosidx=lab[1]=='param_red_cos'
-        sinidx=lab[1]=='param_red_sin'
+        cosidx=lab[1]=="param_red_cos"
+        sinidx=lab[1]=="param_red_sin"
         maxwav=400
         nc=ns=0
         for i, (vcos, vsin) in enumerate(zip(cosidx, sinidx)):
