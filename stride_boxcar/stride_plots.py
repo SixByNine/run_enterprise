@@ -1,24 +1,25 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
-import numpy as np
 import argparse
 import sys, os
 import subprocess
 import matplotlib
 #matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from scipy.optimize import curve_fit
-from scipy import linalg
+#import matplotlib.gridspec as gridspec
+import numpy as np
+import numpy.ma as ma
+import pulsar_glitch as pg
+#from __future__ import print_function
+#from scipy.optimize import curve_fit
+#from scipy import linalg
 from astropy import coordinates as coord
 from astropy import units as u
-from matplotlib.ticker import FormatStrFormatter
-import numpy.ma as ma
-import matplotlib.gridspec as gridspec
-from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
-from mpl_toolkits.axes_grid1.inset_locator import mark_inset
-from mpl_toolkits.axes_grid.inset_locator import inset_axes
-import pulsar_glitch as pg
+#from matplotlib.ticker import FormatStrFormatter
+#from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
+#from mpl_toolkits.axes_grid1.inset_locator import mark_inset
+#from mpl_toolkits.axes_grid.inset_locator import inset_axes
+
 
 
 parser = argparse.ArgumentParser(description='Stride routine for fitting over a glitch. Written by Y.Liu (yang.liu-50@postgrad.manchester.ac.uk).')
@@ -46,11 +47,20 @@ sfpsr.delete_null()
 #sfpsr.load_info()
 #sfpsr.delete_null()
 
-# Merge the best model of each glitch into the final par and update par info
+# Merge the best model of each glitch into the final par, and update par info
 sfpsr.final_par(largeglitch=args.glitches, recoveries=args.recoveries, GLF2=args.glf2)
-sfpsr.load_info()
+sfpsr.load_info(glf0t=args.taug)
 sfpsr.delete_null()
-sfpsr.print_info()
+
+# Update info with par results files from best model of each glitch, and extract parameters to slt file
+idx_recovery = 0
+for gi in args.glitches:
+    if len(args.recoveries) > idx_recovery:
+        sfpsr.best_model(glitchnum=gi, recoveries=args.recoveries[idx_recovery], GLF2=args.glf2)
+    else:
+        sfpsr.best_model(glitchnum=gi, recoveries=None, GLF2=args.glf2)
+    idx_recovery += 1
+sfpsr.extract_results()
 
 # Calculate data for pulsar plots
 sfpsr.noglitch_par()
@@ -227,7 +237,8 @@ sfx = pg.mjd2sec(p1_mjd, sfpsr.pepoch)
 sftf1, sftf2, sftdf2 = sfpsr.psr_taylor_terms(sfx)
 sftglf0, sftglf1, sftglf2, sftexp1, sftexp2, sftexp3, sftdglf1, sftdglf2, sftdexp = sfpsr.glitch_terms(p1_mjd)
 
-nu_panel = nu - tf2 # why only f2? deltanu=nu-F0-f1?
+nu_panel = nu - tf2 # deltanu=nu-F0-f1
+mnu = sfpsr.mask_glep(t, nu) # Do not subtract tf2 for panel 1
 manu = sfpsr.mask_glep(t, nu_panel)
 #nudot_panel = nudot + (tdglf1 + tdglf2 - tdexp)*1e15 # In principle the same after convert the units
 nudot_p2 = nudot_sum - sfpsr.F1*1e15  
@@ -245,8 +256,8 @@ if all(f0d==0 for f0d in sfpsr.pglf0d): # remove the 3rd panel
     fig, ax = plt.subplots(nrows=4, ncols=1, figsize=(7.5, 10.6)) #10.6
     plt.subplot(411)
     #plt.scatter(sfpsr.toaseries-glep, [0]*len(sfpsr.toaseries), c='b', marker=2, linewidth=0.5, alpha=0.2, label='TOAs')
-    plt.plot(t_mask-glep,1e6*manu, 'k-', zorder=2, label='Analytic model')
-    plt.plot(t_inverse-glep,1e6*manu, 'g-', zorder=2, label='Extrapolation', alpha=0.8)
+    plt.plot(t_mask-glep,1e6*mnu, 'k-', zorder=2, label='Analytic model')
+    plt.plot(t_inverse-glep,1e6*mnu, 'g-', zorder=2, label='Extrapolation', alpha=0.8)
     plt.errorbar(p1_mjd - glep, p1_nu, yerr=p1_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, label='Stirde fit')
     #plt.ylabel(r'$\nu-\nu_{sd}$ ($\mu$Hz)', fontsize=15)
     plt.ylabel(r'$\delta \nu$ ($\mu$Hz)', fontsize=15)
@@ -301,8 +312,8 @@ else:
     plt.subplot(511)
     #plt.scatter(sfpsr.toaseries-glep, [-1]*len(sfpsr.toaseries), c='b', marker='|', linewidth=0.5, alpha=0.4, label='TOAs')
     #plt.annotate('ToAs', xy=(sfpsr.toaseries-glep, [0]*len(sfpsr.toaseries)), xycoords='data', annotation_clip=False, alpha=0.4)
-    plt.plot(t_mask-glep,1e6*manu, 'k-', zorder=2, label='Analytic model')
-    plt.plot(t_inverse-glep,1e6*manu, 'g-', zorder=2, label='Extrapolation', alpha=0.8)
+    plt.plot(t_mask-glep,1e6*mnu, 'k-', zorder=2, label='Analytic model')
+    plt.plot(t_inverse-glep,1e6*mnu, 'g-', zorder=2, label='Extrapolation', alpha=0.8)
     plt.errorbar(p1_mjd - glep, p1_nu, yerr=p1_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, label='Stirde fit')
     #plt.ylabel(r'$\nu-\nu_{sd}$ ($\mu$Hz)', fontsize=15)
     plt.ylabel(r'$\delta \nu$ ($\mu$Hz)', fontsize=15)
