@@ -1,24 +1,25 @@
 #!/usr/bin/env python
 
-#from __future__ import print_function
-#import numpy as np
 import argparse
 import sys, os
 import subprocess
 #import matplotlib
 #matplotlib.use('Agg')
 #import matplotlib.pyplot as plt
+#import matplotlib.gridspec as gridspec
+#import numpy as np
+#import numpy.ma as ma
+import pulsar_glitch as pg
+#from __future__ import print_function
 #from scipy.optimize import curve_fit
 #from scipy import linalg
 #from astropy import coordinates as coord
 #from astropy import units as u
 #from matplotlib.ticker import FormatStrFormatter
-#import numpy.ma as ma
-#import matplotlib.gridspec as gridspec
 #from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
 #from mpl_toolkits.axes_grid1.inset_locator import mark_inset
 #from mpl_toolkits.axes_grid.inset_locator import inset_axes
-import pulsar_glitch as pg
+
 
 
 parser = argparse.ArgumentParser(description='Stride routine for fitting over a glitch. Written by Y.Liu (yang.liu-50@postgrad.manchester.ac.uk).')
