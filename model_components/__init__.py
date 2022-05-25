@@ -1,6 +1,6 @@
-from . import red_model, white_model, dm_model, timing_model, glitch_model,planet_model
+from . import red_model, white_model, dm_model, timing_model, glitch_model, planet_model, solarwind_model
 
-all = [red_model, white_model, dm_model, timing_model, glitch_model,planet_model]
+all = [red_model, white_model, dm_model, timing_model, glitch_model, planet_model, solarwind_model]
 
 
 from . import chol_red_model, chol_white_model
