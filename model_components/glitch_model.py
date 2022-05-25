@@ -99,12 +99,13 @@ def setup_model(args, psr, parfile):
                     print("ERROR: Can't fit for GLF0D3/GLTD3 in both MCMC and least-squares")
                     sys.exit(1)
 
-
     components = []
     if args.glitches is None:
         args.glitches=[]
     if args.glitch_recovery is None:
         args.glitch_recovery = []
+
+    glitches = dict(sorted(glitches.items()))
 
     for gi, gl in enumerate(glitches):
         if args.glitch_all or gl in args.glitches: # or gl in args.glitch_recovery:

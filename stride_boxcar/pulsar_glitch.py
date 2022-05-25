@@ -925,11 +925,9 @@ class Pulsar:
             sum_slt = {**self.spin_slt, **self.gli_slt[str(glitchnum+1)], **self.noise_slt}
             series_slt = pd.Series(sum_slt, index=sum_idx)
             entry.append(series_slt)
-            print(series_slt)
         fr_name = ["Pulsar name", 'Glitch No.']
         fr_id = pd.MultiIndex.from_tuples([(self.psrn, i+1) for i in range(self.max_glitch)], names=fr_name)
         frame_slt = pd.DataFrame(entry, index=fr_id)
-        print(frame_slt)
         frame_slt.to_csv(fnlrslt)
 
     def calculate_derived(self):
