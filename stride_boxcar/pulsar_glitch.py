@@ -418,26 +418,30 @@ class Pulsar:
     def split_tim(self, glitchnum=None, startnum=0, endnum=-1):
         '''Split the tim file and only keep the ToAs relevant for glitch No.glitchnum.
            Alternatively chop tthe tim file between the glitch No.startnum and glitch No.endnum, 0 is the start and -1 is the end of tim'''
-        if isinstance(glitchnum, int):
-            if 0 < glitchnum <= self.max_glitch:
-                startnum = glitchnum - 1
-                endnum = glitchnum + 1
-                if endnum > self.max_glitch:
-                    endnum = -1
         if startnum<0:
             startnum = 0
         if endnum>self.max_glitch:
             endnum = -1
+        if isinstance(glitchnum, int):
+            if 0 < glitchnum <= self.max_glitch:
+                pass
+            else:
+                glitchnum = 1
+            startnum = glitchnum - 1
+            endnum = glitchnum + 1
+            if endnum > self.max_glitch:
+                endnum = -1
         if startnum == 0:
             startmjds = self.minmjds
         else:
             startmjds = self.pglep[startnum-1]
-        startmjds = min(startmjds, self.pglep[glitchnum-1]-1000)
         if endnum == -1:
             endmjds = self.maxmjds
         else:
             endmjds = self.pglep[endnum-1]
-        endmjds = max(endmjds, self.pglep[glitchnum-1]+1000)
+        if isinstance(glitchnum, int):
+            startmjds = min(startmjds, self.pglep[glitchnum-1]-1000)
+            endmjds = max(endmjds, self.pglep[glitchnum-1]+1000)
         timlines = []
         with open(self.tim) as f1:
             for line in f1:
@@ -457,6 +461,8 @@ class Pulsar:
                     timlines.append(line)
         if isinstance(glitchnum, int):
             self.splittim = "chp_"+self.psrn+"_"+str(glitchnum)+".tim"
+        elif startnum==0 and endnum==-1:
+            self.splittim = "chp_"+self.psrn+"_all.tim"
         else:
             self.splittim = "chp_"+self.psrn+"_"+str(startnum)+":"+str(endnum)+".tim"
         print("Generating split tim {} for glitch {}".format(self.splittim, self.splittim.split(".")[-2].split("_")[-1]))
@@ -476,12 +482,12 @@ class Pulsar:
         else:
             glitchnum = int(self.splittim.split("_")[-1].split(".")[0].split(":")[0])
         recoveries, modelname = recovery_name(recoveries)
+        f2 = "n"
         if GLF2 is True:
-            self.splitpar = "glf_"+self.psrn+"_"+str(glitchnum)+modelname+".par"
-        else:
-            self.splitpar = "bst_"+self.psrn+"_"+str(glitchnum)+modelname+".par"
+            f2 = "y"
+        self.splitpar = "bst_"+self.psrn+"_"+str(glitchnum)+modelname+f2+".par"
         subprocess.call(["tempo2", "-epoch", "centre", "-nofit", "-f", self.par, splittim, "-outpar", self.splitpar])
-        print("Generating split par {} for glitch {} model {}".format(self.splitpar, glitchnum, modelname))
+        print("Generating split par {} for glitch {} model {} (GLF2: {})".format(self.splitpar, glitchnum, modelname, f2))
         splitminmjd, splitmaxmjd = self.load_tim(splittim)[:2]
         sml_gli = np.where(np.logical_and(self.pglep>splitminmjd, self.pglep<splitmaxmjd))[0]+1
         sml_gli = np.delete(sml_gli, np.where(sml_gli == glitchnum))
@@ -495,10 +501,10 @@ class Pulsar:
         parlines = []
         with open(self.splitpar) as f1:
             for line in f1:
+                e = line.split()
                 if any(line.startswith(ls) for ls in ["GLEP", "GLF0_", "GLF1_", "GLF2_", "GLF0("]):
                     if line.startswith("GLF2_{} ".format(str(glitchnum))):
                         GLF2=False
-                    e = line.split()
                     if small_glitches is True:
                         if line.startswith("GLF") and int(e[0].split("_")[-1]) in sml_gli:
                             # Turn on tempo2 fitting of these parameters for small glitches included in this range
@@ -512,32 +518,29 @@ class Pulsar:
                     parlines.append(line)
                 elif line.startswith("TN"):
                     continue
-                elif any(line.startswith(ls) for ls in ["RA", "DEC", "PX", "PM", "DM ", "F0", "F1", "F2", "JUMP"]):
-                    parlines.append(line)
+                elif any(line.startswith(ls) for ls in ["PX", "PM", "DM ", "JUMP"]):
+                    parlines.append(line) # Maybe also turn on?
+                elif any(line.startswith(ls) for ls in ["RA", "DEC", "F0", "F1", "F2"]):
                     # Turn on tempo2 fitting of these parameters
-                    #e = line.split()
-                    #if len(e) >= 3:
-                    #    newline = e[0]+"   "+e[1]+"   "+"1"+"   "+e[-1]+"\n"
-                    #    parlines.append(newline)
-                    #else:
-                    #    newline = e[0]+"   "+e[1]+"   "+"1"+"\n"
-                    #    parlines.append(newline)
+                    if len(e) >= 3:
+                        newline = e[0]+"   "+e[1]+"   "+"1"+"   "+e[-1]+"\n"
+                        parlines.append(newline)
+                    else:
+                        newline = e[0]+"   "+e[1]+"   "+"1"+"\n"
+                        parlines.append(newline)
                 elif line.startswith("GLF0D_") or line.startswith("GLTD_"):
-                    e = line.split()
                     num = int(e[0].split("_")[-1])
                     if num==glitchnum and recoveries < 1:
                         pass
                     else:
                         parlines.append(line)
                 elif line.startswith("GLF0D2_") or line.startswith("GLTD2_"):
-                    e = line.split()
                     num = int(e[0].split("_")[-1])
                     if num==glitchnum and recoveries < 2:
                         pass
                     else:
                         parlines.append(line)
                 elif line.startswith("GLF0D3_") or line.startswith("GLTD3_"):
-                    e = line.split()
                     num = int(e[0].split("_")[-1])
                     if num==glitchnum and recoveries < 3:
                         pass
@@ -576,8 +579,10 @@ class Pulsar:
             f3.writelines(parlines)
         return self.splitpar
 
-    def MCMC_fit(self, par=None, tim=None, glitchnum=1, solver="multinest", recoveries=0, GLF2=False, sigma=[100, 100, 100, 100], gleprange=2, gltdrange=[1, 3], gltdsplit=[2.0, 2.3], glf0drange=0.8, glf0range=0.8, glf1range=0.8, glf2range=10, red=[-16, -8], tspan=1.1, thread=16, N=8000, nwalkers=128, nlive=500, rootdir="/nvme1/yliu/yangliu/"):
-        '''Call enterprise to do MCMC fit for model selection'''
+    def MCMC_fit(self, par=None, tim=None, glitchnum=1, solver="multinest", recoveries=0, GLF2=False, sigma=[100, 100, 100, 100], gleprange=2, gltdrange=[1, 3], gltdsplit=[2.0, 2.3], glf0drange=0.8, glf0range=0.8, glf1range=0.8, glf2range=10, red=[-16, -8], tspan=1.1, thread=32, N=8000, nwalkers=128, nlive=500, rootdir="/nvme1/yliu/yangliu/"):
+        '''Call enterprise to do MCMC fit for model selection for par and tim on glitch glitchnum.
+           Use options to specify the prior ranges and enterprise settings.
+           The directory for enterpresie folder is rootdir'''
         if not os.path.exists(os.path.join(rootdir,"run_enterprise/run_enterprise.py")):
             rootdir = "/nvme1/yliu/yangliu/"
         runentprise = os.path.join(rootdir,"run_enterprise/run_enterprise.py")
@@ -592,23 +597,25 @@ class Pulsar:
         else:
             glitchnum = int(self.splittim.split("_")[-1].split(".")[0].split(":")[0])
         recoveries, modelname = recovery_name(recoveries)
-        if recoveries == 3:
-            gltdsplit[0]=1.8
-        if GLF2 is False:
+        f2 = "n"
+        if GLF2 is True:
+            f2 = "y"
+        else:
             glf2range = 0
+        if recoveries == 3:
+            gltdsplit[0] = 1.8
+        command = ["mpirun", "-c", str(thread), runentprise, "--auto-add"]
+        command.extend([par, tim])
         if glitchnum is not None:
-            plotname = str(glitchnum)+modelname
+            plotname = str(glitchnum)+modelname+f2
+            command.extend(["--glitches", str(glitchnum)])
         else:
             plotname = "sum"
         dirname = self.psrn+"_"+plotname
         outputfile = "opt_"+dirname+".txt"
         taug = [str(int(tg)) for tg in self.taug]
-        #command = [runentprise, "-t", str(thread), "--auto-add"]
-        command = ["mpirun", "-c", str(thread), runentprise]#, "--auto-add"]
-        command.extend([par, tim, "--outdir", dirname, "--plotname", plotname])
-        if glitchnum is not None:
-            command.extend(["--glitches", str(glitchnum)])
         plotchain = "--plot-chain"
+        command.extend(["--outdir", dirname, "--plotname", plotname])
         if solver=="emcee":
             command.extend(["-N", str(N), "--nwalkers", str(nwalkers)])
         elif solver=="dynesty":
@@ -639,7 +646,7 @@ class Pulsar:
             sys.stdout.buffer.write(line)
             opt.write(line.decode("utf-8"))
 
-    def post_par(self, par=None, tim=None, glitchnum=1, recoveries=0):
+    def post_par(self, par=None, tim=None, glitchnum=1):
         '''Create final par file for glitch glitchnum's model based on post fit par file'''
         if par is None:
             par = self.splitpar
@@ -651,28 +658,36 @@ class Pulsar:
             pass
         else:
             glitchnum = int(self.splittim.split("_")[-1].split(".")[0].split(":")[0])
-        recoveries, modelname = recovery_name(recoveries)
+        modelname = par.split("_")[-1].split(".")[0][-2]
+        f2 = par.split("_")[-1].split(".")[0][-1]
         postpar = par+".post"
         self.fnlpar = "fnl_"+par.split("_", 1)[1]
         subprocess.call(["tempo2", "-f", postpar, tim, "-outpar", self.fnlpar])
         if glitchnum is not None:
-            print("Generating final par {} for glitch {} model {}".format(self.fnlpar, glitchnum, modelname))
+            print("Generating final par {} for glitch {} model {} (GLF2: {})".format(self.fnlpar, glitchnum, modelname, f2))
         else:
             print("Generating final par {} for glitch summary".format(self.fnlpar))    
         return self.fnlpar
 
-    def best_model(self, glitchnum=1, recoveries=None, GLF2=False, max_like=False):
+    def best_model(self, glitchnum=1, recoveries=None, GLF2="a", max_like=False):
         '''Find the best model par for glitch glitchnum based on lnZ.
            Or specify the best model manually with the number of recoveries'''
         if isinstance(glitchnum, int) and 0 < glitchnum <= self.max_glitch:
             pass
         else:
             glitchnum = int(self.splittim.split("_")[-1].split(".")[0].split(":")[0])
-        if GLF2 is True:
-            prefix = "glf_"
+        if max_like is True:
+            results_value = "max-likelihood"
         else:
-            prefix = "bst_"
+            results_value = "mean"
+        prefix = "bst_"
         rootdir = os.getcwd()
+        if GLF2 == "n":
+            f2fix = ["n"]
+        elif GLF2 == "y":
+            f2fix = ["y"]
+        else:
+            f2fix = ["n", "y"]
         glnum = "_"+str(glitchnum)
         postfix = ".par.post"
         results = ".par.results"
@@ -681,27 +696,12 @@ class Pulsar:
         bestmodel = None
         if isinstance(recoveries, int) and 0 <= recoveries <= 3:
             recoveries, model = recovery_name(recoveries)
-            postname = prefix+self.psrn+glnum+model+postfix
-            postpar = os.path.join(rootdir, postname)
-            if os.path.exists(postpar):
-                ev_file = os.path.join(rootdir,"{}_{}{}".format(self.psrn, glitchnum, model), "pmn-stats.dat")
-                if os.path.exists(ev_file):
-                    with open(ev_file) as f:
-                        line = f.readline()
-                        line = f.readline()
-                        lnev = float(line.split()[5])
-                        maxlnZ = lnev
-                else:
-                    print(">>> Missing evidence file {} <<<".format(ev_file))
-                bestmodelpar = postpar
-                bestmodel = model
-        else: 
-            for model in ["f", "r", "d", "t"]:
-                postname = prefix+self.psrn+glnum+model+postfix
+            for f2 in f2fix:
+                postname = prefix+self.psrn+glnum+model+f2+postfix
                 postpar = os.path.join(rootdir, postname)
                 if os.path.exists(postpar):
-                    print("Found results for glitch {} model {} (GLF2: {})".format(glitchnum, model, GLF2))
-                    ev_file = os.path.join(rootdir,"{}_{}{}".format(self.psrn, glitchnum, model), "pmn-stats.dat")
+                    print("Found results for glitch {} model {} (GLF2: {})".format(glitchnum, model, f2))
+                    ev_file = os.path.join(rdir,"{}{}{}{}".format(self.psrn, glnum, model, f2), "pmn-stats.dat")
                     if os.path.exists(ev_file):
                         with open(ev_file) as f:
                             line = f.readline()
@@ -710,29 +710,49 @@ class Pulsar:
                             if lnev > maxlnZ:
                                 if lnev < maxlnZ+2.5:
                                     print(">>> Evidence Warning <<<")
-                                    print("<<< Glitch {} model {} has similar evidence >>>".format(glitchnum, model))
-                                else:
-                                    maxlnZ = lnev
-                                    bestmodelpar = postpar
-                                    bestmodel = model
+                                    print("<<< Glitch {} model {} (GLF2: {}) has similar evidence >>>".format(glitchnum, bestmodel, bestf2))
+                                maxlnZ = lnev
+                                bestmodelpar = postpar
+                                bestmodel = model
+                                bestf2 = f2
                     else:
                         print(">>> Missing evidence file {} <<<".format(ev_file))
+        else:
+            for model in ["f", "r", "d", "t"]:
+                for f2 in f2fix:
+                    postname = prefix+self.psrn+glnum+model+f2+postfix
+                    postpar = os.path.join(rootdir, postname)
+                    if os.path.exists(postpar):
+                        print("Found results for glitch {} model {} (GLF2: {})".format(glitchnum, model, f2))
+                        ev_file = os.path.join(rootdir,"{}{}{}{}".format(self.psrn, glnum, model, f2), "pmn-stats.dat")
+                        if os.path.exists(ev_file):
+                            with open(ev_file) as f:
+                                line = f.readline()
+                                line = f.readline()
+                                lnev = float(line.split()[5])
+                                if lnev > maxlnZ:
+                                    if lnev < maxlnZ+2.5:
+                                        print(">>> Evidence Warning <<<")
+                                        print("<<< Glitch {} model {} (GLF2: {}) has similar evidence >>>".format(glitchnum, bestmodel, bestf2))
+                                    else:
+                                        maxlnZ = lnev
+                                        bestmodelpar = postpar
+                                        bestmodel = model
+                                        bestf2 = f2
+                        else:
+                            print(">>> Missing evidence file {} <<<".format(ev_file))
         print("### Best model par is:", bestmodelpar)
         if bestmodelpar is None:
             print(">>> Missing post par for best model <<<")
         else:
-            print("<<< The best model for glitch {} is model {} (GLF2: {}) >>>".format(glitchnum, bestmodel, GLF2))
-        rslt_file = prefix+self.psrn+glnum+bestmodel+results
-        if max_like is True:
-            results_value = "max-likelihood"
-        else:
-            results_value = "mean"
-        print("<<< Reading {} results from {} for glitch {} >>>".format(results_value, rslt_file, glitchnum))
-        self.gli_slt[str(glitchnum)] = self.read_results_file(rslt_file, max_like=max_like)
-        print("<<< The solution for glitch {} is {} >>>".format(glitchnum, self.gli_slt[str(glitchnum)]))
+            print("<<< The best model for glitch {} is model {} (GLF2: {}) >>>".format(glitchnum, bestmodel, bestf2))
+            rslt_file = bestmodelpar.replace("post","results")
+            print("<<< Reading {} results from {} for glitch {} >>>".format(results_value, rslt_file, glitchnum))
+            self.gli_slt[str(glitchnum)] = self.read_results_file(rslt_file, max_like=max_like)
+            print("<<< The solution for glitch {} is {} >>>".format(glitchnum, self.gli_slt[str(glitchnum)]))
         return bestmodelpar
 
-    def final_par(self, largeglitch=[1], recoveries=[None]*10, GLF2=False, max_like=False):
+    def final_par(self, largeglitch=[1], recoveries=[None]*10, GLF2=[], max_like=False):
         '''Merge glitch parameters in the best model of each glitches to create final par for the pulsar'''
         self.sumpar = "sum_"+self.psrn+".par"
         parlines = []
@@ -760,10 +780,16 @@ class Pulsar:
                     parlines.append(line)
         idx = 0
         for glnum in largeglitch:
-            if idx<len(recoveries):
-                bmpar = self.best_model(glitchnum=glnum, recoveries=recoveries[idx], GLF2=GLF2)
+            if len(GLF2)==0:
+                f2 = "a"
+            elif glnum in GLF2:
+                f2 = "y"
             else:
-                bmpar = self.best_model(glitchnum=glnum, recoveries=None, GLF2=GLF2)
+                f2 = "n"
+            if idx<len(recoveries):
+                bmpar = self.best_model(glitchnum=glnum, recoveries=recoveries[idx], GLF2=f2)
+            else:
+                bmpar = self.best_model(glitchnum=glnum, recoveries=None, GLF2=f2)
             with open(bmpar) as f:
                 for line in f:
                     if any(line.startswith(ls) for ls in ["GLEP", "GLF0_", "GLF1_", "GLF2_", "GLF0D", "GLTD"]):
@@ -771,8 +797,9 @@ class Pulsar:
                         if glnum == int(e[0].split("_")[-1]):
                             parlines.append(line)
             idx += 1
-        with open(self.sumpar, "w") as f2:
-            f2.writelines(parlines)
+        with open(self.sumpar, "w") as f3:
+            f3.writelines(parlines)
+        self.tim = self.split_tim()
         self.MCMC_fit(par=self.sumpar, tim=self.tim, glitchnum=None, GLF2=GLF2)
         self.sum_results = self.sumpar+".results"
         if max_like is True:
@@ -942,7 +969,7 @@ class Pulsar:
             sum_slt = {**self.spin_slt, **self.gli_slt[str(glitchnum+1)], **self.noise_slt}
             series_slt = pd.Series(sum_slt, index=sum_idx)
             entry.append(series_slt)
-        fr_name = ["Pulsar name", 'Glitch No.']
+        fr_name = ["Pulsar name", "Glitch No."]
         fr_id = pd.MultiIndex.from_tuples([(self.psrn, i+1) for i in range(self.max_glitch)], names=fr_name)
         frame_slt = pd.DataFrame(entry, index=fr_id)
         frame_slt.to_csv(fnlrslt)
