@@ -180,6 +180,7 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
                 plt.plot(x[burn:], samples[burn:, i], '.', color='k')
                 plt.title("%s" % pars[i])
                 plt.ylabel("%s" % pars[i])
+                #plt.rcParams.update({'usetex':False}) # Test #
                 pdf.savefig()
                 plt.close()
 
