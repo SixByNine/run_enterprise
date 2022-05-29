@@ -701,20 +701,23 @@ class Pulsar:
                 postpar = os.path.join(rootdir, postname)
                 if os.path.exists(postpar):
                     print("Found results for glitch {} model {} (GLF2: {})".format(glitchnum, model, f2))
-                    ev_file = os.path.join(rdir,"{}{}{}{}".format(self.psrn, glnum, model, f2), "pmn-stats.dat")
+                    ev_file = os.path.join(rootdir,"{}{}{}{}".format(self.psrn, glnum, model, f2), "pmn-stats.dat")
                     if os.path.exists(ev_file):
                         with open(ev_file) as f:
                             line = f.readline()
                             line = f.readline()
-                            lnev = float(line.split()[5])
+                            #lnev = float(line.split()[5])
+                            lnev = ufloat(float(line.split()[5]), float(line.split()[7]))
+                            print("Evidence of glitch {} model {} (GLF2: {}) is {}".format(glitchnum, model, f2, lnev))
                             if lnev > maxlnZ:
                                 if lnev < maxlnZ+2.5:
                                     print(">>> Evidence Warning <<<")
-                                    print("<<< Glitch {} model {} (GLF2: {}) has similar evidence >>>".format(glitchnum, bestmodel, bestf2))
-                                maxlnZ = lnev
-                                bestmodelpar = postpar
-                                bestmodel = model
-                                bestf2 = f2
+                                    print("<<< Glitch {} model {} (GLF2: {}) has similar evidence >>>".format(glitchnum, model, f2))
+                                else:
+                                    maxlnZ = lnev
+                                    bestmodelpar = postpar
+                                    bestmodel = model
+                                    bestf2 = f2
                     else:
                         print(">>> Missing evidence file {} <<<".format(ev_file))
         else:
@@ -729,11 +732,13 @@ class Pulsar:
                             with open(ev_file) as f:
                                 line = f.readline()
                                 line = f.readline()
-                                lnev = float(line.split()[5])
+                                #lnev = float(line.split()[5])
+                                lnev = ufloat(float(line.split()[5]), float(line.split()[7]))
+                                print("Evidence of glitch {} model {} (GLF2: {}) is {}".format(glitchnum, model, f2, lnev))
                                 if lnev > maxlnZ:
                                     if lnev < maxlnZ+2.5:
                                         print(">>> Evidence Warning <<<")
-                                        print("<<< Glitch {} model {} (GLF2: {}) has similar evidence >>>".format(glitchnum, bestmodel, bestf2))
+                                        print("<<< Glitch {} model {} (GLF2: {}) has similar evidence >>>".format(glitchnum, model, f2))
                                     else:
                                         maxlnZ = lnev
                                         bestmodelpar = postpar
