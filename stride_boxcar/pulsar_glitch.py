@@ -507,7 +507,7 @@ class Pulsar:
                         GLF2=False
                     if small_glitches is True:
                         if line.startswith("GLF") and int(e[0].split("_")[-1]) in sml_gli:
-                            # Turn on tempo2 fitting of these parameters for small glitches included in this range
+                        # Turn on tempo2 fitting of these parameters for small glitches included in this range
                             if len(e) >= 3:
                                 newline = e[0]+"   "+e[1]+"   "+"1"+"   "+e[-1]+"\n"
                                 parlines.append(newline)
@@ -516,7 +516,7 @@ class Pulsar:
                                 parlines.append(newline)
                             continue                         
                     parlines.append(line)
-                elif line.startswith("TN"):
+                elif line.startswith("TN") or line.startswith("GLPH"):
                     continue
                 elif any(line.startswith(ls) for ls in ["PX", "PM", "DM ", "JUMP"]):
                     parlines.append(line) # Maybe also turn on?
@@ -567,9 +567,8 @@ class Pulsar:
             newline = "GLF2_{}".format(str(glitchnum))+"   "+"0"+"\n"
             parlines.append(newline)
         if pre_gli is True:
-            for line in parlines:
-                if line.startswith("GL") and int(line.split()[0].split("_")[-1])==glitchnum-1:
-                    parlines.remove(line)
+            pre_para = lambda x : x.split()[0].startswith("GL") and int(x.split()[0].split("_")[-1])==glitchnum-1
+            parlines[:] = [line for line in parlines if not pre_para(line)]
             with open(pre_par) as f2:
                 for line in f2:
                     e = line.split()
