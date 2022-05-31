@@ -52,22 +52,6 @@ sfpsr.final_par(largeglitch=args.glitches, recoveries=args.recoveries, GLF2=args
 sfpsr.load_info(glf0t=args.taug)
 sfpsr.delete_null()
 
-# Update info with par results files from best model of each glitch, and extract parameters to slt file
-idx_recovery = 0
-for gi in args.glitches:
-    if len(args.glf2)==0:
-        f2 = "a"
-    elif gi in args.glf2:
-        f2 = "y"
-    else:
-        f2 = "n"
-    if len(args.recoveries) > idx_recovery:
-        sfpsr.best_model(glitchnum=gi, recoveries=args.recoveries[idx_recovery], GLF2=f2)
-    else:
-        sfpsr.best_model(glitchnum=gi, recoveries=None, GLF2=f2)
-    idx_recovery += 1
-sfpsr.extract_results()
-
 # Calculate data for pulsar plots
 sfpsr.noglitch_par()
 sfpsr.pp_create_files()
@@ -380,3 +364,18 @@ else:
     plt.savefig('nu_nudot_gp_{}.pdf'.format(sfpsr.psrn), format='pdf', dpi=400)
     plt.show()
 
+# Update info with par results files from best model of each glitch, and extract parameters to slt file
+idx_recovery = 0
+for gi in args.glitches:
+    if len(args.glf2)==0:
+        f2 = "a"
+    elif gi in args.glf2:
+        f2 = "y"
+    else:
+        f2 = "n"
+    if len(args.recoveries) > idx_recovery:
+        sfpsr.best_model(glitchnum=gi, recoveries=args.recoveries[idx_recovery], GLF2=f2)
+    else:
+        sfpsr.best_model(glitchnum=gi, recoveries=None, GLF2=f2)
+    idx_recovery += 1
+sfpsr.extract_results()
