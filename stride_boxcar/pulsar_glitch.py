@@ -578,7 +578,7 @@ class Pulsar:
             f3.writelines(parlines)
         return self.splitpar
 
-    def MCMC_fit(self, par=None, tim=None, glitchnum=1, solver="multinest", recoveries=0, GLF2=False, sigma=[100, 100, 100, 100], gleprange=2, gltdrange=[1, 3], gltdsplit=[2.0, 2.3], glf0drange=0.8, glf0range=0.8, glf1range=0.8, glf2range=10, red=[-16, -8], tspan=1.1, thread=32, N=8000, nwalkers=128, nlive=500, rootdir="/nvme1/yliu/yangliu/"):
+    def MCMC_fit(self, par=None, tim=None, glitchnum=1, solver="multinest", recoveries=0, GLF2=False, sigma=[100, 100, 100, 100], gleprange=2, gltdrange=[1, 3], gltdsplit=[2.0, 2.3], glf0drange=0.8, glf0range=0.8, glf1range=0.8, glf2range=10, red=[-16, -8], tspan=1.1, thread=16, N=8000, nwalkers=128, nlive=500, rootdir="/nvme1/yliu/yangliu/"):
         '''Call enterprise to do MCMC fit for model selection for par and tim on glitch glitchnum.
            Use options to specify the prior ranges and enterprise settings.
            The directory for enterpresie folder is rootdir'''
@@ -997,8 +997,10 @@ class Pulsar:
             for line in f:
                 if line.startswith("GLEP_"):
                     parlines.append(line)
-                elif line.startswith("GL") or line.startswith("TN"):
+                elif line.startswith("GL") or line.startswith("TNRed"):
                     continue
+                elif line.startswith("TNEF") or line.startswith("TNEQ"):
+                    parlines.append(line)
                 elif any(line.startswith(ls) for ls in ["RA", "DEC", "JUMP", "DM ", "PM", "PX", "F0", "F1", "F2"]):
                     parlines.append(line)
                 else: # Turn off tempo2 fitting of all other parameters
@@ -1357,7 +1359,7 @@ class Pulsar:
             gt = mjd2sec(t, ge)
             yf2[t>ge] +=  self.pglf0[i] + self.pglf1[i] * gt[t>ge] + 0.5 * self.pglf2[i] * gt[t>ge]**2 #bug
             yd_model[t>ge] += 1e15 * (self.pglf1[i] + self.pglf2[i] * gt[t>ge]) #bug
-            if self.pglf0d[i] > 0:
+            if self.pglf0d[i] != 0:
                 yf2[t>ge] += self.pglf0d[i] * np.exp(-(t[t>ge]-self.pglep[i])/self.pgltd[i])
                 yf2[t>ge] += self.pglf0d2[i] * np.exp(-(t[t>ge]-self.pglep[i])/self.pgltd2[i])
                 yf2[t>ge] += self.pglf0d3[i] * np.exp(-(t[t>ge]-self.pglep[i])/self.pgltd3[i])
