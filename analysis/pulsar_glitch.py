@@ -955,6 +955,7 @@ class Pulsar:
         #self.pglep, self.pglf0, self.pglf1, self.pglf2, self.pglf0ins, self.pglf0tg = glitch
         #self.pglf0d, self.pgltd, self.pglf0d2, self.pgltd2, self.pglf0d3, self.pgltd3 = recovery
         #self.max_glitch, self.waittime, self.taug, self.numofexp = summary
+        self.P, self.P_dot, self.P_ddot = self.calculate_period()
         self.E_dot, self.tau_c, self.B_sur, self.brake = self.calculate_derived()
         self.delete_null()
         self.print_info()
@@ -965,6 +966,12 @@ class Pulsar:
         self.spin_slt["F1 std"] = self.F1std
         self.spin_slt["F2"] = self.F2
         self.spin_slt["F2 std"] = self.F2std
+        self.spin_slt["P"] = self.P.n
+        self.spin_slt["P std"] = self.P.s
+        self.spin_slt["P_dot"] = self.P_dot.n
+        self.spin_slt["P_dot std"] = self.P_dot.s
+        self.spin_slt["P_ddot"] = self.P_ddot.n
+        self.spin_slt["P_ddot std"] = self.P_ddot.s
         self.spin_slt["Total glitches"] = self.max_glitch
         self.spin_slt["E_dot"] = self.E_dot
         self.spin_slt["Tau_c"] = self.tau_c
@@ -972,13 +979,19 @@ class Pulsar:
         self.spin_slt["Braking index"] = self.brake
         fnlrslt = "../slt_"+self.psrn+".csv"
         entry = []
-        spin_idx = ["F0", "F0 std", "F1", "F1 std", "F2", "F2 std", "E_dot", "Tau_c", "B_sur", "Braking index"]
+        spin_idx = ["F0", "F0 std", "F1", "F1 std", "F2", "F2 std"]
+        period_idx = ["P", "P std", "P_dot", "P_dot std", "P_ddot", "P_ddot std"]
+        derived_idx = ["E_dot", "Tau_c", "B_sur", "Braking index"]
         glitch_idx = ["GLEP", "GLEP std", "GLF0", "GLF0 std", "GLF1", "GLF1 std", "GLF2", "GLF2 std"]
         alter_idx = ["GLF0(instant)", "GLF0(instant) std", "GLF0(T=tau_g)", "GLF0(T=tau_g) std", "Tau_g", "Waiting time"]
         recovery_idx = ["GLF0D", "GLF0D std", "GLTD", "GLTD std", "GLF0D2", "GLF0D2 std", "GLTD2", "GLTD2 std", "GLF0D3", "GLF0D3 std", "GLTD3", "GLTD3 std"]
         red_idx = ["TNRedAmp", "TNRedAmp std", "TNRedGam", "TNRedGam std"]
         white_idx = ["TNEF -be jbafb", "TNEF -be jbafb std", "TNEF -be jbdfb", "TNEF -be jbdfb std", "TNEQ -be jbafb", "TNEQ -be jbafb std", "TNEQ -be jbdfb", "TNEQ -be jbdfb std"]
-        sum_idx = spin_idx + glitch_idx + alter_idx + recovery_idx + red_idx #+ white_idx
+        sum_idx = spin_idx + period_idx + derived_idx + glitch_idx + alter_idx + recovery_idx + red_idx #+ white_idx
+        #unit = np.full(len(sum_idx), None)
+        #unit[12:15] = ["erg/s", "kyr", "1e12G"]
+        #col_id = pd.MultiIndex.from_tuples([(i, j) for i, j in zip(sum_idx, unit)], names=["Parameters", "Units"])
+        # To do: add units as second column index
         for glitchnum in range(self.max_glitch):
             sum_slt = {**self.spin_slt, **self.gli_slt[str(glitchnum+1)], **self.noise_slt}
             series_slt = pd.Series(sum_slt, index=sum_idx)
@@ -987,6 +1000,16 @@ class Pulsar:
         fr_id = pd.MultiIndex.from_tuples([(self.psrn, i+1) for i in range(self.max_glitch)], names=fr_name)
         frame_slt = pd.DataFrame(entry, index=fr_id)
         frame_slt.to_csv(fnlrslt)
+
+    def calculate_period(self):
+        '''Calculate period and period derivatives of pulsars from spin parameters'''
+        F0 = std_error(self.F0, self.F0std)
+        F1 = std_error(self.F1, self.F1std)
+        F2 = std_error(self.F2, self.F2std)
+        P0 = 1/F0
+        P1 = -F1/(F0**2)
+        P2 = 2*(F1**2)/(F0**3) - F2/(F0**2)
+        return P0, P1, P2
 
     def calculate_derived(self):
         '''Calculate derived quantities of pulsars from spin parameters'''
