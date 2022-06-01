@@ -921,6 +921,38 @@ class Pulsar:
         for glitchnum in range(self.max_glitch):
             if glitchnum+1 not in largeglitch:
                 self.gli_slt[str(glitchnum+1)] = {}
+                glf0 = std_error(self.pglf0[glitchnum], self.pglf0std[glitchnum])
+                glf1 = std_error(self.pglf1[glitchnum], self.pglf1std[glitchnum])
+                glf2 = std_error(self.pglf2[glitchnum], self.pglf2std[glitchnum])
+                glf0ins = glf0
+                glf0tg = glf1 * self.taug[glitchnum] + 0.5 * glf2 * self.taug[glitchnum]**2
+                if self.pglf0d[glitchnum] != 0:
+                    glf0d = std_error(self.pglf0d[glitchnum], self.pglf0dstd[glitchnum])
+                    gltd = std_error(self.pgltd[glitchnum], self.pgltdstd[glitchnum])
+                    glf0ins += glf0d
+                    glf0tg[glitchnum] += glf0d*(np.exp(-self.taug[glitchnum]/gltd)-1)
+                if self.pglf0d2[glitchnum] != 0:
+                    glf0d2 = std_error(self.pglf0d2[glitchnum], self.pglf0d2std[glitchnum])
+                    gltd2 = std_error(self.pgltd2[glitchnum], self.pgltd2std[glitchnum])
+                    glf0ins += glf0d2
+                    glf0tg[glitchnum] += glf0d2*(np.exp(-self.taug[glitchnum]/gltd2)-1)
+                if self.pglf0d3[glitchnum] != 0:
+                    glf0d3 = std_error(self.pglf0d3[glitchnum], self.pglf0d3std[glitchnum])
+                    gltd3 = std_error(self.pgltd3[glitchnum], self.pgltd3std[glitchnum])
+                    glf0ins += glf0d3
+                    glf0tg[glitchnum] += glf0d3*(np.exp(-self.taug[glitchnum]/gltd3)-1)
+                self.gli_slt[str(glitchnum+1)]["GLF0(instant)"] = glf0ins.n
+                self.gli_slt[str(glitchnum+1)]["GLF0(instant) std"] = glf0ins.s
+                self.gli_slt[str(glitchnum+1)]["GLF0(T=tau_g)"] = glf0tg.n
+                self.gli_slt[str(glitchnum+1)]["GLF0(T=tau_g) std"] = glf0tg.s
+                self.gli_slt[str(glitchnum+1)]["Tau_g"] = self.taug[glitchnum]
+                if glitchnum > 0:
+                    glep1 = std_error(self.pglep[glitchnum], self.pglepstd[glitchnum])
+                    glep2 = std_error(self.pglep[glitchnum-1], self.pglepstd[glitchnum-1])
+                    delta_glep = glep1 - glep2
+                    self.waittime[glitchnum] = delta_glep.n
+                    self.gli_slt[str(glitchnum+1)]["Waiting time"] = delta_glep.n
+                    self.gli_slt[str(glitchnum+1)]["Waiting time std"] = delta_glep.s
         with open(self.par) as f:
             f.readline()
             for line in f:
