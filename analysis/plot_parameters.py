@@ -7,7 +7,7 @@ import glob
 #import sys, os
 #import subprocess
 import matplotlib
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 #import matplotlib.gridspec as gridspec
 import numpy as np
@@ -26,7 +26,7 @@ from uncertainties import ufloat
 #from mpl_toolkits.axes_grid.inset_locator import inset_axes
 
 
-    
+
 file_name_list = glob.glob('slt_*.csv')
 file_name_list.sort()
 pulsar_name = [file_name.split('_')[-1].split('.')[0] for file_name in file_name_list]
@@ -40,4 +40,10 @@ for i, solution in enumerate(file_name_list):
 
 sum_table.to_csv(summary)
 print('Summary solution', sum_table)
-sum_table.plot(x='F0', y='GLF0(instant)')
+
+x_paras = ['F0', 'F1', 'F2', 'P', 'P_dot', 'P_ddot', 'GLF0', 'GLF1', 'GLF2', 'E_dot', 'Tau_c', 'B_sur', 'Waiting time']
+y_paras = ['GLF0(instant)', 'GLF0D', 'GLTD']
+sum_table.plot.scatter(x='F0', y='GLF0(instant)', xerr='F0 std', yerr='GLF0(instant) std')
+#sum_table.plot.scatter(x='GLF0', y='GLF0(instant)', xerr='GLF0 std', yerr='GLF0(instant) std', c=sum_table['Pulsar name'], cmap='viridis', s=sum_table['F0'])
+plt.show()
+#plt.savefig()
