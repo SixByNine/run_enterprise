@@ -62,7 +62,7 @@ def recovery_name(recoveries):
 
 def std_error(parameter, error):
     '''Set the parameter and its non-zero standard deviation in ufloat format'''
-    if error == 0:
+    if error == 0 or error is np.nan or error is None:
         return parameter
     else:
         return ufloat(parameter, error)
@@ -75,7 +75,7 @@ class Pulsar:
         self.par, self.tim = parfile, timfile
         self.psrn, self.ra, self.dec, self.PB = [None]*4
         self.F0, self.F1, self.F2 = [None]*3
-        self.F0std, self.F1std, self.F2std = [0]*3
+        self.F0std, self.F1std, self.F2std = [None]*3
         self.start, self.finish, self.pepoch = [None]*3
         self.tidypar, self.testpar, self.truth = [None]*3
         self.epochfile, self.datafile = [None]*2
@@ -822,12 +822,12 @@ class Pulsar:
            Use max likelihood value when max_like is True, otherwise use mean value for parameters.
            Only read glitch parameters when noise is False, otherwise read white and red noise '''
         results={}
-        self.pglepstd, self.pglf0std, self.pglf1std, self.pglf2std = np.zeros(self.max_glitch), np.zeros(self.max_glitch), np.zeros(self.max_glitch), np.zeros(self.max_glitch)
-        self.pglf0insstd, self.pglf0tgstd = np.zeros(self.max_glitch), np.zeros(self.max_glitch)
-        self.pglf0dstd, self.pglf0d2std, self.pglf0d3std = np.zeros(self.max_glitch), np.zeros(self.max_glitch), np.zeros(self.max_glitch)
-        self.pgltdstd, self.pgltd2std, self.pgltd3std = np.zeros(self.max_glitch), np.zeros(self.max_glitch), np.zeros(self.max_glitch)
-        self.redampstd, self.redgamstd = [0]*2
-        self.ef_jbafbstd, self.ef_jbdfbstd, self.eq_jbafbstd, self.eq_jbdfbstd = [0]*4
+        self.pglepstd, self.pglf0std, self.pglf1std, self.pglf2std = np.full(self.max_glitch, np.nan), np.full(self.max_glitch, np.nan), np.full(self.max_glitch, np.nan), np.full(self.max_glitch, np.nan)
+        self.pglf0insstd, self.pglf0tgstd = np.full(self.max_glitch, np.nan),np.full(self.max_glitch, np.nan)
+        self.pglf0dstd, self.pglf0d2std, self.pglf0d3std = np.full(self.max_glitch, np.nan), np.full(self.max_glitch, np.nan), np.full(self.max_glitch, np.nan)
+        self.pgltdstd, self.pgltd2std, self.pgltd3std = np.full(self.max_glitch, np.nan), np.full(self.max_glitch, np.nan), np.full(self.max_glitch, np.nan)
+        self.redampstd, self.redgamstd = [None]*2
+        self.ef_jbafbstd, self.ef_jbdfbstd, self.eq_jbafbstd, self.eq_jbdfbstd = [None]*4
         if max_like is True:
             value_idx = 1
         else:
@@ -883,8 +883,11 @@ class Pulsar:
                             glep2 = std_error(self.pglep[glnum-2], self.pglepstd[glnum-2])
                             delta_glep = glep1 - glep2
                             self.waittime[glnum-1] = delta_glep.n
-                            results["Waiting time"] = delta_glep
-                        results[glkey] = std_error(float(e[value_idx]), float(e[3]))
+                            results["Waiting time"] = delta_glep.n
+                            results["Waiting time std"] = delta_glep.s
+                        glkeystd = glkey + " std"
+                        results[glkey] = float(e[value_idx])
+                        results[glkeystd] = float(e[3])
                 else:
                     if e[0].startswith("TN"):
                         if e[0].startswith("TNRedAmp"):
@@ -909,7 +912,8 @@ class Pulsar:
                             elif jbfb == "jbdfb":
                                 self.eq_jbdfb = float(e[value_idx])
                                 self.eq_jbdfbstd = float(e[3])
-                        results[e[0]] = std_error(float(e[value_idx]),float(e[3]))
+                        results[e[0]] = float(e[value_idx])
+                        results[e[0]+" std"] = float(e[3])
         return results
 
     def read_final_par(self, largeglitch=[1]):
@@ -925,13 +929,15 @@ class Pulsar:
                     glnum = int(e[0].split("_")[-1])
                     if glnum not in largeglitch:
                         glkey = e[0].split("_")[0]
-                        std = 0
+                        std = np.nan
                         if len(e) > 3:
                             std = float(e[3])
                         if e[0].startswith("GLF0(T="):
                             self.gli_slt[str(glnum)]["Tau_g"] = int(e[0].split("=")[1].split(")")[0])
                             glkey = "GLF0(T=tau_g)"
-                        self.gli_slt[str(glnum)][glkey] = std_error(float(e[1]), std)
+                        glkeystd = glkey + " std"
+                        self.gli_slt[str(glnum)][glkey] = float(e[1])
+                        self.gli_slt[str(glnum)][glkeystd] = std
         for glitchnum in range(self.max_glitch):
             if glitchnum+1 not in largeglitch:
                 print("<<< The solution for glitch {} is {} >>>".format(glitchnum+1, self.gli_slt[str(glitchnum+1)]))
@@ -953,9 +959,12 @@ class Pulsar:
         self.delete_null()
         self.print_info()
         self.spin_slt["Pulsar Name"] = self.psrn
-        self.spin_slt["F0"] = std_error(self.F0, self.F0std)
-        self.spin_slt["F1"] = std_error(self.F1, self.F1std)
-        self.spin_slt["F2"] = std_error(self.F2, self.F2std)
+        self.spin_slt["F0"] = self.F0
+        self.spin_slt["F0 std"] = self.F0std
+        self.spin_slt["F1"] = self.F1
+        self.spin_slt["F1 std"] = self.F1std
+        self.spin_slt["F2"] = self.F2
+        self.spin_slt["F2 std"] = self.F2std
         self.spin_slt["Total glitches"] = self.max_glitch
         self.spin_slt["E_dot"] = self.E_dot
         self.spin_slt["Tau_c"] = self.tau_c
@@ -963,12 +972,13 @@ class Pulsar:
         self.spin_slt["Braking index"] = self.brake
         fnlrslt = "../slt_"+self.psrn+".csv"
         entry = []
-        spin_idx = ["F0", "F1", "F2", "E_dot", "Tau_c", "B_sur", "Braking index"]
-        glitch_idx = ["GLEP", "GLF0", "GLF1", "GLF2", "GLF0(instant)", "GLF0(T=tau_g)", "Tau_g", "Waiting time"]
-        recovery_idx = ["GLF0D", "GLTD", "GLF0D2", "GLTD2", "GLF0D3", "GLTD3"]
-        red_idx = ["TNRedAmp", "TNRedGam"]
-        white_idx = ["TNEF -be jbafb", "TNEF -be jbdfb", "TNEQ -be jbafb", "TNEQ -be jbdfb"]
-        sum_idx = spin_idx + glitch_idx + recovery_idx + red_idx #+ white_idx
+        spin_idx = ["F0", "F0 std", "F1", "F1 std", "F2", "F2 std", "E_dot", "Tau_c", "B_sur", "Braking index"]
+        glitch_idx = ["GLEP", "GLEP std", "GLF0", "GLF0 std", "GLF1", "GLF1 std", "GLF2", "GLF2 std"]
+        alter_idx = ["GLF0(instant)", "GLF0(instant) std", "GLF0(T=tau_g)", "GLF0(T=tau_g) std", "Tau_g", "Waiting time"]
+        recovery_idx = ["GLF0D", "GLF0D std", "GLTD", "GLTD std", "GLF0D2", "GLF0D2 std", "GLTD2", "GLTD2 std", "GLF0D3", "GLF0D3 std", "GLTD3", "GLTD3 std"]
+        red_idx = ["TNRedAmp", "TNRedAmp std", "TNRedGam", "TNRedGam std"]
+        white_idx = ["TNEF -be jbafb", "TNEF -be jbafb std", "TNEF -be jbdfb", "TNEF -be jbdfb std", "TNEQ -be jbafb", "TNEQ -be jbafb std", "TNEQ -be jbdfb", "TNEQ -be jbdfb std"]
+        sum_idx = spin_idx + glitch_idx + alter_idx + recovery_idx + red_idx #+ white_idx
         for glitchnum in range(self.max_glitch):
             sum_slt = {**self.spin_slt, **self.gli_slt[str(glitchnum+1)], **self.noise_slt}
             series_slt = pd.Series(sum_slt, index=sum_idx)

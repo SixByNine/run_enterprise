@@ -22,7 +22,7 @@ from astropy import units as u
 
 
 
-parser = argparse.ArgumentParser(description='Stride routine for fitting over a glitch. Written by Y.Liu (yang.liu-50@postgrad.manchester.ac.uk).')
+parser = argparse.ArgumentParser(description='Stride routine for fitting over a pulsar. Written by Y.Liu (yang.liu-50@postgrad.manchester.ac.uk).')
 parser.add_argument('-p', '--parfile', type=str, help='Parameter file', required=True)
 parser.add_argument('-t', '--timfile', type=str, help='TOA file', required=True)
 parser.add_argument('-w', '--width', type=int, default=0, help='Boxcar width (days), defualt: 6*cadence')
