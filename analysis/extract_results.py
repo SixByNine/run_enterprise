@@ -27,7 +27,6 @@ parser.add_argument('-p', '--parfile', type=str, help='Parameter file', required
 parser.add_argument('-t', '--timfile', type=str, help='TOA file', required=True)
 parser.add_argument('-u', '--taug', type=int, default=[200]*100, nargs='+', help='Replace GLF1 with change of spin frequency tau_g days after the glitch respectively')
 parser.add_argument('-g', '--glitches', type=int, default=[], nargs='+', help='Glitches that need to split tim file for')
-parser.add_argument('-m', '--multiple', type=list, default=[], nargs='+', help='Multiple glitches that need to split tim file together for')
 parser.add_argument('-r', '--recoveries', type=int, default=[], nargs='+', help='Number of recoveries in the best model for each glitch')
 parser.add_argument('--glf2', type=int, default=[], nargs='+', help='Include GLF2 term for the best model of these glitches')
 args = parser.parse_args()
@@ -37,15 +36,18 @@ sfpsr = pg.Pulsar(args.parfile, args.timfile, glf0t=args.taug)
 sfpsr.delete_null()
 #sfpsr.generate_truth()
 
-# Convert double recovery to tempo2 style, chop tim file, update info
-#sfpsr.tidy_glitch(chop=5000)
-#sfpsr.load_info()
+# Merge the best model of each glitch into the final par, and update par info
+#sfpsr.final_par(largeglitch=args.glitches, recoveries=args.recoveries, GLF2=args.glf2)
+#sfpsr.load_info(glf0t=args.taug)
 #sfpsr.delete_null()
 
-# Merge the best model of each glitch into the final par, and update par info
-sfpsr.final_par(largeglitch=args.glitches, recoveries=args.recoveries, GLF2=args.glf2)
-sfpsr.load_info(glf0t=args.taug)
-sfpsr.delete_null()
+# (Run MCMC fit) and read results from sum results and final par
+#sfpsr.MCMC_fit(par=args.parfile, tim=args.timfile, glitchnum=None)
+sum_results = "sum_" + args.parfile.split("_")[1] + ".results"
+sfpsr.noise_slt = sfpsr.read_results_file(sum_results, noise=True)
+print("<<< The noise solution for pulsar {} is {} >>>".format(sfpsr.psrn, sfpsr.noise_slt))
+sfpsr.par = sfpsr.post_par(par=sfpsr.sumpar, tim=sfpsr.tim, glitchnum=None)
+sfpsr.read_final_par(largeglitch=args.glitches)
 
 # Update info with par results files from best model of each glitch, and extract parameters to slt file
 idx_recovery = 0
