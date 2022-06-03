@@ -38,7 +38,9 @@ parser.add_argument('--glf0d', '--glf0d-range', type=float, default=0.8, help='T
 parser.add_argument('--glep', '--glep-range', type=float, default=2, help='The prior range for glep')
 parser.add_argument('--sigma', '--measured-sigma', type=float, default=[100, 100, 100, 100], nargs='+', help='Minus/Plus sigma range of GLF0(instant), and Minus/Plus sigma range of GLF0(T=taug) respectively')
 parser.add_argument('--split', '--gltd-split', type=float, default=[2.0, 2.3], nargs='+', help='Where to split gltd priors (in log10) for double and triple recoveries respectively')
-parser.add_argument('-a', '--gap', type=float, default=0, help='Threshold of gap (days), defualt: 10*cadence')
+parser.add_argument('--small', '--small-glitches', type=bool, default=True, help='Turn on tempo2 fitting for the small glitches in split par if they are included in split tim')
+parser.add_argument('--pre', '--pre-glitch', type=bool, default=True, help='Use the best model(if exists) of previous glitch in the split par')
+#parser.add_argument('-a', '--gap', type=float, default=0, help='Threshold of gap (days), defualt: 10*cadence')
 #parser.add_argument('-g', '--glep', type=float, default=[], nargs='+', help='Glitch epochs(MJD)')
 #parser.add_argument('-d', '--data', help='Stride data text file', required=True)
 args = parser.parse_args()
@@ -65,7 +67,9 @@ for gi in args.glitches:
     sfpsr.split_tim(glitchnum=gi)
     for exp in args.recoveries:
         for gf2 in g2:
-            sfpsr.split_par(glitchnum=gi, recoveries=exp, GLF2=gf2)
+            if gf2 is True and exp==3:
+                continue
+            sfpsr.split_par(glitchnum=gi, recoveries=exp, GLF2=gf2, small_glitches=True, pre_gli=True)
             sfpsr.MCMC_fit(glitchnum=gi, recoveries=exp, GLF2=gf2, gleprange=args.glep, glf0drange=args.glf0d, sigma=args.sigma, gltdsplit=args.split, glf2range=args.f2)
         #sfpsr.post_par(glitchnum=gi)
     sfpsr.best_model(glitchnum=gi, recoveries=None, GLF2=args.glf2)
