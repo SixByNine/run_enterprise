@@ -776,8 +776,6 @@ class Pulsar:
                             else:
                                 newline = e[0]+"   "+e[1]+"   "+"1"+"\n"
                         parlines.append(newline)
-                    elif line.startswith("GLEP"):
-                        parlines.append(line)
                 elif line.startswith("TN"):
                     continue
                 elif any(line.startswith(ls) for ls in ["RA", "DEC", "PX", "PM", "DM ", "F0", "F1", "F2"]):
