@@ -338,6 +338,51 @@ class Pulsar:
                 f.write("TNRedAmp   %f\n"%self.redamp)
                 f.write("TNRedGam   %f\n"%self.redgam)
 
+    def tidy_par(self, par):
+        ''' Sort the glitch parameters in time order, sort the recovery terms according to their time scale'''
+        glitches = {}
+        parlines = []
+        with open(par, "r") as f1:
+            for line in f1:
+                if line.startswith("GL"):
+                    e = line.split()
+                    pp = e[0].split("_")
+                    i = int(pp[1])
+                    param = pp[0]
+                    if not i in glitches:
+                        glitches[i] = {}
+                    if param == "GLEP":
+                        glitches[i]["epoch"] = float(e[1])
+                    glitches[i][param] = " ".join(e[1:])
+                else:
+                    parlines.append(line)
+        gg = sorted(glitches, key=lambda x: glitches[x]["epoch"])
+        idx = 0
+        for ig in gg:
+            idx += 1
+            glitches[ig]["id"] = idx
+            if "GLTD" in glitches[ig]:
+                if "GLTD2" in glitches[ig]: # Swap 1st and 2nd recoveries if the 1st longer than 2nd
+                    if glitches[ig]["GLTD"] > glitches[ig]["GLTD2"]:
+                        glitches[ig]["GLF0D"], glitches[ig]["GLF0D2"] = glitches[ig]["GLF0D2"], glitches[ig]["GLF0D"]
+                        glitches[ig]["GLTD"], glitches[ig]["GLTD2"] = glitches[ig]["GLTD2"], glitches[ig]["GLTD"]
+                    if "GLTD3" in glitches[ig]: # Swap 1st and 3rd recoveries if the 1st longer than 3rd
+                        if glitches[ig]["GLTD"] > glitches[ig]["GLTD3"]:
+                            glitches[ig]["GLF0D"], glitches[ig]["GLF0D3"] = glitches[ig]["GLF0D3"], glitches[ig]["GLF0D"]
+                            glitches[ig]["GLTD"], glitches[ig]["GLTD3"] = glitches[ig]["GLTD3"], glitches[ig]["GLTD"]
+                        if glitches[ig]["GLTD2"] > glitches[ig]["GLTD3"]:
+                            glitches[ig]["GLF0D2"], glitches[ig]["GLF0D3"] = glitches[ig]["GLF0D3"], glitches[ig]["GLF0D2"]
+                            glitches[ig]["GLTD2"], glitches[ig]["GLTD3"] = glitches[ig]["GLTD3"], glitches[ig]["GLTD2"]
+        #outpar = par.split(".", 1)[0]+"_tdy."+par.split(".", 1)[1]
+        with open(par, "w") as f1:
+            f1.writelines(parlines)
+            for ig in gg:
+                for param in glitches[ig]:
+                    if param in ["id", "epoch"]:
+                        continue
+                    f1.write("{}_{} {}\n".format(param, glitches[ig]["id"], glitches[ig][param]))
+        return par
+
     def tidy_glitch(self, chop=None):
         ''' Sort the recovery terms according to their time scale.
             Chop tim file and only keep TOAs from chop days before first glitch to chop days after the last glitch'''
@@ -352,7 +397,7 @@ class Pulsar:
                     i = int(pp[1])
                     param = pp[0]
                     if not i in glitches:
-                        glitches[i] = {"turns":0}
+                        glitches[i] = {"turns": 0}
                     if param == "GLEP":
                         glitches[i]["epoch"] = float(e[1])
                     #if param == "GLPH":
@@ -364,27 +409,36 @@ class Pulsar:
         #for ig in glitches:
             #print("glitch[{}] epoch {} turns {}".format(ig,glitches[ig]["epoch"],glitches[ig]["turns"]))
         gg = sorted(glitches, key=lambda x: glitches[x]["epoch"])
+        idx = 0
         for ig in gg:
+            idx += 1
+            glitches[ig]["id"] = idx
             if "GLTD" in glitches[ig]:
                 if "GLTD2" in glitches[ig]: # Swap 1st and 2nd recoveries if the 1st longer than 2nd
                     if glitches[ig]["GLTD"] > glitches[ig]["GLTD2"]:
                         glitches[ig]["GLF0D"], glitches[ig]["GLF0D2"] = glitches[ig]["GLF0D2"], glitches[ig]["GLF0D"]
                         glitches[ig]["GLTD"], glitches[ig]["GLTD2"] = glitches[ig]["GLTD2"], glitches[ig]["GLTD"]
-                if "GLTD3" in glitches[ig]: # Swap 1st and 3rd recoveries if the 1st longer than 3rd
-                    if glitches[ig]["GLTD"] > glitches[ig]["GLTD3"]:
-                        glitches[ig]["GLF0D"], glitches[ig]["GLF0D3"] = glitches[ig]["GLF0D3"], glitches[ig]["GLF0D"]
-                        glitches[ig]["GLTD"], glitches[ig]["GLTD3"] = glitches[ig]["GLTD3"], glitches[ig]["GLTD"]
-                    if "GLTD2" in glitches[ig] and glitches[ig]["GLTD2"] > glitches[ig]["GLTD3"]:
-                        glitches[ig]["GLF0D2"], glitches[ig]["GLF0D3"] = glitches[ig]["GLF0D3"], glitches[ig]["GLF0D2"]
-                        glitches[ig]["GLTD2"], glitches[ig]["GLTD3"] = glitches[ig]["GLTD3"], glitches[ig]["GLTD2"]
+                    if "GLTD3" in glitches[ig]: # Swap 1st and 3rd recoveries if the 1st longer than 3rd
+                        if glitches[ig]["GLTD"] > glitches[ig]["GLTD3"]:
+                            glitches[ig]["GLF0D"], glitches[ig]["GLF0D3"] = glitches[ig]["GLF0D3"], glitches[ig]["GLF0D"]
+                            glitches[ig]["GLTD"], glitches[ig]["GLTD3"] = glitches[ig]["GLTD3"], glitches[ig]["GLTD"]
+                        if glitches[ig]["GLTD2"] > glitches[ig]["GLTD3"]:
+                            glitches[ig]["GLF0D2"], glitches[ig]["GLF0D3"] = glitches[ig]["GLF0D3"], glitches[ig]["GLF0D2"]
+                            glitches[ig]["GLTD2"], glitches[ig]["GLTD3"] = glitches[ig]["GLTD3"], glitches[ig]["GLTD2"]
+                        parlines.append("{}_{} {}\n".format("GLF0D3", glitches[ig]["id"], glitches[ig]["GLF0D3"]))
+                        parlines.append("{}_{} {}\n".format("GLTD3", glitches[ig]["id"], glitches[ig]["GLTD3"]))
+                    parlines.append("{}_{} {}\n".format("GLF0D2", glitches[ig]["id"], glitches[ig]["GLF0D2"]))
+                    parlines.append("{}_{} {}\n".format("GLTD2", glitches[ig]["id"], glitches[ig]["GLTD2"]))
+                parlines.append("{}_{} {}\n".format("GLF0D", glitches[ig]["id"], glitches[ig]["GLF0D"]))
+                parlines.append("{}_{} {}\n".format("GLTD", glitches[ig]["id"], glitches[ig]["GLTD"]))
         self.tidypar = "tdy_"+self.par.split("_", 1)[1]
         with open(self.tidypar,"w") as f1:
             f1.writelines(parlines)
             for ig in gg:
                 for param in glitches[ig]:
-                    if param in ["epoch","turns"]:
+                    if param in ["id", "epoch", "turns"]:
                         continue
-                    f1.write("{}_{} {}\n".format(param,glitches[ig]["newid"],glitches[ig][param]))
+                    f1.write("{}_{} {}\n".format(param, glitches[ig]["id"], glitches[ig][param]))
         with open(self.tim) as f2:
             for line in f2:
                 e = line.split()
@@ -576,6 +630,7 @@ class Pulsar:
                         parlines.append(line)
         with open(self.splitpar, "w") as f3:
             f3.writelines(parlines)
+        self.splitpar = self.tidy_par(self.splitpar)
         return self.splitpar
 
     def MCMC_fit(self, par=None, tim=None, glitchnum=1, solver="multinest", recoveries=0, GLF2=False, sigma=[100, 100, 100, 100], gleprange=2, gltdrange=[1, 3], gltdsplit=[2.0, 2.3], glf0drange=0.8, glf0range=0.8, glf1range=0.8, glf2range=10, red=[-16, -8], tspan=1.1, thread=16, N=8000, nwalkers=128, nlive=500, rootdir="/nvme1/yliu/yangliu/"):
@@ -622,6 +677,7 @@ class Pulsar:
             command.extend(["-nlive", str(nlive)])
         else:
             solver = "multinest"
+            #command.extend(["--multinest-ce-mode"]) # Turn on constant efficiency model for multinest when necessary
         print("######")
         print("Start MCMC fitting")
         print("Tau_g is:", self.taug)
@@ -637,8 +693,11 @@ class Pulsar:
         command.extend(["--measured-prior", "--measured-sigma", str(sigma[0]), str(sigma[1]), str(sigma[2]), str(sigma[3])])
         command.extend(["--glitch-epoch-range", str(gleprange), "--glitch-td-min", str(gltdrange[0]), "--glitch-td-max", str(gltdrange[1])])
         command.extend(["--glitch-td-split", str(gltdsplit[0]), str(gltdsplit[1]), "--glitch-f0d-range", str(glf0drange)])
-        command.extend(["--glitch-f0-range", str(glf0range), "--glitch-f1-range", str(glf1range), "--glitch-f2-range", str(glf2range)]) 
-        print("### MCMC Command is:", command)
+        command.extend(["--glitch-f0-range", str(glf0range), "--glitch-f1-range", str(glf1range), "--glitch-f2-range", str(glf2range)])
+        cmd = ""
+        for cmdi in command:
+            cmd += str(cmdi) + " "
+        print("### MCMC Command is:", cmd)
         opt = open(outputfile, "w")
         proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1)
         for line in proc.stdout:
@@ -803,6 +862,7 @@ class Pulsar:
             idx += 1
         with open(self.sumpar, "w") as f3:
             f3.writelines(parlines)
+        self.sumpar = self.tidy_par(self.sumpar)
         self.tim = self.split_tim()
         self.MCMC_fit(par=self.sumpar, tim=self.tim, glitchnum=None)
         self.sum_results = self.sumpar+".results"
