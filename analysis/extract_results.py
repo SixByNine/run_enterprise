@@ -46,7 +46,7 @@ sfpsr.delete_null()
 sum_results = "sum_" + args.parfile.split("_")[1] + ".results"
 sfpsr.noise_slt = sfpsr.read_results_file(sum_results, noise=True)
 print("<<< The noise solution for pulsar {} is {} >>>".format(sfpsr.psrn, sfpsr.noise_slt))
-sfpsr.par = sfpsr.post_par(par=sfpsr.sumpar, tim=sfpsr.tim, glitchnum=None)
+sfpsr.par = sfpsr.post_par(par="sum_"+args.parfile.split("_")[1], tim=sfpsr.tim, glitchnum=None)
 sfpsr.read_final_par(largeglitch=args.glitches)
 
 # Update info with par results files from best model of each glitch, and extract parameters to slt file

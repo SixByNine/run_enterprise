@@ -658,7 +658,7 @@ class Pulsar:
             glf2range = 0
         if recoveries == 3:
             gltdsplit[0] = 1.8
-        command = ["mpirun", "-c", str(thread), runentprise, "--auto-add"]
+        command = ["nice", "mpirun", "-c", str(thread), runentprise, "--auto-add"]
         command.extend([par, tim])
         if glitchnum is not None:
             plotname = str(glitchnum)+modelname+f2
