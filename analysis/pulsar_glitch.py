@@ -864,7 +864,7 @@ class Pulsar:
             f3.writelines(parlines)
         self.sumpar = self.tidy_par(self.sumpar)
         self.tim = self.split_tim()
-        self.MCMC_fit(par=self.sumpar, tim=self.tim, glitchnum=None)
+        self.MCMC_fit(par=self.sumpar, tim=self.tim, glitchnum=None) #, solver="emcee", thread=1)
         self.sum_results = self.sumpar+".results"
         if max_like is True:
             results_value = "max-likelihood"
