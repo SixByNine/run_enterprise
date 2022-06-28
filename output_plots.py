@@ -29,7 +29,7 @@ def cornerplot(samples, labels, weights=None, truths=None, truth_color='blue'):
     parameters=[p.replace("_","\_") for p in labels]
 
     cc.add_chain(samples,parameters=parameters, weights=weights)
-    cc.configure(diagonal_tick_labels=False, tick_font_size=8, label_font_size=8, max_ticks=8,
+    cc.configure(diagonal_tick_labels=False, tick_font_size=6, label_font_size=6, max_ticks=6,
                  colors="#455A64", shade=True, shade_alpha=0.2, bar_shade=True,
                  sigmas=[0, 1, 2, 3], sigma2d=True)
     cc.configure_truth(color=truth_color, ls=":", alpha=0.8)
