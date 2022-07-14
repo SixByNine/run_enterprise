@@ -379,3 +379,4 @@ for gi in args.glitches:
         sfpsr.best_model(glitchnum=gi, recoveries=None, GLF2=f2)
     idx_recovery += 1
 sfpsr.extract_results()
+sfpsr.print_info()
