@@ -855,7 +855,7 @@ class Pulsar:
             print("<<< The solution for glitch {} is {} >>>".format(glitchnum, self.gli_slt[str(glitchnum)]))
         return bestmodelpar
 
-    def final_par(self, largeglitch=[1], recoveries=[None]*10, GLF2=[], max_like=False):
+    def final_par(self, largeglitch=[1], recoveries=[None]*10, GLF2=[], max_like=False, run=True, thread=16):
         '''Merge glitch parameters in the best model of each glitches to create final par for the pulsar'''
         self.sumpar = "sum_"+self.psrn+".par"
         parlines = []
@@ -904,7 +904,7 @@ class Pulsar:
             f3.writelines(parlines)
         self.sumpar = self.tidy_par(self.sumpar)
         self.tim = self.split_tim()
-        self.MCMC_fit(par=self.sumpar, tim=self.tim, glitchnum=None, thread=1, run=False, solver="emcee")
+        self.MCMC_fit(par=self.sumpar, tim=self.tim, glitchnum=None, run=run, thread=thread) #, solver="emcee")
         self.sum_results = self.sumpar+".results"
         if max_like is True:
             results_value = "max-likelihood"

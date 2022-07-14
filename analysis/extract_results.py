@@ -78,7 +78,7 @@ for gi in args.glitches:
 sfpsr.print_info()
 
 # Merge the best model of each glitch into the final par, and update par info
-sfpsr.final_par(largeglitch=args.glitches, recoveries=args.nr, GLF2=args.nglf2)
+sfpsr.final_par(largeglitch=args.glitches, recoveries=args.nr, GLF2=args.nglf2, run=False, thread=1)
 sfpsr.load_info(glf0t=args.taug)
 sfpsr.delete_null()
 sfpsr.print_info()
