@@ -9,16 +9,31 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
     for i,p in enumerate(parnames):
         if p.startswith("GLF0(instant)"):
             iglitch = int(p.split('_')[1])
-            glf0=np.copy(scaled_samples[:,i]) ## no glitch recovery so GLF0=GLF0(instant)
+            glf0ins = np.copy(scaled_samples[:,i])
+            glf0 = np.copy(scaled_samples[:,i]) ## no glitch recovery so GLF0=GLF0(instant)
             if "GLF0D_{}".format(iglitch) in parnames:
                 glf0d = scaled_samples[:, parnames=="GLF0D_{}".format(iglitch)][:, 0]
                 glf0 -= glf0d
-            if "GLF0D2_{}".format(iglitch) in parnames:
-                glf0d2 = scaled_samples[:, parnames=="GLF0D2_{}".format(iglitch)][:, 0]
-                glf0 -= glf0d2
-            if "GLF0D3_{}".format(iglitch) in parnames:
-                glf0d3 = scaled_samples[:, parnames=="GLF0D3_{}".format(iglitch)][:, 0]
-                glf0 -= glf0d3
+                q = glf0d/glf0ins
+                if "GLF0D2_{}".format(iglitch) in parnames:
+                    glf0d2 = scaled_samples[:, parnames=="GLF0D2_{}".format(iglitch)][:, 0]
+                    glf0 -= glf0d2
+                    q += glf0d2/glf0ins
+                    q1 = glf0d/glf0ins
+                    q2 = glf0d2/glf0ins
+                    derived.append(q1)
+                    derived_names.append("Q1_{}".format(iglitch))
+                    derived.append(q2)
+                    derived_names.append("Q2_{}".format(iglitch))
+                if "GLF0D3_{}".format(iglitch) in parnames:
+                    glf0d3 = scaled_samples[:, parnames=="GLF0D3_{}".format(iglitch)][:, 0]
+                    glf0 -= glf0d3
+                    q += glf0d3/glf0ins
+                    q3 = glf0d3/glf0ins
+                    derived.append(q3)
+                    derived_names.append("Q3_{}".format(iglitch))
+                derived.append(q)
+                derived_names.append("Q_{}".format(iglitch))
             derived.append(glf0)
             derived_names.append("GLF0_{}".format(iglitch))
 
@@ -56,6 +71,9 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
             glf1 = (glf0_at_t - glf0d*(np.exp(-glaltf0t/gltd)-1) - glf0d2*(np.exp(-glaltf0t/gltd2)-1) - glf0d3*(np.exp(-glaltf0t/gltd3)-1)) / (glaltf0t*86400.0)
             derived.append(glf1)
             derived_names.append("GLF1_{}".format(iglitch))
+            glf1ins = glf1 - glf0d/(86400*gltd) - glf0d2/(86400*gltd2) - glf0d3/(86400*gltd3)
+            derived.append(glf1ins)
+            derived_names.append("GLF1(instant)_{}".format(iglitch))
 
         if p.startswith("T2Chol_QpF0"):
             derived.append(10**-scaled_samples[:,i])
