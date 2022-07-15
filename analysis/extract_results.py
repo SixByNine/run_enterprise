@@ -75,13 +75,12 @@ for gi in args.glitches:
             sfpsr.MCMC_fit(glitchnum=gi, recoveries=exp, GLF2=gf2, gleprange=args.glep, glf0drange=args.glf0d, sigma=args.sigma, gltdsplit=args.split, glf2range=args.f2, run=False, thread=1)
         #sfpsr.post_par(glitchnum=gi)
     sfpsr.best_model(glitchnum=gi, recoveries=None, GLF2=args.glf2)
-sfpsr.print_info()
 
 # Merge the best model of each glitch into the final par, and update par info
 sfpsr.final_par(largeglitch=args.glitches, recoveries=args.nr, GLF2=args.nglf2, run=False, thread=1)
-sfpsr.load_info(glf0t=args.taug)
+sfpsr.load_info(glf0t=args.taug, new=False)
 sfpsr.delete_null()
-sfpsr.print_info()
+#sfpsr.print_info()
 
 # Update info with par results files from best model of each glitch, and extract parameters to slt file
 idx_recovery = 0

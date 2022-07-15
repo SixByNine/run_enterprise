@@ -82,7 +82,7 @@ class Pulsar:
         self.spin_slt, self.gli_slt, self.noise_slt = [{}]*3
         self.load_info(tidy=tidy, glf0t=glf0t)
 
-    def load_info(self, tidy=False, glf0t="GLTD"):
+    def load_info(self, tidy=False, glf0t="GLTD", new=True):
         '''Load basic info of pulsar class from par file and tim file'''
         if tidy==False or self.tidypar==None:
             loadpar = self.par
@@ -94,20 +94,19 @@ class Pulsar:
         self.start, self.finish, self.pepoch = toa
         self.redamp, self.redgam, self.redc = red
         self.ef_jbafb, self.ef_jbdfb, self.eq_jbafb, self.eq_jbdfb = white
-        self.pglep, self.pglf0, self.pglf1, self.pglf2, self.pglf0ins, self.pglf1ins, self.pglf0tg = glitch
-        self.pglf0d, self.pgltd, self.pglf0d2, self.pgltd2, self.pglf0d3, self.pgltd3 = recovery
         self.max_glitch, self.waittime, self.taug, self.numofexp = summary
-        ### self.q, self.q1, self.q2, self.q3 = np.zeros(100), np.zeros(100), np.zeros(100), np.zeros(100)
-        self.q1, self.q2, self.q3 = self.pglf0d/self.pglf0ins, self.pglf0d2/self.pglf0ins, self.pglf0d3/self.pglf0ins
-        self.q = self.q1 + self.q2 + self.q3
-        ### self.fdnu, self.fdnudot = np.zeros(100), np.zeros(100)
+        if new is True:
+            self.reset_error()
+            self.pglep, self.pglf0, self.pglf1, self.pglf2, self.pglf0ins, self.pglf1ins, self.pglf0tg = glitch
+            self.pglf0d, self.pgltd, self.pglf0d2, self.pgltd2, self.pglf0d3, self.pgltd3 = recovery
+            self.q1, self.q2, self.q3 = self.pglf0d/self.pglf0ins, self.pglf0d2/self.pglf0ins, self.pglf0d3/self.pglf0ins
+            self.q = self.q1 + self.q2 + self.q3
+            self.minmjds, self.maxmjds, self.toanum, self.span, self.cadence, self.toaseries = self.load_tim(self.tim)
+            self.toastart, self.toafinish = self.minmjds*np.ones(100), self.maxmjds*np.ones(100)
+            self.toacount, self.toaspan = self.toanum*np.ones(100), self.span*np.ones(100)
         self.fdnu, self.fdnudot = self.pglf0ins/self.F0, self.pglf1ins/self.F1
-        self.minmjds, self.maxmjds, self.toanum, self.span, self.cadence, self.toaseries = self.load_tim(self.tim)
-        self.toastart, self.toafinish = self.minmjds*np.ones(100), self.maxmjds*np.ones(100)
-        self.toacount, self.toaspan = self.toanum*np.ones(100), self.span*np.ones(100)
         self.A_g = np.sum(self.fdnu)/self.span
         self.E_dot, self.tau_c, self.B_sur, self.brake = self.calculate_derived()
-        self.reset_error()
 
     def reset_error(self):
         '''Reset the errors of parameters'''
@@ -931,7 +930,7 @@ class Pulsar:
             for line in f:
                 e=line.strip().rsplit(maxsplit=8)
                 if noise is False:
-                    if e[0].startswith("GL"):
+                    if e[0].startswith("GL") or e[0].startswith("Q"):
                         glnum = int(e[0].split("_")[-1])
                         glkey = e[0].split("_")[0]
                         if e[0].startswith("GLEP_"):
@@ -1044,6 +1043,25 @@ class Pulsar:
 
     def read_final_par(self, largeglitch=[1]):
         '''Read rough estimates of glitch parameters by tempo2 for small glitches from final par file'''
+        with open(self.par) as f:
+            f.readline()
+            for line in f:
+                e=line.strip().split()
+                if e[0].startswith("GL"):
+                    glnum = int(e[0].split("_")[-1])
+                    if glnum not in largeglitch:
+                        std = np.nan
+                        if len(e) > 3:
+                            std = float(e[3])
+                        if e[0].startswith("GLF0_"):
+                            self.pglf0[glnum-1] = float(e[1])
+                            self.pglf0std[glnum-1] = float(e[3])
+                        if e[0].startswith("GLF1_"):
+                            self.pglf1[glnum-1] = float(e[1])
+                            self.pglf1std[glnum-1] = float(e[3])
+                        if e[0].startswith("GLF2_"):
+                            self.pglf2[glnum-1] = float(e[1])
+                            self.pglf2std[glnum-1] = float(e[3])
         for glitchnum in range(self.max_glitch):
             if glitchnum+1 not in largeglitch:
                 self.gli_slt[str(glitchnum+1)] = {}
@@ -1051,6 +1069,10 @@ class Pulsar:
                 self.gli_slt[str(glitchnum+1)]["ToA finish"] = self.toafinish[glitchnum]
                 self.gli_slt[str(glitchnum+1)]["ToA count"] = self.toacount[glitchnum]
                 self.gli_slt[str(glitchnum+1)]["ToA span"] = self.toaspan[glitchnum]
+                self.gli_slt[str(glitchnum+1)]["GLF0"] = self.pglf0[glitchnum]
+                self.gli_slt[str(glitchnum+1)]["GLF0 std"] = self.pglf0std[glitchnum]
+                self.gli_slt[str(glitchnum+1)]["GLF1"] = self.pglf1[glitchnum]
+                self.gli_slt[str(glitchnum+1)]["GLF1 std"] = self.pglf1std[glitchnum]
                 glf0 = std_error(self.pglf0[glitchnum], self.pglf0std[glitchnum])
                 glf1 = std_error(self.pglf1[glitchnum], self.pglf1std[glitchnum])
                 glf2 = std_error(self.pglf2[glitchnum], self.pglf2std[glitchnum])
@@ -1119,23 +1141,6 @@ class Pulsar:
                     self.waittime[glitchnum] = delta_glep.n
                     self.gli_slt[str(glitchnum+1)]["Waiting time"] = delta_glep.n
                     self.gli_slt[str(glitchnum+1)]["Waiting time std"] = delta_glep.s
-        with open(self.par) as f:
-            f.readline()
-            for line in f:
-                e=line.strip().split()
-                if e[0].startswith("GL"):
-                    glnum = int(e[0].split("_")[-1])
-                    if glnum not in largeglitch:
-                        glkey = e[0].split("_")[0]
-                        std = np.nan
-                        if len(e) > 3:
-                            std = float(e[3])
-                        if e[0].startswith("GLF0(T="):
-                            self.gli_slt[str(glnum)]["Tau_g"] = int(e[0].split("=")[1].split(")")[0])
-                            glkey = "GLF0(T=tau_g)"
-                        glkeystd = glkey + " std"
-                        self.gli_slt[str(glnum)][glkey] = float(e[1])
-                        self.gli_slt[str(glnum)][glkeystd] = std
         for glitchnum in range(self.max_glitch):
             if glitchnum+1 not in largeglitch:
                 print("<<< The solution for glitch {} is {} >>>".format(glitchnum+1, self.gli_slt[str(glitchnum+1)]))

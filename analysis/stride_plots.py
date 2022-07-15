@@ -49,7 +49,7 @@ sfpsr.delete_null()
 
 # Merge the best model of each glitch into the final par, and update par info
 sfpsr.final_par(largeglitch=args.glitches, recoveries=args.recoveries, GLF2=args.glf2)
-sfpsr.load_info(glf0t=args.taug)
+sfpsr.load_info(glf0t=args.taug, new=False)
 sfpsr.delete_null()
 
 # Calculate data for pulsar plots
