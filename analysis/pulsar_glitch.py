@@ -1035,10 +1035,8 @@ class Pulsar:
                         results[e[0]] = float(e[value_idx])
                         results[e[0]+" std"] = float(e[3])
         if noise is False:
-            results["ToA start"] = self.toastart[glnum-1]
-            results["ToA finish"] = self.toafinish[glnum-1]
-            results["ToA count"] = self.toacount[glnum-1]
-            results["ToA span"] = self.toaspan[glnum-1]
+            self.splittim = "chp_"+self.psrn+"_"+str(glnum)+".tim"
+            results["ToA start"], results["ToA finish"], results["ToA count"], results["ToA span"] = self.load_tim(self.splittim)[:4]
         return results
 
     def read_final_par(self, largeglitch=[1]):
