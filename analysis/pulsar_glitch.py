@@ -1053,15 +1053,18 @@ class Pulsar:
                         std = np.nan
                         if len(e) > 3:
                             std = float(e[3])
+                        if e[0].startswith("GLEP_"):
+                            self.pglep[glnum-1] = float(e[1])
+                            self.pglepstd[glnum-1] = std
                         if e[0].startswith("GLF0_"):
                             self.pglf0[glnum-1] = float(e[1])
-                            self.pglf0std[glnum-1] = float(e[3])
+                            self.pglf0std[glnum-1] = std
                         if e[0].startswith("GLF1_"):
                             self.pglf1[glnum-1] = float(e[1])
-                            self.pglf1std[glnum-1] = float(e[3])
+                            self.pglf1std[glnum-1] = std
                         if e[0].startswith("GLF2_"):
                             self.pglf2[glnum-1] = float(e[1])
-                            self.pglf2std[glnum-1] = float(e[3])
+                            self.pglf2std[glnum-1] = std
         for glitchnum in range(self.max_glitch):
             if glitchnum+1 not in largeglitch:
                 self.gli_slt[str(glitchnum+1)] = {}
@@ -1069,6 +1072,8 @@ class Pulsar:
                 self.gli_slt[str(glitchnum+1)]["ToA finish"] = self.toafinish[glitchnum]
                 self.gli_slt[str(glitchnum+1)]["ToA count"] = self.toacount[glitchnum]
                 self.gli_slt[str(glitchnum+1)]["ToA span"] = self.toaspan[glitchnum]
+                self.gli_slt[str(glitchnum+1)]["GLEP"] = self.pglep[glitchnum]
+                self.gli_slt[str(glitchnum+1)]["GLEP std"] = self.pglepstd[glitchnum]
                 self.gli_slt[str(glitchnum+1)]["GLF0"] = self.pglf0[glitchnum]
                 self.gli_slt[str(glitchnum+1)]["GLF0 std"] = self.pglf0std[glitchnum]
                 self.gli_slt[str(glitchnum+1)]["GLF1"] = self.pglf1[glitchnum]
