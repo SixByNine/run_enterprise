@@ -23,19 +23,18 @@ def setup_argparse(parser):
     parser.add_argument('--skip-plots', action='store_true', help="Skip all plotting (for debugging I guess)")
 
 def cornerplot(samples, labels, weights=None, truths=None, truth_color='blue'):
-
-    ## @todo: Make a chain consumer then generate all stuff from that rather than this piecemeal version.
-    cc = chainconsumer.ChainConsumer()
-    parameters=[p.replace("_","\_") for p in labels]
-
-    cc.add_chain(samples,parameters=parameters, weights=weights)
-    cc.configure(diagonal_tick_labels=False, tick_font_size=6, label_font_size=6, max_ticks=6,
-                 colors="#455A64", shade=True, shade_alpha=0.2, bar_shade=True,
-                 sigmas=[0, 1, 2, 3], sigma2d=True)
-    cc.configure_truth(color=truth_color, ls=":", alpha=0.8)
-    fig = cc.plotter.plot(figsize='grow', truth=truths)
-
+    if weights is None:
+        weights = np.ones_like(samples[:, 0])
+    res = {'samples': samples, 'weights': weights,'logwt':np.log(weights),'logz':[0]}
+    fig, ax = plotting.cornerplot(res, truths=truths, labels=labels, truth_color=truth_color)
+    for aa in ax:
+        for a in aa:
+            if len(a.xaxis.get_label().get_text()) > 0:
+                a.ticklabel_format(axis='x', style='sci', scilimits=(-3, 3), useMathText=True)
+            if len(a.yaxis.get_label().get_text()) > 0:
+                a.ticklabel_format(axis='y', style='sci', scilimits=(-3, 3), useMathText=True)
     fig.patch.set_facecolor('white')
+
     return fig
 
 
@@ -99,6 +98,24 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
 
     plt.rcParams.update({'font.size': 8})
 
+
+    # Plot posterior if requested.
+    if args.plot_chain:
+        print("Plot Chain")
+        x = np.arange(samples.shape[0])
+        with PdfPages("%s.chain.pdf" % plotname) as pdf:
+            for i in range(len(pars)):
+
+                #plt.rc('text',usetex=False) # Test #
+                fig = plt.figure(figsize=(16, 8))
+                plt.plot(x[:burn], samples[:burn, i], '.', color='gray')
+                plt.plot(x[burn:], samples[burn:, i], '.', color='k')
+                plt.title("%s" % pars[i])
+                plt.ylabel("%s" % pars[i])
+                pdf.savefig()
+                plt.close()
+
+    print("Plot Cornerplot")
     if args.truth_file is None:
         fig = cornerplot(samples[burn:, n_w], labels=pars[n_w], weights=weights)
     elif args.truth_file == "maxlike":
@@ -120,6 +137,7 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
 
     fig.savefig("%s.corner.pdf" % plotname)
 
+    print("Plot extra cornerplots")
     # Make optional corner plots
     if args.all_corner:
         if args.truth_file:
@@ -169,20 +187,6 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
             fig.savefig("%s.corner_efac.pdf" % plotname)
             fig = cornerplot(samples[burn:, m_eq], labels=pars[m_eq], weights=weights,truths=pmax[m_eq]);
             fig.savefig("%s.corner_equad.pdf" % plotname)
-
-    # Plot posterior if requested.
-    if args.plot_chain:
-        x = np.arange(samples.shape[0])
-        with PdfPages("%s.chain.pdf" % plotname) as pdf:
-            for i in range(len(pars)):
-                fig = plt.figure(figsize=(16, 8))
-                plt.plot(x[:burn], samples[:burn, i], '.', color='gray')
-                plt.plot(x[burn:], samples[burn:, i], '.', color='k')
-                plt.title("%s" % pars[i])
-                plt.ylabel("%s" % pars[i])
-                #plt.rcParams.update({'usetex':False}) # Test #
-                pdf.savefig()
-                plt.close()
 
     print("Plots saved")
 
