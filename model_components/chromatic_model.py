@@ -34,6 +34,7 @@ def setup_model(args, psr, parfile):
         nC = int(nC*args.chrom_tspan_mult)
 
         parfile.append("TNChromC {}\n".format(nC))
+        parfile.append("TNChromIdx {}\n".format(args.chrom_index))
 
         A_min = args.Achrom_min
         A_max = args.Achrom_max
@@ -66,9 +67,8 @@ def FourierBasisGP_Chrom(spectrum, components=20,
     return FourierBasisGP_DM
 
 def to_par(self,p,chain):
-   dm_scale_factor = np.log10(1400.0 ** -2 / 2.41e-4)
    if "Chrom_A" in p:
-      return "TNChromAmp", chain - dm_scale_factor
+      return "TNChromAmp", chain
    if "Chrom_gamma" in p:
       return "TNChromGam", chain
    else:

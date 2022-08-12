@@ -3,9 +3,9 @@ from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
 import dynesty # @todo: remove this dependency on dynesty
 from dynesty import plotting # @todo: remove this dependancy on dynesty
-import chainconsumer
 from astropy import coordinates as coord
 from astropy import units as units
+import corner
 
 from model_components import priors
 
@@ -23,17 +23,17 @@ def setup_argparse(parser):
     parser.add_argument('--skip-plots', action='store_true', help="Skip all plotting (for debugging I guess)")
 
 def cornerplot(samples, labels, weights=None, truths=None, truth_color='blue'):
-    if weights is None:
-        weights = np.ones_like(samples[:, 0])
-    res = {'samples': samples, 'weights': weights,'logwt':np.log(weights),'logz':[0]}
-    fig, ax = plotting.cornerplot(res, truths=truths, labels=labels, truth_color=truth_color)
-    for aa in ax:
-        for a in aa:
-            if len(a.xaxis.get_label().get_text()) > 0:
-                a.ticklabel_format(axis='x', style='sci', scilimits=(-3, 3), useMathText=True)
-            if len(a.yaxis.get_label().get_text()) > 0:
-                a.ticklabel_format(axis='y', style='sci', scilimits=(-3, 3), useMathText=True)
-    fig.patch.set_facecolor('white')
+
+
+    fig = corner.corner(samples,weights=weights, truths=truths,truth_color=truth_color,labels=labels)
+
+#    for aa in ax:
+#        for a in aa:
+#            if len(a.xaxis.get_label().get_text()) > 0:
+#                a.ticklabel_format(axis='x', style='sci', scilimits=(-3, 3), usemathtext=true)
+#            if len(a.yaxis.get_label().get_text()) > 0:
+#                a.ticklabel_format(axis='y', style='sci', scilimits=(-3, 3), useMathText=True)
+#    fig.patch.set_facecolor('white')
 
     return fig
 
