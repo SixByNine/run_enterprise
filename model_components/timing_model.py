@@ -36,6 +36,8 @@ def setup_argparse(parser):
     parser.add_argument('--wrap-range',type=int, default = 2,help="Max number of wraps missing")
     parser.add_argument('--tm-fit-file', type=str,default=None, help="Use setup file for timing model parameters ONLY WORKS WITH Multinest/MPI")
     parser.add_argument('--fake-tm', action='store_true', help="Use a design matrix to fake the tm fit")
+    parser.add_argument('--qr',action='store_true',help="use the QR decomposition for marginalisation")
+    parser.add_argument('--svd',action='store_true',help="use the SVD decomposition for marginalisation")
 
 
 def setup_model(args, psr, parfile):

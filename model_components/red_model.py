@@ -4,6 +4,9 @@ from enterprise.signals import utils
 from enterprise.signals import gp_signals
 from enterprise.signals.parameter import function
 import enterprise.constants as const
+
+from enterprise.signals import deterministic_signals
+
 import sys
 
 name = "RedNoise"
@@ -20,6 +23,7 @@ def setup_argparse(parser):
     parser.add_argument('--red-prior-log', action='store_true',
                         help='Use uniform prior in log space for red noise amplitude')
     parser.add_argument('--red-ncoeff', type=int, default=60, help='Number of red noise coefficients (nC)')
+    parser.add_argument('--red-minf', type=float, default=None, help='Low frequency cut-off')
     parser.add_argument('--tspan-mult', type=float, default=2, help='Multiplier for tspan')
     parser.add_argument('--qp', action='store_true', help='Use QP nudot model')
     # parser.add_argument('--qp-f0-min', type=float, default=None)
@@ -84,7 +88,29 @@ def setup_model(args, psr, parfile):
                              fmin=df)
         else:
             pl = utils.powerlaw(log10_A=log10_A, gamma=gamma)
-        rn = gp_signals.FourierBasisGP(spectrum=pl, components=nC, Tspan=Tspan)
+
+        modes=None
+        fmodes=None
+        if not (args.red_minf is None):
+            modes = 1.0 * np.arange(1, nC + 1) / Tspan
+            sectoyr=86400.0*365.25
+            fmodes=modes[modes<=args.red_minf/sectoyr]
+            modes = modes[modes>args.red_minf/sectoyr]
+            print("Now have {} fourier components above {} yr^-1".format(len(modes),args.red_minf))
+
+            if len(modes) < 1:
+                print("Not enough modes! ",(1.0 * np.arange(1, nC + 1) / Tspan)[0])
+                sys.exit(1)
+            nC = len(modes)
+
+        rn = gp_signals.FourierBasisGP(spectrum=pl, components=nC, Tspan=Tspan, modes=modes)
+
+        if not fmodes is None:
+            for i,f in enumerate(fmodes):
+                A = parameter.Uniform(-50, 50,to_par=to_par)("fsinA{}".format(i))
+                B = parameter.Uniform(-50, 50,to_par=to_par)("fcosB{}".format(i))
+                rn += deterministic_signals.Deterministic(sinusoid(A=A,B=B,om=2*np.pi*f))
+
         return rn
     else:
         return None
@@ -105,6 +131,10 @@ def to_par(self, p, chain):
         return "TN_QpSig", chain
     elif "_lam" in p:
         return "TN_QpLam", chain
+    elif "fsin" in p:
+        return p,chain
+    elif "fcos" in p:
+        return p, chain
     else:
         return None
 
@@ -125,3 +155,11 @@ def powerlaw_qp(f, log10_A, gamma, log_qp_ratio, p, sig, lam, fmin, components=2
     qp = qp_term_cutoff(f / const.fyr, logPqp, f0, sig, lam, fmin)
 
     return red + qp
+
+
+@function
+def sinusoid(toas,A,B,om):
+    return B*np.sin(om*toas)+A*np.cos(om*toas)
+
+
+
