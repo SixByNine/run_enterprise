@@ -24,12 +24,7 @@ def setup_argparse(parser):
 
 def cornerplot(samples, labels, weights=None, truths=None, truth_color='blue'):
 
-    if weights is None:
-        plot_dat = True
-    else:
-        plot_dat = False # If we have weights, the datapoint plotting is kind of garbage
-    fig = corner.corner(samples,weights=weights, truths=truths,truth_color=truth_color,labels=labels,
-                        plot_datapoints=plot_dat)
+    fig = corner.corner(samples,weights=weights, truths=truths,truth_color=truth_color,labels=labels, plot_datapoints=False)
 
 #    for aa in ax:
 #        for a in aa:
