@@ -1,5 +1,7 @@
 from . import xparameter as parameter
 import numpy as np
+import scipy.optimize
+import matplotlib.pyplot as plt
 from enterprise.signals import gp_signals, signal_base, utils
 import enterprise.constants as const
 from enterprise.signals.selections import Selection
@@ -19,6 +21,12 @@ def setup_argparse(parser):
     parser.add_argument('-sw', '--solar-wind', action='store_true', help='Turn on solar wind')
     parser.add_argument('--sw-sigma-max', type=float, default=10, help='Max solar wind')
     parser.add_argument('--sw-sigma-min', type=float, default=1e-3, help='Min solar wind')
+
+
+def fcos(x, phi):
+    # function to fit ctheta
+    return np.cos(2*np.pi*x/365.25 + phi)
+
 
 def setup_psr(psr):
 
@@ -74,12 +82,29 @@ def setup_psr(psr):
 
     toas_mjds = t2psr.stoas
 
-    # first, find the closest toa to a solar conjuction, by minimising the cos(theta)
-    toa_solconj = toas_mjds[np.argmin(ctheta)]
+#    # first, find the closest toa to a solar conjuction, by minimising the cos(theta)
+#    toa_solconj = toas_mjds[np.argmin(ctheta)]
+
+
+    # !! Change such that the _NE_SW mjds are actually at solar conjuction
+    # not just the closest toa data point to it..
+    
+    # Fit a cos(2pi *t_mjd/day_per_year + phase) to ctheta, 
+    # obtain phase and find the actual minimum of ctheta, i.e. the solar conjuction
+
+    mjds = toas_mjds.astype(np.float64)
+
+    popt, _ = scipy.optimize.curve_fit(fcos, mjds, ctheta, bounds=([0, 2*np.pi]))
+    # phase = popt[0]
+
+    # find the first conjuction in the data from cos = -1
+    Nfirstconj = int(mjds.min()/365.25 - 0.5 + popt[0]/2/np.pi) + 1
+    toa_solconj = 365.25 * (Nfirstconj + 0.5 - popt[0]/2/np.pi)
+
 
     # get all the conjuctions before and after this 'minimum' one in the range of the data
-    nlower = (toa_solconj - toas_mjds.min()) / day_per_year
-    nhigher = (toas_mjds.max() - toa_solconj) / day_per_year
+    nlower = (toa_solconj - mjds.min()) / day_per_year
+    nhigher = (mjds.max() - toa_solconj) / day_per_year
 
     conjunction_toas_mjds = np.concatenate((toa_solconj - np.arange(1, int(nlower) + 1) * day_per_year, [toa_solconj], toa_solconj + np.arange(1, int(nhigher) + 1) * day_per_year ))
     conjunction_toas_mjds.sort()
@@ -147,7 +172,7 @@ def ifunc(xi, i, x):
     return np.interp(x,xi,y)
 
 @signal_base.function
-def solar_wind_basis(toas, spherical_solar_wind, ctheta, sphconj_mjd):
+def solar_wind_basis(toas, spherical_solar_wind, sphconj_mjd):
 
     """
     :param toas: vector of time series in seconds
