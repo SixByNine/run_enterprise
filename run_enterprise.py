@@ -4,7 +4,7 @@ from __future__ import division, print_function
 import matplotlib
 
 
-#matplotlib.use('Agg')
+matplotlib.use('Agg')
 import numpy as np
 
 import model_components
@@ -16,6 +16,7 @@ import argparse
 from enterprise.pulsar import Pulsar
 from enterprise.signals import gp_signals
 from enterprise.signals import signal_base
+import qr_timing_model
 
 import output_plots
 
@@ -52,9 +53,11 @@ def run_enterprise(args):
 
 
 
-
 def make_model(args,psr,parfile):
-    model = gp_signals.TimingModel(use_svd=True) # test: use_svd changed to True
+    if args.qr:
+        model = qr_timing_model.QRTimingModel()
+    else:
+        model = gp_signals.TimingModel(use_svd=args.svd)
 
     for model_comp in model_components.all:
         m = model_comp.setup_model(args,psr,parfile)

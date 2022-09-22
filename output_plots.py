@@ -3,9 +3,9 @@ from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
 import dynesty # @todo: remove this dependency on dynesty
 from dynesty import plotting # @todo: remove this dependancy on dynesty
-import chainconsumer
 from astropy import coordinates as coord
 from astropy import units as units
+import corner
 
 from model_components import priors
 
@@ -20,22 +20,21 @@ def setup_argparse(parser):
     parser.add_argument('--dump-samples-npy', default=0,type=int, help='Dump N samples of final scaled parameters as a numpy file')
     parser.add_argument('--dump-chain', action='store_true', help='Dump chain after scaling to phyical parameters')
     parser.add_argument('--plotname', default=None, help="Set plot output file name stem")
+    parser.add_argument('--smooth',type=float,default=None,help="Factor for smoothing of corner plots (default=don't smooth)")
     parser.add_argument('--skip-plots', action='store_true', help="Skip all plotting (for debugging I guess)")
 
-def cornerplot(samples, labels, weights=None, truths=None, truth_color='blue'):
+def cornerplot(samples, labels, weights=None, truths=None, truth_color='blue',smooth=True):
 
-    ## @todo: Make a chain consumer then generate all stuff from that rather than this piecemeal version.
-    cc = chainconsumer.ChainConsumer()
-    parameters=[p.replace("_","\_") for p in labels]
+    fig = corner.corner(samples,weights=weights, truths=truths,truth_color=truth_color,labels=labels, plot_datapoints=False,smooth=smooth)
 
-    cc.add_chain(samples,parameters=parameters, weights=weights)
-    cc.configure(diagonal_tick_labels=False, tick_font_size=6, label_font_size=6, max_ticks=6,
-                 colors="#455A64", shade=True, shade_alpha=0.2, bar_shade=True,
-                 sigmas=[0, 1, 2, 3], sigma2d=True)
-    cc.configure_truth(color=truth_color, ls=":", alpha=0.8)
-    fig = cc.plotter.plot(figsize='grow', truth=truths)
+#    for aa in ax:
+#        for a in aa:
+#            if len(a.xaxis.get_label().get_text()) > 0:
+#                a.ticklabel_format(axis='x', style='sci', scilimits=(-3, 3), usemathtext=true)
+#            if len(a.yaxis.get_label().get_text()) > 0:
+#                a.ticklabel_format(axis='y', style='sci', scilimits=(-3, 3), useMathText=True)
+#    fig.patch.set_facecolor('white')
 
-    fig.patch.set_facecolor('white')
     return fig
 
 
@@ -99,10 +98,28 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
 
     plt.rcParams.update({'font.size': 8})
 
+
+    # Plot posterior if requested.
+    if args.plot_chain:
+        print("Plot Chain")
+        x = np.arange(samples.shape[0])
+        with PdfPages("%s.chain.pdf" % plotname) as pdf:
+            for i in range(len(pars)):
+
+                #plt.rc('text',usetex=False) # Test #
+                fig = plt.figure(figsize=(16, 8))
+                plt.plot(x[:burn], samples[:burn, i], '.', color='gray')
+                plt.plot(x[burn:], samples[burn:, i], '.', color='k')
+                plt.title("%s" % pars[i])
+                plt.ylabel("%s" % pars[i])
+                pdf.savefig()
+                plt.close()
+
+    print("Plot Cornerplot")
     if args.truth_file is None:
-        fig = cornerplot(samples[burn:, n_w], labels=pars[n_w], weights=weights)
+        fig = cornerplot(samples[burn:, n_w], labels=pars[n_w], weights=weights,smooth=args.smooth)
     elif args.truth_file == "maxlike":
-        fig = cornerplot(samples[burn:, n_w], labels=pars[n_w], weights=weights, truths=pmax[n_w])
+        fig = cornerplot(samples[burn:, n_w], labels=pars[n_w], weights=weights, truths=pmax[n_w],smooth=args.smooth)
         args.truth_file = None ## This logic needs fixing!
     else:
         d = {}
@@ -116,10 +133,11 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
                 fiducial[i] = d[pars[n_w][i].strip("*")]
         print("Parameters:", pars[n_w])
         print("Reference values:", fiducial)
-        fig = cornerplot(samples[burn:, n_w], labels=pars[n_w], weights=weights, truths=fiducial, truth_color='r')
+        fig = cornerplot(samples[burn:, n_w], labels=pars[n_w], weights=weights, truths=fiducial, truth_color='r',smooth=args.smooth)
 
     fig.savefig("%s.corner.pdf" % plotname)
 
+    print("Plot extra cornerplots")
     # Make optional corner plots
     if args.all_corner:
         if args.truth_file:
@@ -134,9 +152,9 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
                     fiducial[i] = d[pars[i].strip("*")]
             print("Parameters:", pars)
             print("Reference values:", fiducial)
-            fig = cornerplot(samples[burn:, :], labels=pars, weights=weights, truths=fiducial, truth_color='r')
+            fig = cornerplot(samples[burn:, :], labels=pars, weights=weights, truths=fiducial, truth_color='r',smooth=args.smooth)
         else:
-            fig = cornerplot(samples[burn:, :], labels=pars, weights=weights,truths=pmax);
+            fig = cornerplot(samples[burn:, :], labels=pars, weights=weights,truths=pmax,smooth=args.smooth)
             fig.savefig("%s.corner_all.pdf" % plotname)
 
     if args.white_corner:
@@ -153,7 +171,7 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
                     fiducial_ef[i] = d[pars[m_ef][i].strip("*")]
             print("Parameters EFAC:", pars[m_ef])
             print("Reference values:", fiducial_ef)
-            fig = cornerplot(samples[burn:, m_ef], labels=pars[m_ef], weights=weights, truths=fiducial_ef, truth_color='r')
+            fig = cornerplot(samples[burn:, m_ef], labels=pars[m_ef], weights=weights, truths=fiducial_ef, truth_color='r',smooth=args.smooth)
             fig.savefig("%s.corner_efac.pdf" % plotname)
 
             fiducial_eq= [None]*len(pars[m_eq])
@@ -162,27 +180,13 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
                     fiducial_eq[i] = d[pars[m_eq][i].strip("*")]
             print("Parameters EQUAD:", pars[m_eq])
             print("Reference values:", fiducial_eq)
-            fig = cornerplot(samples[burn:, m_eq], labels=pars[m_eq], weights=weights, truths=fiducial_eq, truth_color='r')
+            fig = cornerplot(samples[burn:, m_eq], labels=pars[m_eq], weights=weights, truths=fiducial_eq, truth_color='r',smooth=args.smooth)
             fig.savefig("%s.corner_equad.pdf" % plotname)
         else:
-            fig = cornerplot(samples[burn:, m_ef], labels=pars[m_ef], weights=weights,truths=pmax[m_ef]);
+            fig = cornerplot(samples[burn:, m_ef], labels=pars[m_ef], weights=weights,truths=pmax[m_ef],smooth=args.smooth)
             fig.savefig("%s.corner_efac.pdf" % plotname)
-            fig = cornerplot(samples[burn:, m_eq], labels=pars[m_eq], weights=weights,truths=pmax[m_eq]);
+            fig = cornerplot(samples[burn:, m_eq], labels=pars[m_eq], weights=weights,truths=pmax[m_eq],smooth=args.smooth)
             fig.savefig("%s.corner_equad.pdf" % plotname)
-
-    # Plot posterior if requested.
-    if args.plot_chain:
-        x = np.arange(samples.shape[0])
-        with PdfPages("%s.chain.pdf" % plotname) as pdf:
-            for i in range(len(pars)):
-                fig = plt.figure(figsize=(16, 8))
-                plt.plot(x[:burn], samples[:burn, i], '.', color='gray')
-                plt.plot(x[burn:], samples[burn:, i], '.', color='k')
-                plt.title("%s" % pars[i])
-                plt.ylabel("%s" % pars[i])
-                #plt.rcParams.update({'usetex':False}) # Test #
-                pdf.savefig()
-                plt.close()
 
     print("Plots saved")
 
