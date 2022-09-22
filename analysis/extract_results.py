@@ -81,6 +81,10 @@ sfpsr.delete_null()
 #sfpsr.load_info(glf0t=args.taug, new=False)
 #sfpsr.delete_null()
 #sfpsr.print_info()
+
+sum_results = "sum_" + args.parfile.split("_")[1] + ".results"
+sfpsr.noise_slt = sfpsr.read_results_file(sum_results, noise=True)
+print("<<< The noise solution for pulsar {} is {} >>>".format(sfpsr.psrn, sfpsr.noise_slt))
 sfpsr.read_final_par(largeglitch=args.glitches)
 
 # Update info with par results files from best model of each glitch, and extract parameters to slt file

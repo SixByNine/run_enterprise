@@ -1082,7 +1082,7 @@ class Pulsar:
                 glf0ins = glf0
                 glf1ins = glf1
                 glf0tg = glf1 * self.taug[glitchnum] + 0.5 * glf2 * self.taug[glitchnum]**2
-                q, q1, q2, q3 = 0, 0, 0, 0
+                q, q1, q2, q3 = np.nan, np.nan, np.nan, np.nan
                 self.gli_slt[str(glitchnum+1)]["Q"] = q
                 self.gli_slt[str(glitchnum+1)]["Q std"] = np.nan
                 self.gli_slt[str(glitchnum+1)]["Q1"] = q1
