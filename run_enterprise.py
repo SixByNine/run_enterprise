@@ -54,7 +54,7 @@ def run_enterprise(args):
 
 
 def make_model(args,psr,parfile):
-    model = gp_signals.TimingModel()
+    model = gp_signals.TimingModel(use_svd=True) # test: use_svd changed to True
 
     for model_comp in model_components.all:
         m = model_comp.setup_model(args,psr,parfile)
