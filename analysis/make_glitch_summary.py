@@ -161,7 +161,7 @@ def run(psr, rootdir = "/nvme1/yliu/yangliu/yang/models/"):
         else:
             print("\n\n >> No comments file {}".format(comments))
 
-        nunudot = os.path.join(rootdir, psr, "nu_nudot_gp_{}.pdf".format(psr))#
+        nunudot = os.path.join(rootdir, psr, "full_nu_nudot_gp_{}.pdf".format(psr))#
         if os.path.exists(nunudot):
             outfile.write(r"\begin{figure}[b]")
             outfile.write("\n")

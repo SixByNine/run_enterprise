@@ -125,6 +125,8 @@ class Pulsar:
         pglep, waittime, numofexp = np.zeros(100), np.zeros(100), np.zeros(100)
         pglf0, pglf1, pglf2 = np.zeros(100), np.zeros(100), np.zeros(100)
         pglf0ins, pglf1ins, pglf0tg = np.zeros(100), np.zeros(100), np.zeros(100)
+        pglf0ins[:] = np.nan
+        pglf0tg[:] = np.nan
         pglf0d, pglf0d2, pglf0d3 = np.zeros(100), np.zeros(100), np.zeros(100)
         pgltd, pgltd2, pgltd3 = np.ones(100), np.ones(100), np.ones(100)
         taug = 200*np.ones(100)

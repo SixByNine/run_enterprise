@@ -275,7 +275,7 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     plt.savefig('nu_nudot_gp_{}.pdf'.format(sfpsr.psrn), format='pdf', dpi=400)
     plt.show()
 
-else:
+if 1>0:
     fig, ax = plt.subplots(nrows=5, ncols=1, figsize=(7.5, 12.5)) #10.6
     plt.subplot(511)
     #plt.scatter(sfpsr.toaseries-glep, [-1]*len(sfpsr.toaseries), c='b', marker='|', linewidth=0.5, alpha=0.4, label='TOAs')
@@ -339,7 +339,7 @@ else:
     #plt.ylim(5*np.min(np.min(manudot-(tdglf1+tdglf2-tdexp)/1e-15), 0), 5*np.max(np.max(manudot-(tdglf1+tdglf2-tdexp)/1e-15), 0))
     plt.subplots_adjust(wspace=0, hspace=0.002)
     plt.tight_layout()
-    plt.savefig('nu_nudot_gp_{}.pdf'.format(sfpsr.psrn), format='pdf', dpi=400)
+    plt.savefig('full_nu_nudot_gp_{}.pdf'.format(sfpsr.psrn), format='pdf', dpi=400)
     plt.show()
 
 # Update info with par results files from best model of each glitch, and extract parameters to slt file
