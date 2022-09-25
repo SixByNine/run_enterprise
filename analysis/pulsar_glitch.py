@@ -43,6 +43,16 @@ def lin_fit(t, mjd, yoffs):
                 x=(t-x1)/(x2-x1)
                 return (y2-y1)*x + y1
 
+def devide(a, b):
+    '''Fix devide by zero'''
+    result = []
+    for i, (x, y) in enumerate(zip(a, b)):
+        if 0 < np.abs(y) < np.inf:
+            result.append(x/y)
+        else:
+            result.append(y)
+    return result
+
 def recovery_name(recoveries):
     '''Check the value of recoveries, set to 0 if exceed 3, and return the corresponding modelname'''
     if isinstance(recoveries, int) and 0 <= recoveries <= 3:
@@ -99,7 +109,7 @@ class Pulsar:
             self.reset_error()
             self.pglep, self.pglf0, self.pglf1, self.pglf2, self.pglf0ins, self.pglf1ins, self.pglf0tg = glitch
             self.pglf0d, self.pgltd, self.pglf0d2, self.pgltd2, self.pglf0d3, self.pgltd3 = recovery
-            self.q1, self.q2, self.q3 = self.pglf0d/self.pglf0ins, self.pglf0d2/self.pglf0ins, self.pglf0d3/self.pglf0ins
+            self.q1, self.q2, self.q3 = devide(self.pglf0d, self.pglf0ins), devide(self.pglf0d2, self.pglf0ins), devide(self.pglf0d3, self.pglf0ins)
             self.q = self.q1 + self.q2 + self.q3
             self.minmjds, self.maxmjds, self.toanum, self.span, self.cadence, self.toaseries = self.load_tim(self.tim)
             self.toastart, self.toafinish = self.minmjds*np.ones(100), self.maxmjds*np.ones(100)
@@ -125,8 +135,6 @@ class Pulsar:
         pglep, waittime, numofexp = np.zeros(100), np.zeros(100), np.zeros(100)
         pglf0, pglf1, pglf2 = np.zeros(100), np.zeros(100), np.zeros(100)
         pglf0ins, pglf1ins, pglf0tg = np.zeros(100), np.zeros(100), np.zeros(100)
-        pglf0ins[:] = np.nan
-        pglf0tg[:] = np.nan
         pglf0d, pglf0d2, pglf0d3 = np.zeros(100), np.zeros(100), np.zeros(100)
         pgltd, pgltd2, pgltd3 = np.ones(100), np.ones(100), np.ones(100)
         taug = 200*np.ones(100)
@@ -1150,7 +1158,7 @@ class Pulsar:
             if glitchnum+1 not in largeglitch:
                 print("<<< The solution for glitch {} is {} >>>".format(glitchnum+1, self.gli_slt[str(glitchnum+1)]))
         self.A_g = np.sum(self.fdnu)/self.span
-        print("he glitch activity for pulsar {} is {}".format(self.psrn, self.A_g))
+        print("The glitch activity for pulsar {} is {}".format(self.psrn, self.A_g))
 
     def extract_results(self, finalpar=None):
         '''Extract useful results from final par'''

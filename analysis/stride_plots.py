@@ -49,7 +49,7 @@ sfpsr.delete_null()
 #sfpsr.delete_null()
 
 # Merge the best model of each glitch into the final par, and update par info
-sfpsr.final_par(largeglitch=args.glitches, recoveries=args.recoveries, GLF2=args.glf2, run=False) ###
+sfpsr.final_par(largeglitch=args.glitches, recoveries=args.recoveries, GLF2=args.glf2)
 sfpsr.load_info(glf0t=args.taug, new=False)
 sfpsr.delete_null()
 
@@ -244,7 +244,7 @@ t_mask, t_inverse = sfpsr.toa_gap(t, gap=args.gap)
 
 # Plot the spin frequency and spin-down rate residuals panels
 if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
-    fig, ax = plt.subplots(nrows=3, ncols=1, sharex=True, figsize=(7.5, 7.5)) #10.6
+    fig, ax = plt.subplots(nrows=3, ncols=1, sharex=True, figsize=(8.5, 7.5)) #10.6
     fig.subplots_adjust(hspace=0)
     plt.subplot(311)
     ax[0].plot(t_mask-glep,1e6*mnu, 'k-', zorder=2, label='Analytic model')
@@ -263,7 +263,6 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     for gls in gleps:
         ax[1].axvline(gls-glep, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     plt.ylabel(r'$\delta \nu-\nu_{gp}$ ($\mu$Hz)', fontsize=15, labelpad=15)
-
     plt.subplot(313)
     ax[2].plot(t_mask-glep, manudot2, 'k-', zorder=2)
     ax[2].plot(t_inverse-glep, manudot2, 'g-', zorder=2, alpha=0.8)
