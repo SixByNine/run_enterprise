@@ -47,11 +47,11 @@ def setup_psr(psr):
     
     if 'ELAT' in t2psr.pars():
         
-        ELAT_rad = t2psr.vals()[t2psr.pars.index('ELAT')]
+        ELAT_rad = t2psr.vals()[t2psr.pars().index('ELAT')]
 
     else:
-        RAJ_rad = t2psr.vals()[t2psr.pars.index('RAJ')]
-        DECJ_rad = t2psr.vals()[t2psr.pars.index('DECJ')]
+        RAJ_rad = t2psr.vals()[t2psr.pars().index('RAJ')]
+        DECJ_rad = t2psr.vals()[t2psr.pars().index('DECJ')]
         ELAT_rad = convert_to_elat(RAJ_rad, DECJ_rad)
 
     rsa = -t2psr.sun_ssb[:, :3] + t2psr.earth_ssb[:, :3] + t2psr.observatory_earth[:, :3]
