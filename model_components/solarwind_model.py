@@ -27,6 +27,15 @@ def fcos(x, phi):
     # function to fit ctheta
     return np.cos(2*np.pi*x/365.25 + phi)
 
+def convert_to_elat(raj_rad, decj_rad):
+    # adapted from convertEcliptic function in tempo2 sw_model.C
+
+    deg2rad = np.pi/180
+    epsilon = 23.439292 * deg2rad
+    sinb = np.sin(decj_rad) * np.cos(epsilon) - np.cos(decj_rad) * np.sin(epsilon) * np.sin(raj_rad)
+    elat = np.arcsin(sinb)
+
+    return elat
 
 def setup_psr(psr):
 
@@ -34,9 +43,19 @@ def setup_psr(psr):
 
     t2psr = psr.t2pulsar
 
+    # get ELAT, i.e. the max approach angle to the sun
+    
+    if 'ELAT' in t2psr.pars():
+        
+        ELAT_rad = t2psr.vals()[t2psr.pars.index('ELAT')]
+
+    else:
+        RAJ_rad = t2psr.vals()[t2psr.pars.index('RAJ')]
+        DECJ_rad = t2psr.vals()[t2psr.pars.index('DECJ')]
+        ELAT_rad = convert_to_elat(RAJ_rad, DECJ_rad)
+
     rsa = -t2psr.sun_ssb[:, :3] + t2psr.earth_ssb[:, :3] + t2psr.observatory_earth[:, :3]
 
-    # TODO: find a smarter/faster way of doing these dot products?
     # r = np.sqrt(rsa * rsa)
     r = np.empty(rsa.shape[0])
     for j in range(rsa.shape[0]):
@@ -81,13 +100,6 @@ def setup_psr(psr):
     day_per_year = 365.25
 
     toas_mjds = t2psr.stoas
-
-#    # first, find the closest toa to a solar conjuction, by minimising the cos(theta)
-#    toa_solconj = toas_mjds[np.argmin(ctheta)]
-
-
-    # !! Change such that the _NE_SW mjds are actually at solar conjuction
-    # not just the closest toa data point to it..
     
     # Fit a cos(2pi *t_mjd/day_per_year + phase) to ctheta, 
     # obtain phase and find the actual minimum of ctheta, i.e. the solar conjuction
@@ -97,9 +109,9 @@ def setup_psr(psr):
     popt, _ = scipy.optimize.curve_fit(fcos, mjds, ctheta, bounds=([0, 2*np.pi]))
     # phase = popt[0]
 
-    # find the first conjuction in the data from cos = -1
-    Nfirstconj = int(mjds.min()/365.25 - 0.5 + popt[0]/2/np.pi) + 1
-    toa_solconj = 365.25 * (Nfirstconj + 0.5 - popt[0]/2/np.pi)
+    # find the first conjuction in the data at theta = (pi-ELAT)
+    Nfirstconj = int(mjds.min()/365.25 - 0.5 + (popt[0]+ELAT_rad)/2/np.pi) + 1
+    toa_solconj = 365.25 * (Nfirstconj + 0.5 - (popt[0]+ELAT_rad)/2/np.pi)
 
 
     # get all the conjuctions before and after this 'minimum' one in the range of the data
@@ -128,7 +140,7 @@ def setup_model(args, psr, parfile):
         parfile.append("NE_SW_IFUNC 0 1\n")
 
         for conj_toa in psr.sphconj_mjd:
-            parfile.append("_NE_SW {:.1f}\n".format(conj_toa))
+            parfile.append("_NE_SW {:.4f}\n".format(conj_toa))
 
 
         # TODO: Maybe we need to care about input solar wind parameter NE_SW?
