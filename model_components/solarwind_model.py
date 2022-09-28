@@ -17,15 +17,15 @@ def setup_argparse(parser):
     :param parser:
     :return:
     """
-    # TODO: sensible min and max sw-sigma values
+
     parser.add_argument('-sw', '--solar-wind', action='store_true', help='Turn on solar wind')
     parser.add_argument('--sw-sigma-max', type=float, default=10, help='Max solar wind')
     parser.add_argument('--sw-sigma-min', type=float, default=1e-3, help='Min solar wind')
 
 
-def fcos(x, phi):
+def fcos_full(x, phi, eclat_rad):
     # function to fit ctheta
-    return np.cos(2*np.pi*x/365.25 + phi)
+    return np.cos(eclat_rad) * np.cos(2*np.pi*x/365.25 - phi)
 
 def convert_to_elat(raj_rad, decj_rad):
     # adapted from convertEcliptic function in tempo2 sw_model.C
@@ -106,12 +106,13 @@ def setup_psr(psr):
 
     mjds = toas_mjds.astype(np.float64)
 
-    popt, _ = scipy.optimize.curve_fit(fcos, mjds, ctheta, bounds=([0, 2*np.pi]))
+    fcos = partial(fcos_full, eclat_rad=ELAT_rad)
+    popt, _ = scipy.optimize.curve_fit(fcos, mjds, ctheta, bounds=([0], [2*np.pi]))
     # phase = popt[0]
 
-    # find the first conjuction in the data at theta = (pi-ELAT)
-    Nfirstconj = int(mjds.min()/365.25 - 0.5 + (popt[0]+ELAT_rad)/2/np.pi) + 1
-    toa_solconj = 365.25 * (Nfirstconj + 0.5 - (popt[0]+ELAT_rad)/2/np.pi)
+    # find the first conjuction in the data at theta = pi-ELAT
+    Nfirstconj = int(mjds.min()/365.25 - 0.5 - (popt[0])/2/np.pi) + 1
+    toa_solconj = 365.25 * (Nfirstconj + 0.5 + (popt[0])/2/np.pi)
 
 
     # get all the conjuctions before and after this 'minimum' one in the range of the data
