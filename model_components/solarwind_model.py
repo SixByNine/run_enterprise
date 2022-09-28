@@ -8,6 +8,9 @@ from enterprise.signals.selections import Selection
 from enterprise.signals import selections
 
 from enterprise.signals import deterministic_signals
+from astropy.coordinates import Angle
+from astropy import units
+from functools import partial
 
 name="Time Variable Solar wind"
 argdec="Parameters for fitting dm variations due to solar wind"
