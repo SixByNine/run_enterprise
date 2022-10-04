@@ -33,6 +33,7 @@ def setup_argparse(parser):
    parser.add_argument('--mass-log-prior',action='store_true',help='Use log mass prior for all planets.')
    parser.add_argument('--period-max',type=float,default=[], nargs='+',help='Max period (days) prior for planets. Each planet fitted needs a value for this.')
    parser.add_argument('--period-min',type=float,default=[], nargs='+', help='Min period (days) prior for planets. Each planet fitted needs a value for this.')
+   parser.add_argument('--ecc-log-prior',action='store_true',help='Use log ecc prior for all planets.')
 
 #   parser.add_argument('--planet2','-P2',action='store_true', help='Fit for 2nd planet orbit parameters')
 #   parser.add_argument('--mass-max2',type=float,default=1,help='Max mass (Earth masses) 2nd planet')
@@ -54,9 +55,16 @@ def setup_model(args, psr, parfile):
       for i in range(n):
         
          if args.mass_log_prior:
-             planet = fit_planet_app2(psrMass=parameter.Constant(1.4), mass=parameter.Uniform(np.log10(args.mass_min[i]),np.log10(args.mass_max[i])), period=parameter.Uniform(args.period_min[i],args.period_max[i]), phase=parameter.Uniform(0,1), omega=parameter.Uniform(0,360), ecc=parameter.Uniform(0,0.9),ismasslog = True)
+            if args.ecc_log_prior:
+               planet = fit_planet_app2(psrMass=parameter.Constant(1.4), mass=parameter.Uniform(np.log10(args.mass_min[i]),np.log10(args.mass_max[i])), period=parameter.Uniform(args.period_min[i],args.period_max[i]), phase=parameter.Uniform(0,1), omega=parameter.Uniform(0,360), ecc=parameter.Uniform(-9,np.log10(0.9)),ismasslog=True,isecclog = True)
+            else:
+               planet = fit_planet_app2(psrMass=parameter.Constant(1.4), mass=parameter.Uniform(np.log10(args.mass_min[i]),np.log10(args.mass_max[i])), period=parameter.Uniform(args.period_min[i],args.period_max[i]), phase=parameter.Uniform(0,1), omega=parameter.Uniform(0,360), ecc=parameter.Uniform(0,0.9),ismasslog = True)
+
          else:
-            planet = fit_planet_app2(psrMass=parameter.Constant(1.4), mass=parameter.Uniform(args.mass_min[i],args.mass_max[i]), period=parameter.Uniform(args.period_min[i],args.period_max[i]), phase=parameter.Uniform(0,1), omega=parameter.Uniform(0,360), ecc=parameter.Uniform(0,0.9))
+            if args.ecc_log_prior:
+               planet = fit_planet_app2(psrMass=parameter.Constant(1.4), mass=parameter.Uniform(args.mass_min[i],args.mass_max[i]), period=parameter.Uniform(args.period_min[i],args.period_max[i]), phase=parameter.Uniform(0,1), omega=parameter.Uniform(0,360), ecc=parameter.Uniform(-9,np.log10(0.9)),isecclog=True)
+            else:
+               planet = fit_planet_app2(psrMass=parameter.Constant(1.4), mass=parameter.Uniform(args.mass_min[i],args.mass_max[i]), period=parameter.Uniform(args.period_min[i],args.period_max[i]), phase=parameter.Uniform(0,1), omega=parameter.Uniform(0,360), ecc=parameter.Uniform(0,0.9))
 
          planet_signal = deterministic_signals.Deterministic(planet,name='planet'+str(i+1))
 
@@ -91,12 +99,14 @@ def to_par(self,p,chain):
 
 
 @signal_base.function
-def fit_planet_app2(toas,psrMass,mass,period,phase,omega,ecc,ismasslog = False):
+def fit_planet_app2(toas,psrMass,mass,period,phase,omega,ecc,ismasslog = False,isecclog=False):
     # replace the highly-degenerate time of periastron
     # with a 'phase', i.e true anomaly/2pi, between [0,1), at a specific time,
     # e.g. 55000 MJD
     if ismasslog:
         mass = 10**mass
+    if isecclog:
+        ecc = 10**ecc
 
     Omega_b = 2.0*np.pi/(units.day*period)
     e = ecc
