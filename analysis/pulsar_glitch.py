@@ -560,7 +560,6 @@ class Pulsar:
                     timlines.append(line)
         if isinstance(glitchnum, int):
             self.splittim = "chp_"+self.psrn+"_"+str(glitchnum)+".tim"
-            self.toastart[startnum], self.toafinish[startnum], self.toacount[startnum], self.toaspan[startnum] = self.load_tim(self.splittim)[:4]
         elif startnum==0 and endnum==-1:
             self.splittim = "chp_"+self.psrn+"_all.tim"
         else:
@@ -568,6 +567,8 @@ class Pulsar:
         print("Generating split tim {} for glitch {}".format(self.splittim, self.splittim.split(".")[-2].split("_")[-1]))
         with open(self.splittim,"w") as f2:
             f2.writelines(timlines)
+        if isinstance(glitchnum, int):
+            self.toastart[startnum], self.toafinish[startnum], self.toacount[startnum], self.toaspan[startnum] = self.load_tim(self.splittim)[:4]
         return self.splittim
 
     def split_par(self, splittim=None, glitchnum=None, recoveries=0, GLF2=False, small_glitches=True, pre_gli=True):
@@ -717,7 +718,7 @@ class Pulsar:
         outputfile = "opt_"+dirname+".txt"
         taug = [str(int(tg)) for tg in self.taug]
         plotchain = "--plot-chain"
-        command.extend(["--outdir", dirname, "--plotname", plotname])
+        command.extend(["--outdir", dirname, "--plotname", plotname, "--plotlibrary", "chainconsumer"])
         if solver=="emcee":
             command.extend(["-N", str(N), "--nwalkers", str(nwalkers)])
         elif solver=="dynesty":
@@ -1365,7 +1366,7 @@ class Pulsar:
         p1y = (f0 - self.F0 - sff1) #- sff2)
         p2y = (f0 - self.F0 - sff1 - sff2 - sfglf0 - sfglf1 - sfglf2)
         p3y = (f0 - self.F0 - sff1 - sff2 - sfglf0 - sfglf1 - sfglf2 - sfexp1 - sfexp2 - sfexp3)
-        p4y = (f1 - self.F1) #- sfdf2)
+        p4y = (f1) #- self.F1 - sfdf2)
         p5y = (f1 - self.F1 - sfdf2 - sfdglf1 - sfdglf2 + sfdexp)
         if save:
             with open("panel1_{}.txt".format(self.psrn), "w") as file1:
@@ -1621,8 +1622,8 @@ class Pulsar:
         yd_model += 1e15*(self.F2*tt + self.F1)
         for i, ge in enumerate(self.pglep):
             gt = mjd2sec(t, ge)
-            yf2[t>ge] +=  self.pglf0[i] + self.pglf1[i] * gt[t>ge] + 0.5 * self.pglf2[i] * gt[t>ge]**2 #bug
-            yd_model[t>ge] += 1e15 * (self.pglf1[i] + self.pglf2[i] * gt[t>ge]) #bug
+            yf2[t>ge] +=  self.pglf0[i] + self.pglf1[i] * gt[t>ge] + 0.5 * self.pglf2[i] * gt[t>ge]**2 #???
+            yd_model[t>ge] += 1e15 * (self.pglf1[i] + self.pglf2[i] * gt[t>ge]) #???
             if self.pglf0d[i] != 0:
                 yf2[t>ge] += self.pglf0d[i] * np.exp(-(t[t>ge]-self.pglep[i])/self.pgltd[i])
                 yf2[t>ge] += self.pglf0d2[i] * np.exp(-(t[t>ge]-self.pglep[i])/self.pgltd2[i])
