@@ -43,6 +43,10 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
             glaltf0t = int(numb.split(')')[0])
             #glaltf0t = int(args.glitch_alt_f0t)
             glf0_at_t = np.copy(scaled_samples[:,i])
+            if "GLF2_{}".format(iglitch) in parnames:
+                glf2 =scaled_samples[:, parnames=="GLF2_{}".format(iglitch)][:,0]
+            else:
+                glf2=0
             if "GLF0D_{}".format(iglitch) in parnames:
                 glf0d =scaled_samples[:, parnames=="GLF0D_{}".format(iglitch)][:,0]
                 gltd = scaled_samples[:, parnames=="GLTD_{}".format(iglitch)][:, 0]
@@ -61,14 +65,7 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
             else:
                 glf0d3=0
                 gltd3=1
-            #if args.alt_f0t_gltd:
-            #    for line in parfile:
-            #        e = line.strip().split()
-            #        if len(e) > 1:
-            #            if e[0].startswith("GLTD_"):
-            #                if int(e[0][5:])==iglitch:
-            #                    glaltf0t = int(float(e[1]))
-            glf1 = (glf0_at_t - glf0d*(np.exp(-glaltf0t/gltd)-1) - glf0d2*(np.exp(-glaltf0t/gltd2)-1) - glf0d3*(np.exp(-glaltf0t/gltd3)-1)) / (glaltf0t*86400.0)
+            glf1 = (glf0_at_t - glf0d*(np.exp(-glaltf0t/gltd)-1) - glf0d2*(np.exp(-glaltf0t/gltd2)-1) - glf0d3*(np.exp(-glaltf0t/gltd3)-1)) / (glaltf0t*86400.0) - 0.5*glf2*(glaltf0t*86400)
             derived.append(glf1)
             derived_names.append("GLF1_{}".format(iglitch))
             glf1ins = glf1 - glf0d/(86400*gltd) - glf0d2/(86400*gltd2) - glf0d3/(86400*gltd3)

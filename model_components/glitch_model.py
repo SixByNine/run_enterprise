@@ -144,9 +144,9 @@ def setup_model(args, psr, parfile):
                 if args.measured_prior:
                     k_pre, k_post, k_p2, k_200 = slope_range(psr.toas, f0*psr.residuals, psr.toaerrs, glep, glf0t, np.abs(args.measured_sigma))
                     if args.measured_without:
-                        glf0_i_range, glf0_t_range = prior_range(k_pre, k_post, k_p2, k_200, glf0t, None, None, glf0d, gltd, glf0d2, gltd2, glf0d3, gltd3)
+                        glf0_i_range, glf0_t_range = prior_range(k_pre, k_post, k_p2, k_200, glf0t, None, None, glf0d, gltd, glf0d2, gltd2, glf0d3, gltd3, glf2)
                     else:
-                        glf0_i_range, glf0_t_range = prior_range(k_pre, k_post, k_p2, k_200, glf0t, glf0, glf1, glf0d, gltd, glf0d2, gltd2, glf0d3, gltd3)
+                        glf0_i_range, glf0_t_range = prior_range(k_pre, k_post, k_p2, k_200, glf0t, glf0, glf1, glf0d, gltd, glf0d2, gltd2, glf0d3, gltd3, glf2)
                     print("Measured ranges for GLF0(instant):", glf0_i_range)
                     print("Measured ranges for GLF0(T=%d):"%glf0t, glf0_t_range)
                     del glf0_i_range[1], glf0_t_range[1]
@@ -199,7 +199,7 @@ def setup_model(args, psr, parfile):
                     glf0_at_t_range = glf0_t_range
                     glf0_at_t = parameter.Uniform(glf0_at_t_range[0] * 1e6, glf0_at_t_range[1] * 1e6, to_par=to_par)("GLF0(T={:d})_{}".format(glf0t,gl))  # units of 10^-6
                 else:
-                    glf0_at_t_range = [glf0t * 86400 * glf1_range[0] - glf0d_range[1] - glf0d2_range[1] - glf0d3_range[1], glf0t * 86400 * glf1_range[1]]
+                    glf0_at_t_range = [glf0t * 86400 * glf1_range[0] - glf0d_range[1] - glf0d2_range[1] - glf0d3_range[1], glf0t * 86400 * glf1_range[1]] # Fix GLF2, priors doesn't matter
                     glf0_at_t = parameter.Uniform(glf0_at_t_range[0] * 1e6, glf0_at_t_range[1] * 1e6, to_par=to_par)("GLF0(T={:d})_{}".format(glf0t,gl))  # units of 10^-6
                 priors.glf0t_range[gi] = glf0_at_t_range
                 glf1_range = 0
@@ -379,7 +379,7 @@ def model_glitch_residual(toas, f0, glep, glf0=0, glf1=0, glf2=0, glf0d=0, log10
         glf0 = (glf0_alt - glf0d - glf0d2 - glf0d3)
     if not glf0t is None:
         ## note glf0_at_t and glf0d are in units of 1e-6... glf1 should be in units of 1e-12
-        glf1 = 1e6*(glf0_at_t - glf0d*(np.exp(-glf0t/10**log10_td)-1) - glf0d2*(np.exp(-glf0t/10**log10_td2)-1) - glf0d3*(np.exp(-glf0t/10**log10_td3)-1)) / (glf0t*86400.0)
+        glf1 = 1e6*(glf0_at_t - glf0d*(np.exp(-glf0t/10**log10_td)-1) - glf0d2*(np.exp(-glf0t/10**log10_td2)-1) - glf0d3*(np.exp(-glf0t/10**log10_td3)-1)) / (glf0t*86400.0) - 0.5e-6*glf2*(glf0t*86400)
     ret = model_glitch(toas, f0=f0, glep=glep, glf0=glf0*1e-6, glf1=glf1*1e-12, glf2=glf2*1e-18, glf0d=glf0d*1e-6, gltd=10**log10_td, glf0d2=glf0d2*1e-6, gltd2=10**log10_td2, glf0d3=glf0d3*1e-6, gltd3=10**log10_td3) # add 2nd and 3rd recovery if needed
     ret -= glitches[int(glitch_id)]['old_model'] # remove old glitch
     return ret
@@ -426,7 +426,7 @@ def slope_range(toas, phs, err, glep, glf0t, sigma):
     return k_pre, k_post, k_p2, k_200
 
 
-def prior_range(k_pre, k_post, k_p2, k_200, glf0t, glf0, glf1, glf0d, gltd, glf0d2=0, gltd2=1, glf0d3=0, gltd3=1):
+def prior_range(k_pre, k_post, k_p2, k_200, glf0t, glf0, glf1, glf0d, gltd, glf0d2=0, gltd2=1, glf0d3=0, gltd3=1, glf2=0):
     gi = sorted([k_pre[0]-k_post[-1], k_pre[1]-k_post[1], k_pre[-1]-k_post[0]])
     gt = sorted([k_p2[0]-k_200[-1], k_p2[1]-k_200[1], k_p2[-1]-k_200[0]])
     print("Delta_k gi:", gi)
@@ -434,8 +434,9 @@ def prior_range(k_pre, k_post, k_p2, k_200, glf0t, glf0, glf1, glf0d, gltd, glf0
     gpara = [glf0, glf1, glf0d, gltd]
     if all(para is not None for para in gpara):
         glf0_i = [gli + glf0 + glf0d + glf0d2 + glf0d3 for gli in gi]
-        glf0_t = [glt + glf1*glf0t*86400 + glf0d*(np.exp(-glf0t/gltd)-1) + glf0d2*(np.exp(-glf0t/gltd2)-1) + glf0d3*(np.exp(-glf0t/gltd3)-1) for glt in gt]
-        return glf0_i, glf0_t
+        #glf0_t = [glt + glf1*glf0t*86400 + glf0d*(np.exp(-glf0t/gltd)-1) + glf0d2*(np.exp(-glf0t/gltd2)-1) + glf0d3*(np.exp(-glf0t/gltd3)-1) for glt in gt] # Fix GLF2, doesn't matter
+        glf0_t = [glt + glf1*glf0t*86400 + 0.5*glf2*(glf0t*86400)**2 + glf0d*(np.exp(-glf0t/gltd)-1) + glf0d2*(np.exp(-glf0t/gltd2)-1) + glf0d3*(np.exp(-glf0t/gltd3)-1) for glt in gt]
+        return glf0_i, glf0_t #Bug? no need to add these in priors?
     else:
         return gi, gt
 
