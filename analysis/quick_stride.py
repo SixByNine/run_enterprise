@@ -243,9 +243,18 @@ gleps = sfpsr.pglep
 #test
 t_mask, t_inverse = sfpsr.toa_gap(t, gap=args.gap)
 
+def plot_range(func, a=0.15, b=0.15):
+    '''Adjust ranges of plots'''
+    bottom = min(func)
+    top = max(func)
+    span = top - bottom
+    bottom -= a*span
+    top += b*span
+    return bottom, top
+
 # Plot the spin frequency and spin-down rate residuals panels
 if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
-    fig, ax = plt.subplots(4, 1, sharex=True, figsize=(10, 9.6), gridspec_kw={'height_ratios': [1, 5, 5, 5]}) 
+    fig, ax = plt.subplots(4, 1, sharex=True, figsize=(10.5, 9.6), gridspec_kw={'height_ratios': [1, 5, 5, 5]}) 
     fig.subplots_adjust(hspace=0)
     plt.subplot(411)
     for toa in sfpsr.toaseries:
@@ -258,7 +267,8 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     ax[1].plot(t_mask,1e6*mnu, 'k-', zorder=2, label='Analytic model')
     ax[1].plot(t_inverse,1e6*mnu, 'g-', zorder=2, label='Extrapolation', alpha=0.8)
     ax[1].errorbar(p1_mjd, p1_nu, yerr=p1_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, label='Stirde fit')
-    plt.ylabel(r'$\delta \nu$ ($\mu$Hz)', fontsize=15, labelpad=10)
+    plt.ylim(plot_range(1e6*mnu)[0], plot_range(1e6*mnu)[1])
+    plt.ylabel(r'$\delta \nu$ ($\mu$Hz)', fontsize=15, labelpad=5)
     plt.yticks(fontsize=16)
     for gls in gleps:
         ax[1].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
@@ -269,7 +279,8 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     ax[2].errorbar(p2_mjd, p2_nu, yerr=p2_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
     for gls in gleps:
         ax[2].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
-    plt.ylabel(r'$\delta \nu-\nu_{gp}$ ($\mu$Hz)', fontsize=15, labelpad=10)
+    plt.ylim(plot_range(1e6*(manu-tglf0-tglf1-tglf2))[0], plot_range(1e6*(manu-tglf0-tglf1-tglf2))[1])
+    plt.ylabel(r'$\delta \nu-\nu_{gp}$ ($\mu$Hz)', fontsize=15, labelpad=5)
     plt.yticks(fontsize=16)
     plt.subplot(414)
     ax[3].plot(t_mask, manudot2, 'k-', zorder=2)
@@ -277,7 +288,8 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     ax[3].errorbar(p4_mjd, p4_nudot/1e-5, yerr=p4_err/1e-5, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
     for gls in gleps:
         ax[3].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
-    plt.ylabel(r'$\dot{\nu}$ ($10^{-15}$Hz$^{2}$)', fontsize=15, labelpad=10)
+    plt.ylim(plot_range(manudot2, 0.5, 0.5)[0], plot_range(manudot2, 0.5, 0.5)[1])
+    plt.ylabel(r'$\dot{\nu}$ ($10^{-15}$Hz$^{2}$)', fontsize=15, labelpad=5)
     plt.xlabel('Modified Julian Date', fontsize=15)
     plt.yticks(fontsize=16)
     plt.xticks(fontsize=16)
@@ -285,7 +297,7 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     plt.show()
 
 if 1>0: # Some option for plot all panels
-    fig, ax = plt.subplots(6, 1, figsize=(10, 15.6), gridspec_kw={'height_ratios': [1, 5, 5, 5, 5, 5]})
+    fig, ax = plt.subplots(6, 1, figsize=(10.5, 18.2), gridspec_kw={'height_ratios': [1, 5, 5, 5, 5, 5]})
     fig.subplots_adjust(hspace=0)
     plt.subplot(611)
     for toa in sfpsr.toaseries:
@@ -300,7 +312,8 @@ if 1>0: # Some option for plot all panels
     ax[1].plot(t_mask,1e6*mnu, 'k-', zorder=2, label='Analytic model')
     ax[1].plot(t_inverse,1e6*mnu, 'g-', zorder=2, label='Extrapolation', alpha=0.8)
     ax[1].errorbar(p1_mjd, p1_nu, yerr=p1_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, label='Stirde fit')
-    plt.ylabel(r'$\delta \nu$ ($\mu$Hz)', fontsize=15, labelpad=10)
+    plt.ylim(plot_range(1e6*mnu)[0], plot_range(1e6*mnu)[1])
+    plt.ylabel(r'$\delta \nu$ ($\mu$Hz)', fontsize=15, labelpad=5)
     plt.yticks(fontsize=16)
     for gls in gleps:
         ax[1].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
@@ -311,7 +324,8 @@ if 1>0: # Some option for plot all panels
     ax[2].errorbar(p2_mjd, p2_nu, yerr=p2_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
     for gls in gleps:
         ax[2].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
-    plt.ylabel(r'$\delta \nu-\nu_{gp}$ ($\mu$Hz)', fontsize=15, labelpad=10)
+    plt.ylim(plot_range(1e6*(manu-tglf0-tglf1-tglf2))[0], plot_range(1e6*(manu-tglf0-tglf1-tglf2))[1])
+    plt.ylabel(r'$\delta \nu-\nu_{gp}$ ($\mu$Hz)', fontsize=15, labelpad=5)
     plt.yticks(fontsize=16)
     #If exists recovery
     plt.subplot(614)
@@ -320,7 +334,8 @@ if 1>0: # Some option for plot all panels
     ax[3].errorbar(p3_mjd, p3_nu, yerr=p3_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
     for gls in gleps:
         ax[3].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
-    plt.ylabel(r'$\delta \nu-\nu_{g}$ ($\mu$Hz)', fontsize=15, labelpad=10)
+    plt.ylim(plot_range(1e6*(manu-tglf0-tglf1-tglf2-texp1-texp2-texp3), 0.5, 0.5)[0], plot_range(1e6*(manu-tglf0-tglf1-tglf2-texp1-texp2-texp3), 0.5, 0.5)[1])
+    plt.ylabel(r'$\delta \nu-\nu_{g}$ ($\mu$Hz)', fontsize=15, labelpad=5)
     plt.yticks(fontsize=16)
     plt.subplot(615)
     ax[4].plot(t_mask, manudot2, 'k-', zorder=2)
@@ -328,7 +343,8 @@ if 1>0: # Some option for plot all panels
     ax[4].errorbar(p4_mjd, p4_nudot/1e-5, yerr=p4_err/1e-5, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
     for gls in gleps:
         ax[4].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
-    plt.ylabel(r'$\dot{\nu}$ ($10^{-15}$Hz$^{2}$)', fontsize=15, labelpad=10)
+    plt.ylim(plot_range(manudot2, 0.5, 0.5)[0], plot_range(manudot2, 0.5, 0.5)[1])
+    plt.ylabel(r'$\dot{\nu}$ ($10^{-15}$Hz$^{2}$)', fontsize=15, labelpad=5)
     plt.yticks(fontsize=16)
     plt.subplot(616)
     ax[5].plot(t_mask, manudot-(tdglf1+tdglf2-tdexp)/1e-15, 'k-', zorder=2)
@@ -336,7 +352,8 @@ if 1>0: # Some option for plot all panels
     ax[5].errorbar(p5_mjd, p5_nudot/1e-5, yerr=p5_err/1e-5, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
     for gls in gleps:
         ax[5].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
-    plt.ylabel(r'$\delta \dot{\nu}-\dot{\nu_{g}}$ ($10^{-15}$Hz$^{2}$)', fontsize=15, labelpad=10)
+    plt.ylim(plot_range(manudot-(tdglf1+tdglf2-tdexp)/1e-15, 2, 2)[0], plot_range(manudot-(tdglf1+tdglf2-tdexp)/1e-15, 2, 2)[1])
+    plt.ylabel(r'$\delta \dot{\nu}-\dot{\nu_{g}}$ ($10^{-15}$Hz$^{2}$)', fontsize=15, labelpad=5)
     plt.xlabel('Modified Julian Date', fontsize=15)
     plt.yticks(fontsize=16)
     plt.xticks(fontsize=16)
