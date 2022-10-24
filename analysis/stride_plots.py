@@ -228,14 +228,14 @@ sfx = pg.mjd2sec(p1_mjd, sfpsr.pepoch)
 sftf1, sftf2, sftdf2 = sfpsr.psr_taylor_terms(sfx)
 sftglf0, sftglf1, sftglf2, sftexp1, sftexp2, sftexp3, sftdglf1, sftdglf2, sftdexp = sfpsr.glitch_terms(p1_mjd)
 
-nu_panel = nu - tf2 # deltanu=nu-F0-f1
+nu_panel = nu - tf2 # deltanu=nu-F0-F1*deltat
 mnu = sfpsr.mask_glep(t, nu) # Do not subtract tf2 for panel 1
-manu = sfpsr.mask_glep(t, nu_panel)
+manu = sfpsr.mask_glep(t, nu_panel) # tf2 is subtracted in panel 2/3
 #nudot_panel = nudot + (tdglf1 + tdglf2 - tdexp)*1e15 # In principle the same after convert the units
-nudot_p2 = nudot_sum #- sfpsr.F1*1e15  
-manudot2 = sfpsr.mask_glep(t, nudot_p2)
-nudot_panel = nudot_sum - (sfpsr.F1 + tdf2)*1e15  
-manudot = sfpsr.mask_glep(t, nudot_panel)
+nudot_p2 = nudot_sum #- sfpsr.F1*1e15  # nudot for panel 4
+manudot2 = sfpsr.mask_glep(t, nudot_p2)  # nudot for panel 4
+nudot_panel = nudot_sum - (sfpsr.F1 + tdf2)*1e15    # delta nudot for panel 5
+manudot = sfpsr.mask_glep(t, nudot_panel)    # delta nudot for panel 5
 glep = sfpsr.pglep[0]
 gleps = sfpsr.pglep
 
@@ -253,7 +253,7 @@ def plot_range(func, a=0.15, b=0.15):
 
 # Plot the spin frequency and spin-down rate residuals panels
 if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
-    fig, ax = plt.subplots(4, 1, sharex=True, figsize=(10.5, 9.6), gridspec_kw={'height_ratios': [1, 5, 5, 5]}) 
+    fig, ax = plt.subplots(4, 1, sharex=True, figsize=(12, 9.6), gridspec_kw={'height_ratios': [1, 5, 5, 5]}) 
     fig.subplots_adjust(hspace=0)
     plt.subplot(411)
     for toa in sfpsr.toaseries:
@@ -296,7 +296,7 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     plt.show()
 
 if 1>0: # Some option for plot all panels
-    fig, ax = plt.subplots(6, 1, figsize=(10.5, 18.2), gridspec_kw={'height_ratios': [1, 5, 5, 5, 5, 5]})
+    fig, ax = plt.subplots(6, 1, sharex=True, figsize=(12, 18.2), gridspec_kw={'height_ratios': [1, 5, 5, 5, 5, 5]})
     fig.subplots_adjust(hspace=0)
     plt.subplot(611)
     for toa in sfpsr.toaseries:

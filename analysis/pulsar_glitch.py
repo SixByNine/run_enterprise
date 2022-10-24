@@ -98,20 +98,22 @@ class Pulsar:
             loadpar = self.par
         else:
             loadpar = self.tidypar
+        if new is False:
+            glf0t = self.taug
         spin, position, toa, red, white, glitch, recovery, summary = self.load_par(loadpar, tidy=tidy, glf0t=glf0t)
         self.psrn, self.F0, self.F1, self.F2, self.F0std, self.F1std, self.F2std = spin
         self.ra, self.dec, self.pmra, self.pmdec, self.PX, self.DM = position
         self.start, self.finish, self.pepoch = toa
         self.redamp, self.redgam, self.redc = red
         self.ef_jbafb, self.ef_jbdfb, self.eq_jbafb, self.eq_jbdfb = white
+        self.pglep, self.pglf0, self.pglf1, self.pglf2, self.pglf0ins, self.pglf1ins, self.pglf0tg = glitch
+        self.pglf0d, self.pgltd, self.pglf0d2, self.pgltd2, self.pglf0d3, self.pgltd3 = recovery
         self.max_glitch, self.waittime, self.taug, self.numofexp = summary
+        self.minmjds, self.maxmjds, self.toanum, self.span, self.cadence, self.toaseries = self.load_tim(self.tim)
         if new is True:
             self.reset_error()
-            self.pglep, self.pglf0, self.pglf1, self.pglf2, self.pglf0ins, self.pglf1ins, self.pglf0tg = glitch
-            self.pglf0d, self.pgltd, self.pglf0d2, self.pgltd2, self.pglf0d3, self.pgltd3 = recovery
             self.q1, self.q2, self.q3 = devide(self.pglf0d, self.pglf0ins), devide(self.pglf0d2, self.pglf0ins), devide(self.pglf0d3, self.pglf0ins)
             self.q = self.q1 + self.q2 + self.q3
-            self.minmjds, self.maxmjds, self.toanum, self.span, self.cadence, self.toaseries = self.load_tim(self.tim)
             self.toastart, self.toafinish = self.minmjds*np.ones(100), self.maxmjds*np.ones(100)
             self.toacount, self.toaspan = self.toanum*np.ones(100), self.span*np.ones(100)
         self.fdnu, self.fdnudot = self.pglf0ins/self.F0, self.pglf1ins/self.F1
@@ -619,9 +621,9 @@ class Pulsar:
                     parlines.append(line)
                 elif line.startswith("TN") or line.startswith("GLPH"):
                     continue
-                elif any(line.startswith(ls) for ls in ["PX", "PM", "DM ", "JUMP"]):
-                    parlines.append(line) # Maybe also turn on?
-                elif any(line.startswith(ls) for ls in ["RA", "DEC", "F0", "F1", "F2"]):
+                #elif any(line.startswith(ls) for ls in ["PX", "PM", "DM ", "JUMP"]):
+                #    parlines.append(line) # Maybe also turn on?
+                elif any(line.startswith(ls) for ls in ["RA", "DEC", "F0", "F1", "F2", "PX", "PM", "DM ", "JUMP"]):
                     # Turn on tempo2 fitting of these parameters
                     if len(e) >= 3:
                         newline = e[0]+"   "+e[1]+"   "+"1"+"   "+e[-1]+"\n"
@@ -915,6 +917,9 @@ class Pulsar:
         self.sumpar = self.tidy_par(self.sumpar)
         self.tim = self.split_tim()
         self.MCMC_fit(par=self.sumpar, tim=self.tim, glitchnum=None, run=run, thread=thread) #, solver="emcee")
+        self.par = self.post_par(par=self.sumpar, tim=self.tim, glitchnum=None)
+        self.load_info(new=False)
+        self.delete_null()
         self.sum_results = self.sumpar+".results"
         if max_like is True:
             results_value = "max-likelihood"
@@ -923,7 +928,6 @@ class Pulsar:
         print("<<< Reading white noise and red noise {} results from {} >>>".format(results_value, self.sum_results))
         self.noise_slt = self.read_results_file(self.sum_results, max_like=max_like, noise=True)
         print("<<< The noise solution for pulsar {} is {} >>>".format(self.psrn, self.noise_slt))
-        self.par = self.post_par(par=self.sumpar, tim=self.tim, glitchnum=None)
         self.read_final_par(largeglitch=largeglitch)
         return self.par
 
@@ -1152,7 +1156,7 @@ class Pulsar:
                     glep1 = std_error(self.pglep[glitchnum], self.pglepstd[glitchnum])
                     glep2 = std_error(self.pglep[glitchnum-1], self.pglepstd[glitchnum-1])
                     delta_glep = glep1 - glep2
-                    self.waittime[glitchnum] = delta_glep.n
+                    self.waittime[glitchnum] = self.pglep[glitchnum] - self.pglep[glitchnum-1]
                     self.gli_slt[str(glitchnum+1)]["Waiting time"] = delta_glep.n
                     self.gli_slt[str(glitchnum+1)]["Waiting time std"] = delta_glep.s
         for glitchnum in range(self.max_glitch):
@@ -1615,10 +1619,10 @@ class Pulsar:
         M2 = M2.T
         y = M.dot(beta_mod)
         yf = dM.dot(beta_mod)
-        yd = ddM.dot(beta_mod)
+        yd = ddM.dot(beta_mod) # yd is nudot
         y_dat = M2.dot(beta_mod)
-        yf2 = yf + (0.5*self.F2*tt*tt) #yf2 = yf + (0.5*F2*tt*tt + tt*F1 + F0)
-        yd_model = np.zeros_like(yd)
+        yf2 = yf + (0.5*self.F2*tt*tt) #yf2 = yf + (0.5*F2*tt*tt + tt*F1 + F0) # yf2 is deltanu
+        yd_model = np.zeros_like(yd) # yd_model is nudot_mod
         yd_model += 1e15*(self.F2*tt + self.F1)
         for i, ge in enumerate(self.pglep):
             gt = mjd2sec(t, ge)
@@ -1631,7 +1635,7 @@ class Pulsar:
                 yd_model[t>ge] -= 1e15*self.pglf0d[i] * np.exp(-(t[t>ge]-self.pglep[i])/self.pgltd[i]) / (self.pgltd[i]*86400.0)
                 yd_model[t>ge] -= 1e15*self.pglf0d2[i] * np.exp(-(t[t>ge]-self.pglep[i])/self.pgltd2[i]) / (self.pgltd2[i]*86400.0)
                 yd_model[t>ge] -= 1e15*self.pglf0d3[i] * np.exp(-(t[t>ge]-self.pglep[i])/self.pgltd3[i]) / (self.pgltd3[i]*86400.0)
-        yd2 = yd + yd_model
+        yd2 = yd + yd_model # yd2 is nudot_sum = nudot + nudot_mod
         ry += np.mean(y_dat-ry)
         with open("ifunc_{}.asc".format(self.psrn), "w") as f:
             for i, value in enumerate(t):

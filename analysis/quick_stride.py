@@ -254,7 +254,7 @@ def plot_range(func, a=0.15, b=0.15):
 
 # Plot the spin frequency and spin-down rate residuals panels
 if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
-    fig, ax = plt.subplots(4, 1, sharex=True, figsize=(10.5, 9.6), gridspec_kw={'height_ratios': [1, 5, 5, 5]}) 
+    fig, ax = plt.subplots(4, 1, sharex=True, figsize=(12, 9.6), gridspec_kw={'height_ratios': [1, 5, 5, 5]}) 
     fig.subplots_adjust(hspace=0)
     plt.subplot(411)
     for toa in sfpsr.toaseries:
@@ -297,7 +297,7 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     plt.show()
 
 if 1>0: # Some option for plot all panels
-    fig, ax = plt.subplots(6, 1, figsize=(10.5, 18.2), gridspec_kw={'height_ratios': [1, 5, 5, 5, 5, 5]})
+    fig, ax = plt.subplots(6, 1, sharex=True, figsize=(12, 18.2), gridspec_kw={'height_ratios': [1, 5, 5, 5, 5, 5]})
     fig.subplots_adjust(hspace=0)
     plt.subplot(611)
     for toa in sfpsr.toaseries:
@@ -306,8 +306,6 @@ if 1>0: # Some option for plot all panels
         ax[0].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     ax[0].set_yticks([])
     plt.ylabel('ToA', fontsize=15, labelpad=15)
-    #plt.scatter(sfpsr.toaseries-glep, [-1]*len(sfpsr.toaseries), c='b', marker='|', linewidth=0.5, alpha=0.4, label='TOAs')
-    #plt.annotate('ToAs', xy=(sfpsr.toaseries-glep, [0]*len(sfpsr.toaseries)), xycoords='data', annotation_clip=False, alpha=0.4)
     plt.subplot(612)
     ax[1].plot(t_mask,1e6*mnu, 'k-', zorder=2, label='Analytic model')
     ax[1].plot(t_inverse,1e6*mnu, 'g-', zorder=2, label='Extrapolation', alpha=0.8)
