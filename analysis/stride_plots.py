@@ -238,16 +238,20 @@ a6 = sfpsr.mask_glep(t1, ydd2) # in 1e-20
 # Calculate the average(use median to avoid outliers) F0 and F1 just before (within ~100 datapoint) the first glitch
 sf = pg.mjd2sec(p1_mjd, sfpsr.pepoch)
 idmax = bisect.bisect_left(t1, glep)
-idx = np.argmin(np.abs(a4[:idmax] - np.median(a4[:idmax]))) # Find the index where F1 is closest to the average/median value
-pre_t = t1[idx]
-pre_x = pg.mjd2sec(t1, pre_t)
-pre_sf = pg.mjd2sec(p1_mjd, pre_t)
-pre_df0 = a1[idx]
+
+ # Find the index where F1 is closest to the average/median value
 pre_f1 = 1e-15*np.median(a4[:idmax])
 pre_f2 = 1e-20*np.median(a6[:idmax])
 
+# Find the correct t0 for subtracting F1/F2 terms
+pre_t = sfpsr.pepoch - (sfpsr.F1 - pre_f1)/(86400*sfpsr.F2)
+pre_x = pg.mjd2sec(t1, pre_t)
+pre_sf = pg.mjd2sec(p1_mjd, pre_t)
+idx = np.argmin(np.abs(t1 - pre_t))
+pre_df0 = a1[idx]
+
 # Subtract F0 and F1 terms before the first glitch
-ana1 = a1 - pre_df0 + sfpsr.F1*(x - x[idx]) - pre_f1*pre_x
+ana1 = a1 - pre_df0 + (sfpsr.F1 - pre_f1)*pre_x
 ana2 = ana1 - 0.5*sfpsr.F2*pre_x**2 - tglf0 - tglf1 - tglf2
 ana3 = ana2 - texp1 - texp2 - texp3 
 ana4 = a4  # in 1e-15
@@ -255,9 +259,9 @@ ana5 = a5 + 1e15*(sfpsr.F1 - pre_f1 + tdf2 - pre_f2*pre_x) # in 1e-15
 ana6 = a6 - 1e20*pre_f2 # in 1e-20
 
 # Subtract F0 and F1 terms befroe the first glitch
-stf1 = p1_nu - 1e6*(pre_df0 - sfpsr.F1*(sf - x[idx]) + pre_f1*pre_sf) # in 1e-6
-stf2 = p2_nu - 1e6*(pre_df0 - sfpsr.F1*(sf - x[idx]) + pre_f1*pre_sf + 0.5*sfpsr.F2*(pre_sf**2 - sf**2)) # in 1e-6
-stf3 = p3_nu - 1e6*(pre_df0 - sfpsr.F1*(sf - x[idx]) + pre_f1*pre_sf + 0.5*sfpsr.F2*(pre_sf**2 - sf**2)) # in 1e-6
+stf1 = p1_nu - 1e6*(pre_df0 - (sfpsr.F1 - pre_f1)*pre_sf) # in 1e-6
+stf2 = p2_nu - 1e6*(pre_df0 - (sfpsr.F1 - pre_f1)*pre_sf + 0.5*sfpsr.F2*(pre_sf**2 - sf**2)) # in 1e-6
+stf3 = p3_nu - 1e6*(pre_df0 - (sfpsr.F1 - pre_f1)*pre_sf + 0.5*sfpsr.F2*(pre_sf**2 - sf**2)) # in 1e-6
 stf4 = p4_nudot # in 1e-10
 stf5 = p5_nudot + 1e10*(sfpsr.F1 - pre_f1 + sfpsr.F2*sf - pre_f2*pre_sf) # in 1e-10
 stf6 = p6_nuddot - 1e20*pre_f2 # in 1e-20
@@ -326,58 +330,58 @@ if 1>0: # Some option for plot all panels
     ax[0].set_yticks([])
     plt.ylabel('ToA', fontsize=15, labelpad=15)
     plt.subplot(712)
-    ax[1].plot(t_mask, 1e6*a1, 'k-', zorder=2, label='Analytic model')
-    ax[1].plot(t_inverse, 1e6*a1, 'g-', zorder=2, label='Extrapolation', alpha=0.8)
-    ax[1].errorbar(p1_mjd, p1_nu, yerr=p1_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, label='Stirde fit')
-    plt.ylim(plot_range(1e6*a1)[0], plot_range(1e6*a1)[1])
+    ax[1].plot(t_mask, 1e6*ana1, 'k-', zorder=2, label='Analytic model')
+    ax[1].plot(t_inverse, 1e6*ana1, 'g-', zorder=2, label='Extrapolation', alpha=0.8)
+    ax[1].errorbar(p1_mjd, stf1, yerr=p1_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, label='Stirde fit')
+    plt.ylim(plot_range(1e6*ana1)[0], plot_range(1e6*ana1)[1])
     plt.ylabel(r'$\delta \nu$ ($\mu$Hz)', fontsize=15, labelpad=5)
     plt.yticks(fontsize=16)
     for gls in gleps:
         ax[1].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     plt.legend(loc='upper left')
     plt.subplot(713)
-    ax[2].plot(t_mask, 1e6*a2, 'k-', zorder=2)
-    ax[2].plot(t_inverse, 1e6*a2, 'g-', zorder=2, alpha=0.8)
-    ax[2].errorbar(p2_mjd, p2_nu, yerr=p2_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
+    ax[2].plot(t_mask, 1e6*ana2, 'k-', zorder=2)
+    ax[2].plot(t_inverse, 1e6*ana2, 'g-', zorder=2, alpha=0.8)
+    ax[2].errorbar(p2_mjd, stf2, yerr=p2_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
     for gls in gleps:
         ax[2].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
-    plt.ylim(plot_range(1e6*a2)[0], plot_range(1e6*a2)[1])
+    plt.ylim(plot_range(1e6*ana2)[0], plot_range(1e6*ana2)[1])
     plt.ylabel(r'$\delta \nu-\nu_{gp}$ ($\mu$Hz)', fontsize=15, labelpad=5)
     plt.yticks(fontsize=16)
     plt.subplot(714)
-    ax[3].plot(t_mask, 1e6*a3, 'k-', zorder=2)
-    ax[3].plot(t_inverse, 1e6*a3, 'g-', zorder=2, alpha=0.8)
-    ax[3].errorbar(p3_mjd, p3_nu, yerr=p3_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
+    ax[3].plot(t_mask, 1e6*ana3, 'k-', zorder=2)
+    ax[3].plot(t_inverse, 1e6*ana3, 'g-', zorder=2, alpha=0.8)
+    ax[3].errorbar(p3_mjd, stf3, yerr=p3_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
     for gls in gleps:
         ax[3].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
-    plt.ylim(plot_range(1e6*a3, 0.5, 0.5)[0], plot_range(1e6*a3, 0.5, 0.5)[1])
+    plt.ylim(plot_range(1e6*ana3, 0.5, 0.5)[0], plot_range(1e6*ana3, 0.5, 0.5)[1])
     plt.ylabel(r'$\delta \nu-\nu_{g}$ ($\mu$Hz)', fontsize=15, labelpad=5)
     plt.yticks(fontsize=16)
     plt.subplot(715)
-    ax[4].plot(t_mask, 1e-3*a4, 'k-', zorder=2)
-    ax[4].plot(t_inverse, 1e-3*a4, 'g-', zorder=2, alpha=0.8)
-    ax[4].errorbar(p4_mjd, 1e2*p4_nudot, yerr=1e2*p4_err, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
+    ax[4].plot(t_mask, 1e-3*ana4, 'k-', zorder=2)
+    ax[4].plot(t_inverse, 1e-3*ana4, 'g-', zorder=2, alpha=0.8)
+    ax[4].errorbar(p4_mjd, 1e2*stf4, yerr=1e2*p4_err, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
     for gls in gleps:
         ax[4].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
-    plt.ylim(plot_range(1e-3*a4, 0.5, 0.5)[0], plot_range(1e-3*a4, 0.5, 0.5)[1])
+    plt.ylim(plot_range(1e-3*ana4, 0.5, 0.5)[0], plot_range(1e-3*ana4, 0.5, 0.5)[1])
     plt.ylabel(r'$\dot{\nu}$ ($10^{-12}$Hz$^{2}$)', fontsize=15, labelpad=5)
     plt.yticks(fontsize=16)
     plt.subplot(716)
-    ax[5].plot(t_mask, a5, 'k-', zorder=2)
-    ax[5].plot(t_inverse, a5, 'g-', zorder=2, alpha=0.8)
-    ax[5].errorbar(p5_mjd, 1e5*p5_nudot, yerr=1e5*p5_err, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
+    ax[5].plot(t_mask, ana5, 'k-', zorder=2)
+    ax[5].plot(t_inverse, ana5, 'g-', zorder=2, alpha=0.8)
+    ax[5].errorbar(p5_mjd, 1e5*stf5, yerr=1e5*p5_err, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
     for gls in gleps:
         ax[5].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
-    plt.ylim(plot_range(a5, 2, 2)[0], plot_range(a5, 2, 2)[1])
+    plt.ylim(plot_range(ana5, 2, 2)[0], plot_range(ana5, 2, 2)[1])
     plt.ylabel(r'$\delta \dot{\nu}-\dot{\nu_{g}}$ ($10^{-15}$Hz$^{2}$)', fontsize=15, labelpad=5)
     plt.yticks(fontsize=16)
     plt.subplot(717)
-    ax[6].plot(t_mask, a6, 'k-', zorder=2)
-    ax[6].plot(t_inverse, a6, 'g-', zorder=2, alpha=0.8)
-    ax[6].errorbar(p6_mjd, p6_nuddot, yerr=p6_err, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
+    ax[6].plot(t_mask, ana6, 'k-', zorder=2)
+    ax[6].plot(t_inverse, ana6, 'g-', zorder=2, alpha=0.8)
+    ax[6].errorbar(p6_mjd, stf6, yerr=p6_err, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
     for gls in gleps:
         ax[6].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
-    plt.ylim(plot_range(a6, 0.5, 0.5)[0], plot_range(a6, 0.5, 0.5)[1])
+    plt.ylim(plot_range(ana6, 0.5, 0.5)[0], plot_range(ana6, 0.5, 0.5)[1])
     plt.ylabel(r'$\delta \ddot{\nu}$ ($10^{-20}$Hz$^{3}$)', fontsize=15, labelpad=5)
     plt.xlabel('Modified Julian Date', fontsize=15)
     plt.yticks(fontsize=16)
