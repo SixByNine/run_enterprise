@@ -248,7 +248,7 @@ pre_t = sfpsr.pepoch - (sfpsr.F1 - pre_f1)/(86400*sfpsr.F2)
 pre_x = pg.mjd2sec(t1, pre_t)
 pre_sf = pg.mjd2sec(p1_mjd, pre_t)
 idx = np.argmin(np.abs(t1 - pre_t))
-pre_df0 = a1[idx]
+pre_df0 = a1[idmax-2] + (sfpsr.F1 - pre_f1)*pre_x[idmax-2]
 
 # Subtract F0 and F1 terms before the first glitch
 ana1 = a1 - pre_df0 + (sfpsr.F1 - pre_f1)*pre_x

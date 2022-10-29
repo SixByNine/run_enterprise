@@ -251,7 +251,7 @@ pre_t = sfpsr.pepoch - (sfpsr.F1 - pre_f1)/(86400*sfpsr.F2)
 pre_x = pg.mjd2sec(t1, pre_t)
 pre_sf = pg.mjd2sec(p1_mjd, pre_t)
 idx = np.argmin(np.abs(t1 - pre_t))
-pre_df0 = a1[idx]
+pre_df0 = a1[idmax-2] + (sfpsr.F1 - pre_f1)*pre_x[idmax-2]
 print("Test1", pre_t) # Test
 print("Test2", t1[idx]) # Test
 print("Test3", sfpsr.pepoch) # Test
