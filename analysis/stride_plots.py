@@ -19,7 +19,7 @@ from astropy import units as u
 #from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
 #from mpl_toolkits.axes_grid1.inset_locator import mark_inset
 #from mpl_toolkits.axes_grid.inset_locator import inset_axes
-
+import bisect
 
 
 parser = argparse.ArgumentParser(description='Stride routine for fitting over a pulsar. Written by Y.Liu (yang.liu-50@postgrad.manchester.ac.uk).')
@@ -52,8 +52,8 @@ sfpsr.delete_null()
 sfpsr.final_par(largeglitch=args.glitches, recoveries=args.recoveries, GLF2=args.glf2)
 
 # Calculate data for pulsar plots
-sfpsr.noglitch_par() ###
-sfpsr.pp_create_files() ###
+sfpsr.noglitch_par()
+sfpsr.pp_create_files()
 rx, ry, re, y_dat, freqs, pwrs = sfpsr.pp_calculate_data()
 
 # Load data analytic model from asc files for pulsar plots
@@ -62,13 +62,14 @@ t, y = np.loadtxt('ifunc_{}.asc'.format(sfpsr.psrn), usecols=(1, 2), unpack=True
 t1, yf2 = np.loadtxt('deltanu_{}.asc'.format(sfpsr.psrn), usecols=(0, 1), unpack=True)
 t2, yd, yd_model, yd2 = np.loadtxt('nudot_{}.asc'.format(sfpsr.psrn), usecols=(0, 1, 2, 3), unpack=True)
 # yd is nudot, yd_model is nudot_mod, yd2 is nudot_sum = nudot + nudot_mod
+t3, ydd, ydd_model, ydd2 = np.loadtxt('nuddot_{}.asc'.format(sfpsr.psrn), usecols=(0, 1, 2, 3), unpack=True)
+# ydd is nuddot, ydd_model is nuddot_mod, ydd2 is nuddot_sum = nuddot + nuddot_mod
 
-# Test
+# Check Test
 print('Shapes of data')
 print(np.shape(t), np.shape(t1), np.shape(t2), np.shape(y), np.shape(yf2), np.shape(yd), np.shape(yd_model), np.shape(yd2))
 print(np.shape(rx), np.shape(ry), np.shape(re), np.shape(rx2), np.shape(ry2), np.shape(re2), np.shape(y_dat))
 print(np.shape(freqs), np.shape(pwrs))
-# Check
 
 # Make pulsar plots
 fig = plt.figure(figsize=(12,12))
@@ -204,40 +205,9 @@ plt.xlabel('Power (???)')
 plt.savefig('pwrspec_{}.pdf'.format(sfpsr.psrn))
 plt.close()
 
-# Calculating analytic model terms
-x = pg.mjd2sec(t1, sfpsr.pepoch)
-tf1, tf2, tdf2 = sfpsr.psr_taylor_terms(x)
-tglf0, tglf1, tglf2, texp1, texp2, texp3, tdglf1, tdglf2, tdexp = sfpsr.glitch_terms(t1)
-
-# Mask ToA gap
-t_mask, t_inverse = sfpsr.toa_gap(t1, gap=args.gap)
-glep = sfpsr.pglep[0]
-gleps = sfpsr.pglep
-
-# Calculate analytic model for panels
-a1 = sfpsr.mask_glep(t1, yf2)
-a2 = a1 - tf2 - tglf0 - tglf1 - tglf2
-a3 = a2 - texp1 - texp2 - texp3
-a4 = sfpsr.mask_glep(t1, yd2) # in 1e-15
-a5 = a4 - (sfpsr.F1 + tdf2 + tdglf1 + tdglf2 - tdexp)*1e15 # in 1e-15
-
-#Shift to zero at first ToA for panel 1, 5 and remove slope in panel 1
-b1 = a1 - a1[0] + sfpsr.F1*(x - x[0]) - 1e-15*a4[0]*pg.mjd2sec(t1, t1[0])
-b2 = b1 - 0.5*sfpsr.F2*pg.mjd2sec(t1, t1[0])**2 - tglf0 - tglf1 - tglf2 # Subtract tf2 or not ???
-b3 = b2 - texp1 - texp2 - texp3 # Subtract tf2 or not ???
-b4 = a4  # in 1e-15
-b5 = a5 - a5[0] # in 1e-15
-
-#Only Shift to zero at first ToA for panel 1, 5
-c1 = a1 - a1[0]
-c2 = c1 - tf2 - tglf0 - tglf1 - tglf2 # Subtract tf2 or not ???
-c3 = c2 - texp1 - texp2 - texp3 # Subtract tf2 or not ???
-c4 = a4  # in 1e-15
-c5 = a5 - a5[0] # in 1e-15
-
 # Do stride fitting, calculate stride fitting results, save in panels
-sfpsr.sf_main(width=args.width, step=args.step, F1e=5e-15) ###
-sfpsr.sf_calculate_data() ###
+sfpsr.sf_main(width=args.width, step=args.step, F1e=5e-15)
+sfpsr.sf_calculate_data()
 
 # Load stride data from panels
 p1_mjd, p1_nu, p1_err = np.loadtxt('panel1_{}.txt'.format(sfpsr.psrn), unpack=True) # in 1e-6
@@ -245,20 +215,52 @@ p2_mjd, p2_nu, p2_err = np.loadtxt('panel2_{}.txt'.format(sfpsr.psrn), unpack=Tr
 p3_mjd, p3_nu, p3_err = np.loadtxt('panel3_{}.txt'.format(sfpsr.psrn), unpack=True) # in 1e-6
 p4_mjd, p4_nudot, p4_err = np.loadtxt('panel4_{}.txt'.format(sfpsr.psrn), unpack=True) # in 1e-10
 p5_mjd, p5_nudot, p5_err = np.loadtxt('panel5_{}.txt'.format(sfpsr.psrn), unpack=True) # in 1e-10
+p6_mjd, p6_nuddot, p6_err = np.loadtxt('panel6_{}.txt'.format(sfpsr.psrn), unpack=True) # in 1e-20
 
-#Shift to zero at first ToA for panel 1, 5 and remove slope in panel 1
-q1 = p1_nu - 1e6*(a1[0] - sfpsr.F1*(pg.mjd2sec(p1_mjd, sfpsr.pepoch) - x[0]) + 1e-15*a4[0]*pg.mjd2sec(p1_mjd, t1[0]))
-q2 = p2_nu - 1e6*(a1[0] - sfpsr.F1*(pg.mjd2sec(p2_mjd, sfpsr.pepoch) - x[0]) + 1e-15*a4[0]*pg.mjd2sec(p2_mjd, t1[0]) - 0.5*sfpsr.F2*(pg.mjd2sec(p2_mjd, sfpsr.pepoch)**2 - pg.mjd2sec(p2_mjd, t1[0])**2))
-q3 = p3_nu - 1e6*(a1[0] - sfpsr.F1*(pg.mjd2sec(p3_mjd, sfpsr.pepoch) - x[0]) + 1e-15*a4[0]*pg.mjd2sec(p3_mjd, t1[0]) - 0.5*sfpsr.F2*(pg.mjd2sec(p3_mjd, sfpsr.pepoch)**2 - pg.mjd2sec(p3_mjd, t1[0])**2))
-q4 = p4_nudot
-q5 = p5_nudot - 1e-5 * a5[0]
+# Mask ToA gap
+t_mask, t_inverse = sfpsr.toa_gap(t1, gap=args.gap)
+glep = sfpsr.pglep[0]
+gleps = sfpsr.pglep
 
-#Only Shift to zero at first ToA for panel 1, 5
-r1 = p1_nu - 1e6 * a1[0]
-r2 = p2_nu - 1e6 * a1[0]
-r3 = p3_nu - 1e6 * a1[0]
-r4 = p4_nudot
-r5 = p5_nudot - 1e-5 * a5[0]
+# Calculating analytic model terms
+x = pg.mjd2sec(t1, sfpsr.pepoch)
+tf1, tf2, tdf2 = sfpsr.psr_taylor_terms(x)
+tglf0, tglf1, tglf2, texp1, texp2, texp3, tdglf1, tdglf2, tdexp = sfpsr.glitch_terms(t1)
+
+# Calculate analytic model for panels
+a1 = sfpsr.mask_glep(t1, yf2)
+a2 = a1 - tf2 - tglf0 - tglf1 - tglf2
+a3 = a2 - texp1 - texp2 - texp3
+a4 = sfpsr.mask_glep(t1, yd2) # in 1e-15
+a5 = a4 - (sfpsr.F1 + tdf2 + tdglf1 + tdglf2 - tdexp)*1e15 # in 1e-15
+a6 = sfpsr.mask_glep(t1, ydd2) # in 1e-20
+
+# Calculate the average(use median to avoid outliers) F0 and F1 just before (within ~100 datapoint) the first glitch
+sf = pg.mjd2sec(p1_mjd, sfpsr.pepoch)
+idmax = bisect.bisect_left(t1, glep)
+idx = np.argmin(np.abs(a4[:idmax] - np.median(a4[:idmax]))) # Find the index where F1 is closest to the average/median value
+pre_t = t1[idx]
+pre_x = pg.mjd2sec(t1, pre_t)
+pre_sf = pg.mjd2sec(p1_mjd, pre_t)
+pre_df0 = a1[idx]
+pre_f1 = 1e-15*np.median(a4[:idmax])
+pre_f2 = 1e-20*np.median(a6[:idmax])
+
+# Subtract F0 and F1 terms before the first glitch
+ana1 = a1 - pre_df0 + sfpsr.F1*(x - x[idx]) - pre_f1*pre_x
+ana2 = ana1 - 0.5*sfpsr.F2*pre_x**2 - tglf0 - tglf1 - tglf2
+ana3 = ana2 - texp1 - texp2 - texp3 
+ana4 = a4  # in 1e-15
+ana5 = a5 + 1e15*(sfpsr.F1 - pre_f1 + tdf2 - pre_f2*pre_x) # in 1e-15
+ana6 = a6 - 1e20*pre_f2 # in 1e-20
+
+# Subtract F0 and F1 terms befroe the first glitch
+stf1 = p1_nu - 1e6*(pre_df0 - sfpsr.F1*(sf - x[idx]) + pre_f1*pre_sf) # in 1e-6
+stf2 = p2_nu - 1e6*(pre_df0 - sfpsr.F1*(sf - x[idx]) + pre_f1*pre_sf + 0.5*sfpsr.F2*(pre_sf**2 - sf**2)) # in 1e-6
+stf3 = p3_nu - 1e6*(pre_df0 - sfpsr.F1*(sf - x[idx]) + pre_f1*pre_sf + 0.5*sfpsr.F2*(pre_sf**2 - sf**2)) # in 1e-6
+stf4 = p4_nudot # in 1e-10
+stf5 = p5_nudot + 1e10*(sfpsr.F1 - pre_f1 + sfpsr.F2*sf - pre_f2*pre_sf) # in 1e-10
+stf6 = p6_nuddot - 1e20*pre_f2 # in 1e-20
 
 def plot_range(func, a=0.15, b=0.15):
     '''Adjust ranges of plots'''
@@ -281,31 +283,31 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     ax[0].set_yticks([])
     plt.ylabel('ToA', fontsize=15, labelpad=15)
     plt.subplot(412)
-    ax[1].plot(t_mask, 1e6*b1, 'k-', zorder=2, label='Analytic model')
-    ax[1].plot(t_inverse, 1e6*b1, 'g-', zorder=2, label='Extrapolation', alpha=0.8)
-    ax[1].errorbar(p1_mjd, q1, yerr=p1_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, label='Stirde fit')
-    plt.ylim(plot_range(1e6*b1)[0], plot_range(1e6*b1)[1])
+    ax[1].plot(t_mask, 1e6*ana1, 'k-', zorder=2, label='Analytic model')
+    ax[1].plot(t_inverse, 1e6*ana1, 'g-', zorder=2, label='Extrapolation', alpha=0.8)
+    ax[1].errorbar(p1_mjd, stf1, yerr=p1_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, label='Stirde fit')
+    plt.ylim(plot_range(1e6*ana1)[0], plot_range(1e6*ana1)[1])
     plt.ylabel(r'$\delta \nu$ ($\mu$Hz)', fontsize=15, labelpad=5)
     plt.yticks(fontsize=16)
     for gls in gleps:
         ax[1].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     plt.legend(loc='upper left')
     plt.subplot(413)
-    ax[2].plot(t_mask, 1e6*b2, 'k-', zorder=2)
-    ax[2].plot(t_inverse, 1e6*b2, 'g-', zorder=2, alpha=0.8)
-    ax[2].errorbar(p2_mjd, q2, yerr=p2_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
+    ax[2].plot(t_mask, 1e6*ana2, 'k-', zorder=2)
+    ax[2].plot(t_inverse, 1e6*ana2, 'g-', zorder=2, alpha=0.8)
+    ax[2].errorbar(p2_mjd, stf2, yerr=p2_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
     for gls in gleps:
         ax[2].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
-    plt.ylim(plot_range(1e6*b2)[0], plot_range(1e6*b2)[1])
+    plt.ylim(plot_range(1e6*ana2)[0], plot_range(1e6*ana2)[1])
     plt.ylabel(r'$\delta \nu-\nu_{gp}$ ($\mu$Hz)', fontsize=15, labelpad=5)
     plt.yticks(fontsize=16)
     plt.subplot(414)
-    ax[3].plot(t_mask, 1e-3*b4, 'k-', zorder=2)
-    ax[3].plot(t_inverse, 1e-3*b4, 'g-', zorder=2, alpha=0.8)
-    ax[3].errorbar(p4_mjd, 1e2*q4, yerr=1e2*p4_err, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
+    ax[3].plot(t_mask, 1e-3*ana4, 'k-', zorder=2)
+    ax[3].plot(t_inverse, 1e-3*ana4, 'g-', zorder=2, alpha=0.8)
+    ax[3].errorbar(p4_mjd, 1e2*stf4, yerr=1e2*p4_err, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
     for gls in gleps:
         ax[3].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
-    plt.ylim(plot_range(1e-3*b4, 0.5, 0.5)[0], plot_range(1e-3*b4, 0.5, 0.5)[1])
+    plt.ylim(plot_range(1e-3*ana4, 0.5, 0.5)[0], plot_range(1e-3*ana4, 0.5, 0.5)[1])
     plt.ylabel(r'$\dot{\nu}$ ($10^{-12}$Hz$^{2}$)', fontsize=15, labelpad=5)
     plt.xlabel('Modified Julian Date', fontsize=15)
     plt.yticks(fontsize=16)
@@ -314,16 +316,16 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     plt.show()
 
 if 1>0: # Some option for plot all panels
-    fig, ax = plt.subplots(6, 1, sharex=True, figsize=(12, 18.2), gridspec_kw={'height_ratios': [1, 5, 5, 5, 5, 5]})
+    fig, ax = plt.subplots(7, 1, sharex=True, figsize=(12, 18.6), gridspec_kw={'height_ratios': [1, 5, 5, 5, 5, 5, 5]})
     fig.subplots_adjust(hspace=0)
-    plt.subplot(611)
+    plt.subplot(711)
     for toa in sfpsr.toaseries:
         ax[0].axvline(toa, color='b', linestyle='dashed', alpha=0.2, linewidth=0.5) #ymax=0.05, 
     for gls in gleps:
         ax[0].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     ax[0].set_yticks([])
     plt.ylabel('ToA', fontsize=15, labelpad=15)
-    plt.subplot(612)
+    plt.subplot(712)
     ax[1].plot(t_mask, 1e6*a1, 'k-', zorder=2, label='Analytic model')
     ax[1].plot(t_inverse, 1e6*a1, 'g-', zorder=2, label='Extrapolation', alpha=0.8)
     ax[1].errorbar(p1_mjd, p1_nu, yerr=p1_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, label='Stirde fit')
@@ -333,7 +335,7 @@ if 1>0: # Some option for plot all panels
     for gls in gleps:
         ax[1].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     plt.legend(loc='upper left')
-    plt.subplot(613)
+    plt.subplot(713)
     ax[2].plot(t_mask, 1e6*a2, 'k-', zorder=2)
     ax[2].plot(t_inverse, 1e6*a2, 'g-', zorder=2, alpha=0.8)
     ax[2].errorbar(p2_mjd, p2_nu, yerr=p2_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
@@ -342,8 +344,7 @@ if 1>0: # Some option for plot all panels
     plt.ylim(plot_range(1e6*a2)[0], plot_range(1e6*a2)[1])
     plt.ylabel(r'$\delta \nu-\nu_{gp}$ ($\mu$Hz)', fontsize=15, labelpad=5)
     plt.yticks(fontsize=16)
-    #If exists recovery
-    plt.subplot(614)
+    plt.subplot(714)
     ax[3].plot(t_mask, 1e6*a3, 'k-', zorder=2)
     ax[3].plot(t_inverse, 1e6*a3, 'g-', zorder=2, alpha=0.8)
     ax[3].errorbar(p3_mjd, p3_nu, yerr=p3_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
@@ -352,7 +353,7 @@ if 1>0: # Some option for plot all panels
     plt.ylim(plot_range(1e6*a3, 0.5, 0.5)[0], plot_range(1e6*a3, 0.5, 0.5)[1])
     plt.ylabel(r'$\delta \nu-\nu_{g}$ ($\mu$Hz)', fontsize=15, labelpad=5)
     plt.yticks(fontsize=16)
-    plt.subplot(615)
+    plt.subplot(715)
     ax[4].plot(t_mask, 1e-3*a4, 'k-', zorder=2)
     ax[4].plot(t_inverse, 1e-3*a4, 'g-', zorder=2, alpha=0.8)
     ax[4].errorbar(p4_mjd, 1e2*p4_nudot, yerr=1e2*p4_err, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
@@ -361,7 +362,7 @@ if 1>0: # Some option for plot all panels
     plt.ylim(plot_range(1e-3*a4, 0.5, 0.5)[0], plot_range(1e-3*a4, 0.5, 0.5)[1])
     plt.ylabel(r'$\dot{\nu}$ ($10^{-12}$Hz$^{2}$)', fontsize=15, labelpad=5)
     plt.yticks(fontsize=16)
-    plt.subplot(616)
+    plt.subplot(716)
     ax[5].plot(t_mask, a5, 'k-', zorder=2)
     ax[5].plot(t_inverse, a5, 'g-', zorder=2, alpha=0.8)
     ax[5].errorbar(p5_mjd, 1e5*p5_nudot, yerr=1e5*p5_err, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
@@ -369,6 +370,15 @@ if 1>0: # Some option for plot all panels
         ax[5].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     plt.ylim(plot_range(a5, 2, 2)[0], plot_range(a5, 2, 2)[1])
     plt.ylabel(r'$\delta \dot{\nu}-\dot{\nu_{g}}$ ($10^{-15}$Hz$^{2}$)', fontsize=15, labelpad=5)
+    plt.yticks(fontsize=16)
+    plt.subplot(717)
+    ax[6].plot(t_mask, a6, 'k-', zorder=2)
+    ax[6].plot(t_inverse, a6, 'g-', zorder=2, alpha=0.8)
+    ax[6].errorbar(p6_mjd, p6_nuddot, yerr=p6_err, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
+    for gls in gleps:
+        ax[6].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
+    plt.ylim(plot_range(a6, 0.5, 0.5)[0], plot_range(a6, 0.5, 0.5)[1])
+    plt.ylabel(r'$\delta \ddot{\nu}$ ($10^{-20}$Hz$^{3}$)', fontsize=15, labelpad=5)
     plt.xlabel('Modified Julian Date', fontsize=15)
     plt.yticks(fontsize=16)
     plt.xticks(fontsize=16)
