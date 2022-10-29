@@ -1050,8 +1050,8 @@ class Pulsar:
                         results[e[0]] = float(e[value_idx])
                         results[e[0]+" std"] = float(e[3])
         if noise is False:
-            self.splittim = "chp_"+self.psrn+"_"+str(glnum)+".tim"
-            results["ToA start"], results["ToA finish"], results["ToA count"], results["ToA span"] = self.load_tim(self.splittim)[:4]
+            fittim = "chp_"+self.psrn+"_"+str(glnum)+".tim"
+            results["ToA start"], results["ToA finish"], results["ToA count"], results["ToA span"] = self.load_tim(fittim)[:4]
         return results
 
     def read_final_par(self, largeglitch=[1]):
@@ -1362,16 +1362,16 @@ class Pulsar:
 
     def sf_calculate_data(self, save=True, plot=False):
         '''Load stride fitting results, plot stride fitting results and save to text files'''
-        # sft, f0, f0e, f1, f1e, f2, f2e, mjds, mjdf = np.loadtxt(self.datafile, unpack=True)
-        sft, f0, f0e, f1, f1e = np.loadtxt(self.datafile, usecols=(0, 1, 2, 3, 4), unpack=True)
+        sft, f0, f0e, f1, f1e, f2, f2e, mjds, mjdf = np.loadtxt(self.datafile, unpack=True)
         sfx = mjd2sec(sft, self.pepoch)
         sff1, sff2, sfdf2 = self.psr_taylor_terms(sfx)
         sfglf0, sfglf1, sfglf2, sfexp1, sfexp2, sfexp3, sfdglf1, sfdglf2, sfdexp = self.glitch_terms(sft)
-        p1y = (f0 - self.F0 - sff1) #- sff2)
+        p1y = (f0 - self.F0 - sff1)
         p2y = (f0 - self.F0 - sff1 - sff2 - sfglf0 - sfglf1 - sfglf2)
         p3y = (f0 - self.F0 - sff1 - sff2 - sfglf0 - sfglf1 - sfglf2 - sfexp1 - sfexp2 - sfexp3)
-        p4y = (f1) #- self.F1 - sfdf2)
+        p4y = (f1)
         p5y = (f1 - self.F1 - sfdf2 - sfdglf1 - sfdglf2 + sfdexp)
+        p6y = f2
         if save:
             with open("panel1_{}.txt".format(self.psrn), "w") as file1:
                 for i, value in enumerate(sft):
@@ -1393,6 +1393,10 @@ class Pulsar:
                 for i, value in enumerate(sft):
                     file5.write("%f   %e   %e   \n" % (value, 1e10*(p5y[i]), 1e10*f1e[i]))
                 file5.close()
+            with open("panel6_{}.txt".format(self.psrn), "w") as file6:
+                for i, value in enumerate(sft):
+                    file6.write("%f   %e   %e   \n" % (value, 1e20*(p6y[i]), 1e20*f2e[i]))
+                file6.close()
         if plot:
             plt.errorbar(sft, 1e6*p1y, yerr=1e6*f0e, marker=".", color="k", ecolor="k", linestyle="None")
             plt.show()
@@ -1403,6 +1407,8 @@ class Pulsar:
             plt.errorbar(sft, 1e10*p4y, yerr=1e10*f1e, marker=".", color="k", ecolor="k", linestyle="None")
             plt.show()
             plt.errorbar(sft, 1e10*p5y, yerr=1e10*f1e, marker=".", color="k", ecolor="k", linestyle="None")
+            plt.show()
+            plt.errorbar(sft, 1e20*p6y, yerr=1e20*f2e, marker=".", color="k", ecolor="k", linestyle="None")
             plt.show()
 
     def print_info(self, index=None):
@@ -1565,9 +1571,9 @@ class Pulsar:
         omega, epoch = meta[0], meta[1]
         rx, ry, re = np.loadtxt("out_{}.res".format(self.psrn), usecols=(0, 5, 6), unpack=True)
         if isinstance(start, int) and isinstance(finish, int):
-            t = np.linspace(start-0.5, finish+0.5, 1000)
+            t = np.linspace(start-0.5, finish+0.5, 10000)
         else:
-            t = np.linspace(self.start-0.5, self.finish+0.5, 1000)
+            t = np.linspace(self.start-0.5, self.finish+0.5, 10000)
         y = np.zeros_like(t)
         cosidx=lab[1]=="param_red_cos"
         sinidx=lab[1]=="param_red_sin"
@@ -1590,6 +1596,7 @@ class Pulsar:
         M2 = np.zeros((2*nwav,len(rx)))
         dM = np.zeros_like(M)
         ddM = np.zeros_like(M)
+        dddM = np.zeros_like(M)
         with open("white_{}.asc".format(self.psrn),"w") as f:
             f.write("WAVE_OM {}\n".format(omega))
             f.write("WAVEEPOCH {}\n".format(epoch))
@@ -1605,8 +1612,10 @@ class Pulsar:
             freqs.append(365.25*omegai/2.0/np.pi)
             dM[i]      = -self.F0*omegai*M[i+nwav]/86400.0
             dM[i+nwav] = self.F0*omegai*M[i]/86400.0
-            ddM[i]      = 1e15*self.F0*omegai*omegai*M[i]/(86400.0**2)
-            ddM[i+nwav] = 1e15*self.F0*omegai*omegai*M[i+nwav]/(86400.0**2)                 
+            ddM[i]      = 1e15*self.F0*omegai*omegai*M[i]/(86400.0**2) # In 1e-15
+            ddM[i+nwav] = 1e15*self.F0*omegai*omegai*M[i+nwav]/(86400.0**2) # In 1e-15       
+            dddM[i]      = 1e20*self.F0*omegai*omegai*omegai*M[i+nwav]/(86400.0**3) # In 1e-20
+            dddM[i+nwav] = -1e20*self.F0*omegai*omegai*omegai*M[i]/(86400.0**3) # In 1e-20         
             M2[i]       = np.sin(omegai * (rx-epoch))
             M2[i+nwav]  = np.cos(omegai * (rx-epoch)) 
         #print("Do linear algebra")
@@ -1616,18 +1625,24 @@ class Pulsar:
         M = M.T
         dM = dM.T
         ddM = ddM.T
+        dddM = dddM.T
         M2 = M2.T
         y = M.dot(beta_mod)
         yf = dM.dot(beta_mod)
         yd = ddM.dot(beta_mod) # yd is nudot
+        ydd = dddM.dot(beta_mod) # ydd is nuddot
         y_dat = M2.dot(beta_mod)
-        yf2 = yf + (0.5*self.F2*tt*tt) #yf2 = yf + (0.5*F2*tt*tt + tt*F1 + F0) # yf2 is deltanu
+        yf2 = yf + (0.5*self.F2*tt*tt) # yf2 is deltanu
+        #yf2 = yf + (0.5*self.F2*tt*tt + self.F1*tt + F0)
         yd_model = np.zeros_like(yd) # yd_model is nudot_mod
         yd_model += 1e15*(self.F2*tt + self.F1)
+        ydd_model = np.zeros_like(ydd) # ydd_model is nuddot_mod
+        ydd_model += 1e20*self.F2
         for i, ge in enumerate(self.pglep):
             gt = mjd2sec(t, ge)
-            yf2[t>ge] +=  self.pglf0[i] + self.pglf1[i] * gt[t>ge] + 0.5 * self.pglf2[i] * gt[t>ge]**2 #???
-            yd_model[t>ge] += 1e15 * (self.pglf1[i] + self.pglf2[i] * gt[t>ge]) #???
+            yf2[t>ge] +=  self.pglf0[i] + self.pglf1[i] * gt[t>ge] + 0.5 * self.pglf2[i] * gt[t>ge]**2
+            yd_model[t>ge] += 1e15 * (self.pglf1[i] + self.pglf2[i] * gt[t>ge])
+            ydd_model[t>ge] += 1e20 * self.pglf2[i]
             if self.pglf0d[i] != 0:
                 yf2[t>ge] += self.pglf0d[i] * np.exp(-(t[t>ge]-self.pglep[i])/self.pgltd[i])
                 yf2[t>ge] += self.pglf0d2[i] * np.exp(-(t[t>ge]-self.pglep[i])/self.pgltd2[i])
@@ -1635,7 +1650,11 @@ class Pulsar:
                 yd_model[t>ge] -= 1e15*self.pglf0d[i] * np.exp(-(t[t>ge]-self.pglep[i])/self.pgltd[i]) / (self.pgltd[i]*86400.0)
                 yd_model[t>ge] -= 1e15*self.pglf0d2[i] * np.exp(-(t[t>ge]-self.pglep[i])/self.pgltd2[i]) / (self.pgltd2[i]*86400.0)
                 yd_model[t>ge] -= 1e15*self.pglf0d3[i] * np.exp(-(t[t>ge]-self.pglep[i])/self.pgltd3[i]) / (self.pgltd3[i]*86400.0)
+                ydd_model[t>ge] += 1e20*self.pglf0d[i] * np.exp(-(t[t>ge]-self.pglep[i])/self.pgltd[i]) /((self.pgltd[i]*86400.0)**2)
+                ydd_model[t>ge] += 1e20*self.pglf0d2[i] * np.exp(-(t[t>ge]-self.pglep[i])/self.pgltd2[i]) /((self.pgltd2[i]*86400.0)**2)
+                ydd_model[t>ge] += 1e20*self.pglf0d3[i] * np.exp(-(t[t>ge]-self.pglep[i])/self.pgltd3[i]) /((self.pgltd3[i]*86400.0)**2)
         yd2 = yd + yd_model # yd2 is nudot_sum = nudot + nudot_mod
+        ydd2 = ydd + ydd_model # ydd2 is nuddot_sum = nuddot + nuddot_mod
         ry += np.mean(y_dat-ry)
         with open("ifunc_{}.asc".format(self.psrn), "w") as f:
             for i, value in enumerate(t):
@@ -1646,6 +1665,9 @@ class Pulsar:
         with open("nudot_{}.asc".format(self.psrn), "w") as f:
             for i, value in enumerate(yd):
                 f.write("{} {} {} {}\n".format(t[i], value, yd_model[i], yd2[i]))
+        with open("nuddot_{}.asc".format(self.psrn), "w") as f:
+            for i, value in enumerate(ydd):
+                f.write("{} {} {} {}\n".format(t[i], value, ydd_model[i], ydd2[i]))
         return rx, ry, re, y_dat, freqs, pwrs
 
     # def measure_prior
