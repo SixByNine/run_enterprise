@@ -6,6 +6,7 @@ import time
 import argparse
 import sys, os
 import subprocess
+import bisect
 #import matplotlib
 #matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -1195,6 +1196,10 @@ class Pulsar:
         self.spin_slt["P_dot std"] = self.P_dot.s
         self.spin_slt["P_ddot"] = self.P_ddot.n
         self.spin_slt["P_ddot std"] = self.P_ddot.s
+        self.spin_slt["Plot F0"] = self.pp_f0
+        self.spin_slt["Plot F1"] = self.pp_f1
+        self.spin_slt["Median F2"] = self.pp_f2
+        self.spin_slt["Plot epoch"] = self.pp_pepoch
         self.spin_slt["Total glitches"] = self.max_glitch
         self.spin_slt["E_dot"] = self.E_dot
         self.spin_slt["Tau_c"] = self.tau_c
@@ -1205,6 +1210,7 @@ class Pulsar:
         entry = []
         spin_idx = ["F0", "F0 std", "F1", "F1 std", "F2", "F2 std"]
         period_idx = ["P", "P std", "P_dot", "P_dot std", "P_ddot", "P_ddot std"]
+        plot_idx = ["Plot F0", "Plot F1", "Median F2", "Plot epoch"]
         derived_idx = ["E_dot", "Tau_c", "B_sur", "Braking index", "Glitch activity"]
         toa_idx = ["ToA start", "ToA finish", "ToA count", "ToA span"]
         glitch_idx = ["GLEP", "GLEP std", "GLF0", "GLF0 std", "GLF1", "GLF1 std", "GLF2", "GLF2 std"]
@@ -1214,10 +1220,10 @@ class Pulsar:
         magnitude_idx = ["Glitch magnitude", "Glitch magnitude std", "Spindown magnitude", "Spindown magnitude std"]
         red_idx = ["TNRedAmp", "TNRedAmp std", "TNRedGam", "TNRedGam std"]
         white_idx = ["TNEF -be jbafb", "TNEF -be jbafb std", "TNEF -be jbdfb", "TNEF -be jbdfb std", "TNEQ -be jbafb", "TNEQ -be jbafb std", "TNEQ -be jbdfb", "TNEQ -be jbdfb std"]
-        sum_idx = spin_idx + period_idx + derived_idx + toa_idx + glitch_idx + alter_idx
+        sum_idx = spin_idx + period_idx + plot_idx + derived_idx + toa_idx + glitch_idx + alter_idx
         sum_idx += recovery_idx + ratio_idx + magnitude_idx + red_idx #+ white_idx
         #unit = np.full(len(sum_idx), None)
-        #unit[12:15] = ["erg/s", "kyr", "1e12G"]
+        #unit[19:22] = ["erg/s", "kyr", "1e12G"]
         #col_id = pd.MultiIndex.from_tuples([(i, j) for i, j in zip(sum_idx, unit)], names=["Parameters", "Units"])
         # To do: add units as second column index
         for glitchnum in range(self.max_glitch):
@@ -1565,6 +1571,7 @@ class Pulsar:
         os.rename("adesign.matrix", "adesign_{}.matrix".format(self.psrn))
 
     def pp_calculate_data(self, start=None, finish=None):
+        '''Calculate spin data'''
         lab = np.loadtxt("param_{}.labels".format(self.psrn), dtype=np.str).T
         beta = np.loadtxt("param_{}.vals".format(self.psrn))
         meta = np.loadtxt("tnred_{}.meta".format(self.psrn), usecols=(1))
@@ -1669,6 +1676,46 @@ class Pulsar:
             for i, value in enumerate(ydd):
                 f.write("{} {} {} {}\n".format(t[i], value, ydd_model[i], ydd2[i]))
         return rx, ry, re, y_dat, freqs, pwrs
+
+    def pp_new_pepoch(self, t, deltanu, nudot, nuddot):
+        '''Calculate the new pepoch and F0/F1/F2 used in plots'''
+        idmax = bisect.bisect_left(t, self.pglep[0])
+        if len(t)%2==0:
+            pp_mf0 = np.median(deltanu[1:]) # median F0 before the first glitch
+            pp_mf1 = np.median(nudot[1:]) # median F1 before the first glitch
+            pp_mf2 = np.median(nuddot[1:]) # median F2 before the first glitch
+        else:
+            pp_mf0 = np.median(deltanu[:]) # median F0 before the first glitch
+            pp_mf1 = np.median(nudot[:]) # median F1 before the first glitch
+            pp_mf2 = np.median(nuddot[:]) # median F2 before the first glitch
+        self.pp_f1 = 1e-15*pp_mf1
+        self.pp_f2 = 1e-20*pp_mf2
+        idx = np.where(nudot==pp_mf1)[0][0] # Find the first index where F1 is median value
+        xpepoch = t[idx] # time at the point
+        xf0 = self.F0 + deltanu[idx] # F0 at the point
+        xf1 = 1e-15*nudot[idx] # F1 at the point
+        xf2 = 1e-20*nuddot[idx] # F2 at the point
+        self.pp_pepoch = self.pepoch - (self.F1 - self.pp_f1)/(86400*self.F2) # Find the pepoch based on fixed F2
+        x = mjd2sec(t, self.pp_pepoch)
+        df0 = deltanu[idmax-2] + (self.F1 - self.pp_f1)*x[idmax-2] - 0.5*self.F2*x[idmax-2]**2 # Set panel 2 to 0
+        self.pp_f0 = self.F0 + df0
+        idt = np.argmin(np.abs(t - self.pp_pepoch))
+        tpepoch = t[idt] # time at the point
+        tf0 = self.F0 + deltanu[idt] # F0 at the point
+        tf1 = 1e-15*nudot[idt] # F1 at the point
+        tf2 = 1e-20*nuddot[idt] # F2 at the point
+        print("###")
+        print("New pepoch used in panel:", self.pp_pepoch)
+        print("F0 used in panel:", self.pp_f0)
+        print("F1 used in panel:", self.pp_f1)
+        print("F2 median:", self.pp_f2)
+        print("###")
+        print("New pepoch:", tpepoch)
+        print("F0 at new pepoch:", tf0)
+        print("F1 at new pepoch:", tf1)
+        print("F2 at new pepoch:", tf2)
+        print("###")
+        return x
 
     # def measure_prior
     # def set_prior
