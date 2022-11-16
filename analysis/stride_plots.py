@@ -241,7 +241,7 @@ sf = pg.mjd2sec(p1_mjd, sfpsr.pepoch)
 pre_sf = pg.mjd2sec(p1_mjd, sfpsr.pp_pepoch)
 
 # Subtract F0 and F1 terms before the first glitch
-ana1 = a1 + (sfpsr.F0 - sfpsr.pp_f0) + (sfpsr.F1 - sfpsr.pp_f1)*pre_x
+ana1 = a1 + (sfpsr.F0 - sfpsr.pp_f0) + (sfpsr.F1*x - sfpsr.pp_f1*pre_x)
 ana2 = ana1 - 0.5*sfpsr.F2*pre_x**2 - tglf0 - tglf1 - tglf2
 ana3 = ana2 - texp1 - texp2 - texp3 
 ana4 = a4  # in 1e-15
@@ -249,9 +249,9 @@ ana5 = a5 + 1e15*(sfpsr.F1 - sfpsr.pp_f1 + tdf2 - sfpsr.F2*pre_x) # in 1e-15
 ana6 = a6 - 1e20*sfpsr.F2 # in 1e-20
 
 # Subtract F0 and F1 terms befroe the first glitch
-stf1 = p1_nu + 1e6*((sfpsr.F0 - sfpsr.pp_f0) + (sfpsr.F1 - sfpsr.pp_f1)*pre_sf) # in 1e-6
-stf2 = p2_nu + 1e6*((sfpsr.F0 - sfpsr.pp_f0) + (sfpsr.F1 - sfpsr.pp_f1)*pre_sf + 0.5*sfpsr.F2*(sf**2 - pre_sf**2)) # in 1e-6
-stf3 = p3_nu + 1e6*((sfpsr.F0 - sfpsr.pp_f0) + (sfpsr.F1 - sfpsr.pp_f1)*pre_sf + 0.5*sfpsr.F2*(sf**2 - pre_sf**2)) # in 1e-6
+stf1 = p1_nu + 1e6*((sfpsr.F0 - sfpsr.pp_f0) + (sfpsr.F1*sf - sfpsr.pp_f1*pre_sf)) # in 1e-6
+stf2 = p2_nu + 1e6*((sfpsr.F0 - sfpsr.pp_f0) + (sfpsr.F1*sf - sfpsr.pp_f1*pre_sf) + 0.5*sfpsr.F2*(sf**2 - pre_sf**2)) # in 1e-6
+stf3 = p3_nu + 1e6*((sfpsr.F0 - sfpsr.pp_f0) + (sfpsr.F1*sf - sfpsr.pp_f1*pre_sf) + 0.5*sfpsr.F2*(sf**2 - pre_sf**2)) # in 1e-6
 stf4 = p4_nudot # in 1e-10
 stf5 = p5_nudot + 1e10*(sfpsr.F1 - sfpsr.pp_f1 + sfpsr.F2*sf - sfpsr.F2*pre_sf) # in 1e-10
 stf6 = p6_nuddot - 1e20*sfpsr.F2 # in 1e-20

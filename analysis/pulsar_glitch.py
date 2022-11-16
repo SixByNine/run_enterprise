@@ -622,16 +622,13 @@ class Pulsar:
                     parlines.append(line)
                 elif line.startswith("TN") or line.startswith("GLPH"):
                     continue
-                #elif any(line.startswith(ls) for ls in ["PX", "PM", "DM ", "JUMP"]):
-                #    parlines.append(line) # Maybe also turn on?
                 elif any(line.startswith(ls) for ls in ["RA", "DEC", "F0", "F1", "F2", "PX", "PM", "DM ", "JUMP"]):
                     # Turn on tempo2 fitting of these parameters
                     if len(e) >= 3:
                         newline = e[0]+"   "+e[1]+"   "+"1"+"   "+e[-1]+"\n"
-                        parlines.append(newline)
                     else:
                         newline = e[0]+"   "+e[1]+"   "+"1"+"\n"
-                        parlines.append(newline)
+                    parlines.append(newline)
                 elif line.startswith("GLF0D_") or line.startswith("GLTD_"):
                     num = int(e[0].split("_")[-1])
                     if num==glitchnum and recoveries < 1:
@@ -874,8 +871,8 @@ class Pulsar:
         parlines = []
         with open(self.par) as f1:
             for line in f1:
+                e = line.split()
                 if line.startswith("GL"):
-                    e = line.split()
                     glnum = int(e[0].split("_")[-1])
                     if glnum not in largeglitch:
                         if line.startswith("GLEP"):
@@ -891,7 +888,12 @@ class Pulsar:
                 elif line.startswith("TN"):
                     continue
                 elif any(line.startswith(ls) for ls in ["RA", "DEC", "PX", "PM", "DM ", "F0", "F1", "F2"]):
-                    parlines.append(line)
+                # Turn on tempo2 fitting of these parameters
+                    if len(e) >= 3:
+                        newline = e[0]+"   "+e[1]+"   "+"1"+"   "+e[-1]+"\n"
+                    else:
+                        newline = e[0]+"   "+e[1]+"   "+"1"+"\n"
+                    parlines.append(newline)
                 else:
                     parlines.append(line)
         idx = 0
@@ -1262,6 +1264,7 @@ class Pulsar:
         print("### Final par for test par is:", self.par)
         with open(self.par) as f:
             for line in f:
+                e = line.split()
                 if line.startswith("GLEP_"):
                     parlines.append(line)
                 elif line.startswith("GL") or line.startswith("TNRed"):
@@ -1269,9 +1272,13 @@ class Pulsar:
                 elif line.startswith("TNEF") or line.startswith("TNEQ"):
                     parlines.append(line)
                 elif any(line.startswith(ls) for ls in ["RA", "DEC", "JUMP", "DM ", "PM", "PX", "F0", "F1", "F2"]):
-                    parlines.append(line)
+                    # Turn on tempo2 fitting of these parameters
+                    if len(e) >= 3:
+                        newline = e[0]+"   "+e[1]+"   "+"1"+"   "+e[-1]+"\n"
+                    else:
+                        newline = e[0]+"   "+e[1]+"   "+"1"+"\n"
+                    parlines.append(newline)
                 else: # Turn off tempo2 fitting of all other parameters
-                    e = line.split()
                     if len(e) > 3 and float(e[2]) == 1:
                         newline = e[0]+"   "+e[1]+"   "+e[3]+"\n"
                         parlines.append(newline)
@@ -1697,24 +1704,27 @@ class Pulsar:
         xf2 = 1e-20*nuddot[idx] # F2 at the point
         self.pp_pepoch = self.pepoch - (self.F1 - self.pp_f1)/(86400*self.F2) # Find the pepoch based on fixed F2
         x = mjd2sec(t, self.pp_pepoch)
-        df0 = deltanu[idmax-2] + (self.F1 - self.pp_f1)*x[idmax-2] - 0.5*self.F2*x[idmax-2]**2 # Set panel 2 to 0
-        self.pp_f0 = self.F0 + df0
-        idt = np.argmin(np.abs(t - self.pp_pepoch))
-        tpepoch = t[idt] # time at the point
-        tf0 = self.F0 + deltanu[idt] # F0 at the point
-        tf1 = 1e-15*nudot[idt] # F1 at the point
-        tf2 = 1e-20*nuddot[idt] # F2 at the point
+        df0 = deltanu[idmax-2] - self.pp_f1*x[idmax-2] - 0.5*self.F2*x[idmax-2]**2
+        self.pp_f0 = df0 + self.F0 + self.F1*mjd2sec(t[idmax-2], self.pepoch)
         print("###")
         print("New pepoch used in panel:", self.pp_pepoch)
         print("F0 used in panel:", self.pp_f0)
         print("F1 used in panel:", self.pp_f1)
         print("F2 median:", self.pp_f2)
         print("###")
-        print("New pepoch:", tpepoch)
-        print("F0 at new pepoch:", tf0)
-        print("F1 at new pepoch:", tf1)
-        print("F2 at new pepoch:", tf2)
-        print("###")
+        if t[0] <= self.pp_pepoch <= t[-1]:
+            idt = np.argmin(np.abs(t - self.pp_pepoch))
+            tpepoch = t[idt] # time at the point
+            tf0 = deltanu[idt] + self.F0 + self.F1*mjd2sec(tpepoch, self.pepoch) # F0 at the point
+            tf1 = 1e-15*nudot[idt] # F1 at the point
+            tf2 = 1e-20*nuddot[idt] # F2 at the point
+            print("New pepoch:", tpepoch)
+            print("F0 at new pepoch:", tf0)
+            print("F1 at new pepoch:", tf1)
+            print("F2 at new pepoch:", tf2)
+        else:
+            print("!!! Warning: New pepoch outside data span!!!", self.pp_pepoch)
+        print("###") 
         return x
 
     # def measure_prior
