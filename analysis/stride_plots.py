@@ -246,7 +246,7 @@ ana2 = ana1 - 0.5*sfpsr.F2*pre_x**2 - tglf0 - tglf1 - tglf2
 ana3 = ana2 - texp1 - texp2 - texp3 
 ana4 = a4  # in 1e-15
 ana5 = a5 + 1e15*(sfpsr.F1 - sfpsr.pp_f1 + tdf2 - sfpsr.F2*pre_x) # in 1e-15
-ana6 = a6 - 1e20*sfpsr.F2 # in 1e-20
+ana6 = a6 #- 1e20*sfpsr.F2 # in 1e-20
 
 # Subtract F0 and F1 terms befroe the first glitch
 stf1 = p1_nu + 1e6*((sfpsr.F0 - sfpsr.pp_f0) + (sfpsr.F1*sf - sfpsr.pp_f1*pre_sf)) # in 1e-6
@@ -254,7 +254,7 @@ stf2 = p2_nu + 1e6*((sfpsr.F0 - sfpsr.pp_f0) + (sfpsr.F1*sf - sfpsr.pp_f1*pre_sf
 stf3 = p3_nu + 1e6*((sfpsr.F0 - sfpsr.pp_f0) + (sfpsr.F1*sf - sfpsr.pp_f1*pre_sf) + 0.5*sfpsr.F2*(sf**2 - pre_sf**2)) # in 1e-6
 stf4 = p4_nudot # in 1e-10
 stf5 = p5_nudot + 1e10*(sfpsr.F1 - sfpsr.pp_f1 + sfpsr.F2*sf - sfpsr.F2*pre_sf) # in 1e-10
-stf6 = p6_nuddot - 1e20*sfpsr.F2 # in 1e-20
+stf6 = p6_nuddot #- 1e20*sfpsr.F2 # in 1e-20
 
 def plot_range(func, a=0.15, b=0.15):
     '''Adjust ranges of plots'''
@@ -367,13 +367,13 @@ if 1>0: # Some option for plot all panels
     plt.ylabel(r'$\delta \dot{\nu}-\dot{\nu_{g}}$ ($10^{-15}$Hz$^{2}$)', fontsize=24, labelpad=5)
     plt.yticks(fontsize=24)
     plt.subplot(717)
-    ax[6].plot(t_mask, ana6, 'k-', zorder=2)
-    ax[6].plot(t_inverse, ana6, 'g-', zorder=2, alpha=0.8)
-    ax[6].errorbar(p6_mjd, stf6, yerr=p6_err, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
+    ax[6].plot(t_mask, 10*ana6, 'k-', zorder=2)
+    ax[6].plot(t_inverse, 10*ana6, 'g-', zorder=2, alpha=0.8)
+    ax[6].errorbar(p6_mjd, 10*stf6, yerr=10*p6_err, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
     for gls in gleps:
         ax[6].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
-    plt.ylim(plot_range(ana6, 0.5, 0.5)[0], plot_range(ana6, 0.5, 0.5)[1])
-    plt.ylabel(r'$\delta \ddot{\nu}$ ($10^{-20}$Hz$^{3}$)', fontsize=24, labelpad=5)
+    plt.ylim(plot_range(10*ana6, 0.5, 0.5)[0], plot_range(10*ana6, 0.5, 0.5)[1])
+    plt.ylabel(r'$\ddot{\nu}$ ($10^{-21}$Hz$^{3}$)', fontsize=24, labelpad=5)
     plt.xlabel('Modified Julian Date', fontsize=24)
     plt.yticks(fontsize=24)
     plt.xticks(fontsize=24)
