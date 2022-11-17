@@ -1585,9 +1585,9 @@ class Pulsar:
         omega, epoch = meta[0], meta[1]
         rx, ry, re = np.loadtxt("out_{}.res".format(self.psrn), usecols=(0, 5, 6), unpack=True)
         if isinstance(start, int) and isinstance(finish, int):
-            t = np.linspace(start-0.5, finish+0.5, 10000)
+            t = np.linspace(start-0.5, finish+0.5, 100000)
         else:
-            t = np.linspace(self.start-0.5, self.finish+0.5, 10000)
+            t = np.linspace(self.start-0.5, self.finish+0.5, 100000)
         y = np.zeros_like(t)
         cosidx=lab[1]=="param_red_cos"
         sinidx=lab[1]=="param_red_sin"
