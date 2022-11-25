@@ -612,7 +612,7 @@ class Pulsar:
                     if small_glitches is True:
                         if line.startswith("GLF") and int(e[0].split("_")[-1]) in sml_gli:
                         # Turn on tempo2 fitting of these parameters for small glitches included in this range
-                            if len(e) >= 3:
+                            if len(e) >= 3 and float(e[-1]) != 1:
                                 newline = e[0]+"   "+e[1]+"   "+"1"+"   "+e[-1]+"\n"
                                 parlines.append(newline)
                             else:
@@ -624,7 +624,7 @@ class Pulsar:
                     continue
                 elif any(line.startswith(ls) for ls in ["RA", "DEC", "F0", "F1", "F2", "PX", "PM", "DM ", "JUMP"]):
                     # Turn on tempo2 fitting of these parameters
-                    if len(e) >= 3:
+                    if len(e) >= 3 and float(e[-1]) != 1:
                         newline = e[0]+"   "+e[1]+"   "+"1"+"   "+e[-1]+"\n"
                     else:
                         newline = e[0]+"   "+e[1]+"   "+"1"+"\n"
@@ -880,7 +880,7 @@ class Pulsar:
                         elif line.startswith("GLPH"):
                             newline = "#"+line
                         else: # Turn on tempo2 fitting of all other glitch parameters for small glitches
-                            if len(e) >= 3:
+                            if len(e) >= 3 and float(e[-1]) != 1:
                                 newline = e[0]+"   "+e[1]+"   "+"1"+"   "+e[-1]+"\n"
                             else:
                                 newline = e[0]+"   "+e[1]+"   "+"1"+"\n"
@@ -889,7 +889,7 @@ class Pulsar:
                     continue
                 elif any(line.startswith(ls) for ls in ["RA", "DEC", "PX", "PM", "DM ", "F0", "F1", "F2"]):
                 # Turn on tempo2 fitting of these parameters
-                    if len(e) >= 3:
+                    if len(e) >= 3 and float(e[-1]) != 1:
                         newline = e[0]+"   "+e[1]+"   "+"1"+"   "+e[-1]+"\n"
                     else:
                         newline = e[0]+"   "+e[1]+"   "+"1"+"\n"
@@ -1273,7 +1273,7 @@ class Pulsar:
                     parlines.append(line)
                 elif any(line.startswith(ls) for ls in ["RA", "DEC", "JUMP", "DM ", "PM", "PX", "F0", "F1", "F2"]):
                     # Turn on tempo2 fitting of these parameters
-                    if len(e) >= 3:
+                    if len(e) >= 3 and float(e[-1]) != 1:
                         newline = e[0]+"   "+e[1]+"   "+"1"+"   "+e[-1]+"\n"
                     else:
                         newline = e[0]+"   "+e[1]+"   "+"1"+"\n"
@@ -1706,12 +1706,7 @@ class Pulsar:
         x = mjd2sec(t, self.pp_pepoch)
         df0 = deltanu[idmax-2] - self.pp_f1*x[idmax-2] - 0.5*self.F2*x[idmax-2]**2
         self.pp_f0 = df0 + self.F0 + self.F1*mjd2sec(t[idmax-2], self.pepoch)
-        print("###")
-        print("New pepoch used in panel:", self.pp_pepoch)
-        print("F0 used in panel:", self.pp_f0)
-        print("F1 used in panel:", self.pp_f1)
-        print("F2 median:", self.pp_f2)
-        print("###")
+        print("###") 
         if t[0] <= self.pp_pepoch <= t[-1]:
             idt = np.argmin(np.abs(t - self.pp_pepoch))
             tpepoch = t[idt] # time at the point
@@ -1724,7 +1719,17 @@ class Pulsar:
             print("F2 at new pepoch:", tf2)
         else:
             print("!!! Warning: New pepoch outside data span!!!", self.pp_pepoch)
-        print("###") 
+            self.pp_pepoch = self.pepoch
+            self.pp_f0 = self.F0
+            self.pp_f1 = self.F1
+            x = mjd2sec(t, self.pp_pepoch)
+        print("###")
+        print("New pepoch used in panel:", self.pp_pepoch)
+        print("F0 used in panel:", self.pp_f0)
+        print("F1 used in panel:", self.pp_f1)
+        print("F2 used in panel:", self.F2)
+        print("F2 median:", self.pp_f2)
+        print("###")
         return x
 
     # def measure_prior
