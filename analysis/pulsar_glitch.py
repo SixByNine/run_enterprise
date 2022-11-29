@@ -622,7 +622,13 @@ class Pulsar:
                     parlines.append(line)
                 elif line.startswith("TN") or line.startswith("GLPH"):
                     continue
-                elif any(line.startswith(ls) for ls in ["RA", "DEC", "F0", "F1", "F2", "PX", "PM", "DM ", "JUMP"]):
+                elif line.startswith("JUMP"):
+                    if float(e[-1]) == 1:
+                        parlines.append(line)
+                    else:
+                        newline = e[0]+"   "+e[1]+"   "+e[2]+"   "+e[3]+"   "+"1"+"\n"
+                        parlines.append(newline)
+                elif any(line.startswith(ls) for ls in ["RA", "DEC", "F0", "F1", "F2", "PX", "PM", "DM "]):
                     # Turn on tempo2 fitting of these parameters
                     if len(e) >= 3 and float(e[-1]) != 1:
                         newline = e[0]+"   "+e[1]+"   "+"1"+"   "+e[-1]+"\n"
@@ -723,7 +729,7 @@ class Pulsar:
             command.extend(["-N", str(N), "--nwalkers", str(nwalkers)])
         elif solver=="dynesty":
             plotchain = "--dynesty-plots"
-            command.extend(["-nlive", str(nlive)])
+            command.extend(["--nlive", str(nlive)])
         else:
             solver = "multinest"
             if ce is True:
@@ -1269,9 +1275,9 @@ class Pulsar:
                     parlines.append(line)
                 elif line.startswith("GL") or line.startswith("TNRed"):
                     continue
-                elif line.startswith("TNEF") or line.startswith("TNEQ"):
+                elif line.startswith("TNEF") or line.startswith("TNEQ") or line.startswith("JUMP"):
                     parlines.append(line)
-                elif any(line.startswith(ls) for ls in ["RA", "DEC", "JUMP", "DM ", "PM", "PX", "F0", "F1", "F2"]):
+                elif any(line.startswith(ls) for ls in ["RA", "DEC", "DM ", "PM", "PX", "F0", "F1", "F2"]):
                     # Turn on tempo2 fitting of these parameters
                     if len(e) >= 3 and float(e[-1]) != 1:
                         newline = e[0]+"   "+e[1]+"   "+"1"+"   "+e[-1]+"\n"
