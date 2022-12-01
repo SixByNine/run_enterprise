@@ -265,6 +265,8 @@ class Pulsar:
                 pglf0tg[i] += pglf0d3[i]*(np.exp(-taug[i]/pgltd3[i])-1)
             if i>0:
                 waittime[i] = pglep[i]-pglep[i-1]
+        if F2 is None:
+            F2 = 0
         spin_para = psrn, F0, F1, F2, F0std, F1std, F2std
         position_para = ra, dec, pmra, pmdec, PX, DM
         toa_para = start, finish, pepoch
