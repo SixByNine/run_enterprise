@@ -713,6 +713,8 @@ class Pulsar:
             glf2range = 0
         if recoveries == 3:
             gltdsplit[0] = 1.8
+        if solver!="multinest":
+            thread = 1
         command = ["nice", "mpirun", "-c", str(thread), runentprise, "--auto-add"]
         if run is False:
             command = ["nice", "mpirun", "-c", "1", runentprise, "--auto-add", "-n"]
@@ -1210,6 +1212,8 @@ class Pulsar:
         self.spin_slt["Plot F1"] = self.pp_f1
         self.spin_slt["Median F2"] = self.pp_f2
         self.spin_slt["Plot epoch"] = self.pp_pepoch
+        self.spin_slt["Min MJD"] = self.minmjds
+        self.spin_slt["Max MJD"] = self.maxmjds
         self.spin_slt["Total glitches"] = self.max_glitch
         self.spin_slt["E_dot"] = self.E_dot
         self.spin_slt["Tau_c"] = self.tau_c
@@ -1221,6 +1225,7 @@ class Pulsar:
         spin_idx = ["F0", "F0 std", "F1", "F1 std", "F2", "F2 std"]
         period_idx = ["P", "P std", "P_dot", "P_dot std", "P_ddot", "P_ddot std"]
         plot_idx = ["Plot F0", "Plot F1", "Median F2", "Plot epoch"]
+        observe_idx = ["Min MJD", "Max MJD", "Total glitches"]
         derived_idx = ["E_dot", "Tau_c", "B_sur", "Braking index", "Glitch activity"]
         toa_idx = ["ToA start", "ToA finish", "ToA count", "ToA span"]
         glitch_idx = ["GLEP", "GLEP std", "GLF0", "GLF0 std", "GLF1", "GLF1 std", "GLF2", "GLF2 std"]
@@ -1230,7 +1235,7 @@ class Pulsar:
         magnitude_idx = ["Glitch magnitude", "Glitch magnitude std", "Spindown magnitude", "Spindown magnitude std"]
         red_idx = ["TNRedAmp", "TNRedAmp std", "TNRedGam", "TNRedGam std"]
         white_idx = ["TNEF -be jbafb", "TNEF -be jbafb std", "TNEF -be jbdfb", "TNEF -be jbdfb std", "TNEQ -be jbafb", "TNEQ -be jbafb std", "TNEQ -be jbdfb", "TNEQ -be jbdfb std"]
-        sum_idx = spin_idx + period_idx + plot_idx + derived_idx + toa_idx + glitch_idx + alter_idx
+        sum_idx = spin_idx + period_idx + plot_idx + observe_idx + derived_idx + toa_idx + glitch_idx + alter_idx
         sum_idx += recovery_idx + ratio_idx + magnitude_idx + red_idx #+ white_idx
         #unit = np.full(len(sum_idx), None)
         #unit[19:22] = ["erg/s", "kyr", "1e12G"]
@@ -1443,7 +1448,7 @@ class Pulsar:
         print("Period epoch:", self.pepoch)
         print("TOA start:", self.minmjds)
         print("TOA finish:", self.maxmjds)
-        print("TOA length:", self.toanum)
+        print("TOA count:", self.toanum)
         print("Cadence", self.cadence)
         print("")
         print("<<< Noise information of pulsar >>>")
