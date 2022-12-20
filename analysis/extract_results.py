@@ -7,7 +7,7 @@ import subprocess
 #matplotlib.use('Agg')
 #import matplotlib.pyplot as plt
 #import matplotlib.gridspec as gridspec
-#import numpy as np
+import numpy as np
 #import numpy.ma as ma
 import pulsar_glitch as pg
 #from __future__ import print_function
@@ -48,39 +48,8 @@ parser.add_argument('--nglf2', type=int, default=[], nargs='+', help='Include GL
 args = parser.parse_args()
     
 # Set Pulsar class sfpsr, load info, generate truth file
-#if args.glf2 is "n":
-#    g2 = [False]
-#elif args.glf2 is "y":
-#    g2 = [True]
-#else:
-#    g2 = [False, True]
 sfpsr = pg.Pulsar(args.parfile, args.timfile, glf0t=args.taug)
 sfpsr.delete_null()
-#sfpsr.print_info()
-#sfpsr.generate_truth()
-
-# Convert double recovery to tempo2 style, chop tim file, update info
-#sfpsr.tidy_glitch(chop=5000)
-#sfpsr.load_info()
-#sfpsr.delete_null()
-
-# Generating tim files for individual glitches, par files for different models, and run MCMC fit to find best model
-#for gi in args.glitches:
-#    sfpsr.split_tim(glitchnum=gi)
-#    for exp in args.recoveries:
-#        for gf2 in g2:
-#            if gf2 is True and exp==3:
-#                continue
-#            sfpsr.split_par(glitchnum=gi, recoveries=exp, GLF2=gf2, small_glitches=args.small, pre_gli=args.pre)
-#            sfpsr.MCMC_fit(glitchnum=gi, recoveries=exp, GLF2=gf2, gleprange=args.glep, glf0drange=args.glf0d, sigma=args.sigma, gltdsplit=args.split, glf2range=args.f2, run=False, thread=1)
-        #sfpsr.post_par(glitchnum=gi)
-#    sfpsr.best_model(glitchnum=gi, recoveries=None, GLF2=args.glf2)
-
-# Merge the best model of each glitch into the final par, and update par info
-#sfpsr.final_par(largeglitch=args.glitches, recoveries=args.nr, GLF2=args.nglf2, run=False, thread=1)
-#sfpsr.load_info(glf0t=args.taug, new=False)
-#sfpsr.delete_null()
-#sfpsr.print_info()
 
 sum_results = "sum_" + args.parfile.split("_")[1] + ".results"
 sfpsr.noise_slt = sfpsr.read_results_file(sum_results, noise=True)
@@ -101,35 +70,37 @@ for gi in args.glitches:
     else:
         sfpsr.best_model(glitchnum=gi, recoveries=None, GLF2=f2)
     idx_recovery += 1
+
+# Load data analytic model from asc files for pulsar plots
+t1, yf2 = np.loadtxt('deltanu_{}.asc'.format(sfpsr.psrn), usecols=(0, 1), unpack=True)
+t2, yd, yd_model, yd2 = np.loadtxt('nudot_{}.asc'.format(sfpsr.psrn), usecols=(0, 1, 2, 3), unpack=True)
+# yd is nudot, yd_model is nudot_mod, yd2 is nudot_sum = nudot + nudot_mod
+t3, ydd, ydd_model, ydd2 = np.loadtxt('nuddot_{}.asc'.format(sfpsr.psrn), usecols=(0, 1, 2, 3), unpack=True)
+# ydd is nuddot, ydd_model is nuddot_mod, ydd2 is nuddot_sum = nuddot + nuddot_mod
+
+# Load stride data from panels
+p1_mjd, p1_nu, p1_err = np.loadtxt('panel1_{}.txt'.format(sfpsr.psrn), unpack=True) # in 1e-6
+p2_mjd, p2_nu, p2_err = np.loadtxt('panel2_{}.txt'.format(sfpsr.psrn), unpack=True) # in 1e-6
+p3_mjd, p3_nu, p3_err = np.loadtxt('panel3_{}.txt'.format(sfpsr.psrn), unpack=True) # in 1e-6
+p4_mjd, p4_nudot, p4_err = np.loadtxt('panel4_{}.txt'.format(sfpsr.psrn), unpack=True) # in 1e-10
+p5_mjd, p5_nudot, p5_err = np.loadtxt('panel5_{}.txt'.format(sfpsr.psrn), unpack=True) # in 1e-10
+p6_mjd, p6_nuddot, p6_err = np.loadtxt('panel6_{}.txt'.format(sfpsr.psrn), unpack=True) # in 1e-20
+
+# Calculating analytic model terms
+x = pg.mjd2sec(t1, sfpsr.pepoch)
+tf1, tf2, tdf2 = sfpsr.psr_taylor_terms(x)
+tglf0, tglf1, tglf2, texp1, texp2, texp3, tdglf1, tdglf2, tdexp = sfpsr.glitch_terms(t1)
+
+# Calculate analytic model for panels
+a1 = sfpsr.mask_glep(t1, yf2)
+a2 = a1 - tf2 - tglf0 - tglf1 - tglf2
+a3 = a2 - texp1 - texp2 - texp3
+a4 = sfpsr.mask_glep(t1, yd2) # in 1e-15
+a5 = a4 - (sfpsr.F1 + tdf2 + tdglf1 + tdglf2 - tdexp)*1e15 # in 1e-15
+a6 = sfpsr.mask_glep(t1, ydd2) # in 1e-20
+
+# Calculate new pepoch and F0/F1/F2 used for plots
+pre_x = sfpsr.pp_new_pepoch(t1, a1, a4, a6)
+
+# Update results
 sfpsr.extract_results()
-
-'''
-# Merge the best model of each glitch into the final par, and update par info
-#sfpsr.final_par(largeglitch=args.glitches, recoveries=args.recoveries, GLF2=args.glf2)
-#sfpsr.load_info(glf0t=args.taug)
-#sfpsr.delete_null()
-
-# (Run MCMC fit) and read results from sum results and final par
-#sfpsr.MCMC_fit(par=args.parfile, tim=args.timfile, glitchnum=None)
-sum_results = "sum_" + args.parfile.split("_")[1] + ".results"
-sfpsr.noise_slt = sfpsr.read_results_file(sum_results, noise=True)
-print("<<< The noise solution for pulsar {} is {} >>>".format(sfpsr.psrn, sfpsr.noise_slt))
-sfpsr.par = sfpsr.post_par(par="sum_"+args.parfile.split("_")[1], tim=sfpsr.tim, glitchnum=None)
-sfpsr.read_final_par(largeglitch=args.glitches)
-
-# Update info with par results files from best model of each glitch, and extract parameters to slt file
-idx_recovery = 0
-for gi in args.glitches:
-    if len(args.glf2)==0:
-        f2 = "a"
-    elif gi in args.glf2:
-        f2 = "y"
-    else:
-        f2 = "n"
-    if len(args.recoveries) > idx_recovery:
-        sfpsr.best_model(glitchnum=gi, recoveries=args.recoveries[idx_recovery], GLF2=f2)
-    else:
-        sfpsr.best_model(glitchnum=gi, recoveries=None, GLF2=f2)
-    idx_recovery += 1
-sfpsr.extract_results()
-'''
