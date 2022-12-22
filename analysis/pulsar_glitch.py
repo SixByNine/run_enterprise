@@ -109,7 +109,7 @@ class Pulsar:
         self.ef_jbafb, self.ef_jbdfb, self.eq_jbafb, self.eq_jbdfb = white
         self.pglep, self.pglf0, self.pglf1, self.pglf2, self.pglf0ins, self.pglf1ins, self.pglf0tg = glitch
         self.pglf0d, self.pgltd, self.pglf0d2, self.pgltd2, self.pglf0d3, self.pgltd3 = recovery
-        self.max_glitch, self.waittime, self.taug, self.numofexp = summary
+        self.max_glitch, self.waittime, self.lifetime, self.spantime, self.taug, self.numofexp = summary
         self.minmjds, self.maxmjds, self.toanum, self.span, self.cadence, self.toaseries = self.load_tim(self.tim)
         if new is True:
             self.reset_error()
@@ -135,8 +135,8 @@ class Pulsar:
     def load_par(self, par, tidy=False, glf0t="GLTD"):
         '''Load basic info of par file'''
         max_glitch = 0
-        pglep, waittime, numofexp = np.zeros(100), np.zeros(100), np.zeros(100)
-        pglf0, pglf1, pglf2 = np.zeros(100), np.zeros(100), np.zeros(100)
+        pglep, pglf0, pglf1, pglf2 = np.zeros(100), np.zeros(100), np.zeros(100), np.zeros(100)
+        waittime, lifetime, spantime, numofexp = np.zeros(100), np.zeros(100), np.zeros(100), np.zeros(100)
         pglf0ins, pglf1ins, pglf0tg = np.zeros(100), np.zeros(100), np.zeros(100)
         pglf0d, pglf0d2, pglf0d3 = np.zeros(100), np.zeros(100), np.zeros(100)
         pgltd, pgltd2, pgltd3 = np.ones(100), np.ones(100), np.ones(100)
@@ -265,6 +265,10 @@ class Pulsar:
                 pglf0tg[i] += pglf0d3[i]*(np.exp(-taug[i]/pgltd3[i])-1)
             if i>0:
                 waittime[i] = pglep[i]-pglep[i-1]
+            if i<max_glitch-1:
+                lifetime[i] = pglep[i+1]-pglep[i]
+            if 0<i<max_glitch-1:
+                spantime[i] = (pglep[i+1]-pglep[i-1])/2.
         if F2 is None:
             F2 = 0
         spin_para = psrn, F0, F1, F2, F0std, F1std, F2std
@@ -274,7 +278,7 @@ class Pulsar:
         white_para = ef_jbafb, ef_jbdfb, eq_jbafb, eq_jbdfb
         glitch_para = pglep, pglf0, pglf1, pglf2, pglf0ins, pglf1ins, pglf0tg
         recovery_para = pglf0d, pgltd, pglf0d2, pgltd2, pglf0d3, pgltd3
-        glitch_summary = max_glitch, waittime, taug, numofexp
+        glitch_summary = max_glitch, waittime, lifetime, spantime, taug, numofexp
         return spin_para, position_para, toa_para, red_para, white_para, glitch_para, recovery_para, glitch_summary
 
     def load_tim(self, tim):
@@ -338,6 +342,8 @@ class Pulsar:
         self.pglf1ins = self.pglf1ins[:self.max_glitch]
         self.pglf0tg = self.pglf0tg[:self.max_glitch]
         self.waittime = self.waittime[:self.max_glitch]
+        self.lifetime = self.lifetime[:self.max_glitch]
+        self.spantime = self.spantime[:self.max_glitch]
         self.taug = self.taug[:self.max_glitch]
         self.numofexp = self.numofexp[:self.max_glitch]
         self.q = self.q[:self.max_glitch]
@@ -1034,6 +1040,20 @@ class Pulsar:
                             self.waittime[glnum-1] = delta_glep.n
                             results["Waiting time"] = delta_glep.n
                             results["Waiting time std"] = delta_glep.s
+                        if glnum < self.max_glitch:
+                            glep1 = std_error(self.pglep[glnum], self.pglepstd[glnum])
+                            glep2 = std_error(self.pglep[glnum-1], self.pglepstd[glnum-1])
+                            delta_glep = glep1 - glep2
+                            self.lifetime[glnum-1] = delta_glep.n
+                            results["Living time"] = delta_glep.n
+                            results["Living time std"] = delta_glep.s
+                        if 1<glnum<self.max_glitch:
+                            glep1 = std_error(self.pglep[glnum], self.pglepstd[glnum])
+                            glep2 = std_error(self.pglep[glnum-2], self.pglepstd[glnum-2])
+                            delta_glep = (glep1 - glep2)/2.
+                            self.spantime[glnum-1] = delta_glep.n
+                            results["Spanning time"] = delta_glep.n
+                            results["Spanning time std"] = delta_glep.s
                         glkeystd = glkey + " std"
                         results[glkey] = float(e[value_idx])
                         results[glkeystd] = float(e[3])
@@ -1173,6 +1193,20 @@ class Pulsar:
                     self.waittime[glitchnum] = self.pglep[glitchnum] - self.pglep[glitchnum-1]
                     self.gli_slt[str(glitchnum+1)]["Waiting time"] = delta_glep.n
                     self.gli_slt[str(glitchnum+1)]["Waiting time std"] = delta_glep.s
+                if glitchnum < self.max_glitch-1:
+                    glep1 = std_error(self.pglep[glitchnum+1], self.pglepstd[glitchnum+1])
+                    glep2 = std_error(self.pglep[glitchnum], self.pglepstd[glitchnum])
+                    delta_glep = glep1 - glep2
+                    self.lifetime[glitchnum] = self.pglep[glitchnum+1] - self.pglep[glitchnum]
+                    self.gli_slt[str(glitchnum+1)]["Living time"] = delta_glep.n
+                    self.gli_slt[str(glitchnum+1)]["Living time std"] = delta_glep.s
+                if 0<glitchnum<self.max_glitch-1:
+                    glep1 = std_error(self.pglep[glitchnum+1], self.pglepstd[glitchnum+1])
+                    glep2 = std_error(self.pglep[glitchnum-1], self.pglepstd[glitchnum-1])
+                    delta_glep = (glep1 - glep2)/2.
+                    self.spantime[glitchnum] = (self.pglep[glitchnum+1] - self.pglep[glitchnum-1])/2.
+                    self.gli_slt[str(glitchnum+1)]["Spanning time"] = delta_glep.n
+                    self.gli_slt[str(glitchnum+1)]["Spanning time std"] = delta_glep.s
         for glitchnum in range(self.max_glitch):
             if glitchnum+1 not in largeglitch:
                 print("<<< The solution for glitch {} is {} >>>".format(glitchnum+1, self.gli_slt[str(glitchnum+1)]))
@@ -1191,7 +1225,7 @@ class Pulsar:
         #self.ef_jbafb, self.ef_jbdfb, self.eq_jbafb, self.eq_jbdfb = white
         #self.pglep, self.pglf0, self.pglf1, self.pglf2, self.pglf0ins, self.pglf0tg = glitch
         #self.pglf0d, self.pgltd, self.pglf0d2, self.pgltd2, self.pglf0d3, self.pgltd3 = recovery
-        #self.max_glitch, self.waittime, self.taug, self.numofexp = summary
+        #self.max_glitch, self.waittime, self.lifetime, self.spantime, self.taug, self.numofexp = summary
         self.P, self.P_dot, self.P_ddot = self.calculate_period()
         self.E_dot, self.tau_c, self.B_sur, self.brake = self.calculate_derived()
         self.delete_null()
@@ -1230,7 +1264,7 @@ class Pulsar:
         derived_idx = ["E_dot", "Tau_c", "B_sur", "Braking index", "Glitch activity"]
         toa_idx = ["ToA start", "ToA finish", "ToA count", "ToA span"]
         glitch_idx = ["GLEP", "GLEP std", "GLF0", "GLF0 std", "GLF1", "GLF1 std", "GLF2", "GLF2 std"]
-        alter_idx = ["GLF0(instant)", "GLF0(instant) std", "GLF1(instant)", "GLF1(instant) std", "GLF0(T=tau_g)", "GLF0(T=tau_g) std", "Tau_g", "Waiting time"]
+        alter_idx = ["GLF0(instant)", "GLF0(instant) std", "GLF1(instant)", "GLF1(instant) std", "GLF0(T=tau_g)", "GLF0(T=tau_g) std", "Tau_g", "Waiting time", "Living time", "Spanning time"]
         recovery_idx = ["GLF0D", "GLF0D std", "GLTD", "GLTD std", "GLF0D2", "GLF0D2 std", "GLTD2", "GLTD2 std", "GLF0D3", "GLF0D3 std", "GLTD3", "GLTD3 std"]
         ratio_idx = ["Q", "Q std", "Q1", "Q1 std", "Q2", "Q2 std", "Q3", "Q3 std"]
         magnitude_idx = ["Glitch magnitude", "Glitch magnitude std", "Spindown magnitude", "Spindown magnitude std"]
@@ -1494,6 +1528,8 @@ class Pulsar:
             print("Fractional glitch magnitude (deltanu_nu_{}): {}".format(index, self.fdnu[index-1]))
             print("Fractional spindown magnitude (deltanudot_nudot_{}): {}".format(index, self.fdnudot[index-1]))
             print("Waiting time (Inactive time before glitch No.{}): {}".format(index, self.waittime[index-1]))
+            print("Living time (Inactive time after glitch No.{}): {}".format(index, self.lifetime[index-1]))
+            print("Spanning time (Average inactive time around glitch No.{}): {}".format(index, self.spantime[index-1]))
             print("tau_g:", self.taug[index-1])
             print("Number of exponentials:", int(self.numofexp[index-1]))
             print("")
