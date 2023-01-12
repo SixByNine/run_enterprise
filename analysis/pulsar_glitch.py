@@ -1227,7 +1227,7 @@ class Pulsar:
         #self.pglf0d, self.pgltd, self.pglf0d2, self.pgltd2, self.pglf0d3, self.pgltd3 = recovery
         #self.max_glitch, self.waittime, self.lifetime, self.spantime, self.taug, self.numofexp = summary
         self.P, self.P_dot, self.P_ddot = self.calculate_period()
-        self.E_dot, self.tau_c, self.B_sur, self.brake = self.calculate_derived()
+        #self.E_dot, self.tau_c, self.B_sur, self.brake = self.calculate_derived()
         self.delete_null()
         self.print_info()
         self.spin_slt["Pulsar Name"] = self.psrn
@@ -1295,8 +1295,8 @@ class Pulsar:
         P2 = 2*(F1**2)/(F0**3) - F2/(F0**2)
         return P0, P1, P2
 
-    def calculate_derived(self):
-        '''Calculate derived quantities of pulsars from spin parameters'''
+    def calculate_derived(self, epoch=None, t=None, deltanu=None, nudot=None, nuddot=None):
+        '''Calculate derived quantities of pulsars from spin parameters at epoch (MJD)'''
         # Assume canonical mass M_ns = 1.4*M_sun, r_ns = 10km, i.e., moment of inertia I = 10^45 g*cm^2 = 10^38 kg*m^2
         #E_dot = -4e38*(np.pi**2)*self.F0*self.F1 # in W
         E_dot = -4e45*(np.pi**2)*self.F0*self.F1 # in erg/s
@@ -1304,6 +1304,23 @@ class Pulsar:
         tau_c = -0.5/(86400*365.2425e3)*self.F0/self.F1 # in kyr
         B_surface = 3.2e7*np.sqrt(-self.F1/self.F0**3) # in T(10^12)Gauss
         braking_index = self.F0*self.F2/(self.F1**2)
+        if isinstance(epoch, float) and self.minmjds <= epoch <= self.maxmjds:
+            if epoch == self.pp_pepoch:
+                E_dot = -4e45*(np.pi**2)*self.pp_f0*self.pp_f1 # in erg/s
+                tau_c = -0.5/(86400*365.2425e3)*self.pp_f0/self.pp_f1 # in kyr
+                B_surface = 3.2e7*np.sqrt(-self.pp_f1/self.pp_f0**3) # in T(10^12)Gauss
+                braking_index = self.pp_f0*self.F2/(self.pp_f1**2)
+            else:
+                idx = bisect.bisect_left(t, epoch)
+                x = mjd2sec(t, self.pp_pepoch)
+                df0 = deltanu[idx] - self.pp_f1*x[idx] - 0.5*self.F2*x[idx]**2
+                f0 = df0 + self.F0 + self.F1*mjd2sec(t[idx], self.pepoch)
+                f1 = nudot[idx]
+                f2 = nuddot[idx]
+                E_dot = -4e45*(np.pi**2)*f0*f1 # in erg/s
+                tau_c = -0.5/(86400*365.2425e3)*f0/f1 # in kyr
+                B_surface = 3.2e7*np.sqrt(-f1/f0**3) # in T(10^12)Gauss
+                braking_index = f0*f2/(f1**2)
         return E_dot, tau_c, B_surface, braking_index
 
     def noglitch_par(self):
@@ -1780,6 +1797,8 @@ class Pulsar:
         print("F2 used in panel:", self.F2)
         print("F2 median:", self.pp_f2)
         print("###")
+        pp_pepoch = self.pp_pepoch
+        self.E_dot, self.tau_c, self.B_sur, self.brake = self.calculate_derived(epoch=pp_pepoch, t=t, deltanu=deltanu, nudot=nudot, nuddot=nuddot)
         return x
 
     # def measure_prior
