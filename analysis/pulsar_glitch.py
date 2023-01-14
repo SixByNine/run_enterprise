@@ -860,6 +860,10 @@ class Pulsar:
                                 #lnev = float(line.split()[5])
                                 lnev = ufloat(float(line.split()[5]), float(line.split()[7]))
                                 print("Evidence of glitch {} model {} (GLF2: {}) is {}".format(glitchnum, model, f2, lnev))
+                                line = f.readline()
+                                line = f.readline()
+                                line = f.readline()
+                                glep, glepstd = float(line.split()[1]), float(line.split()[2])
                                 if lnev > maxlnZ:
                                     if lnev < maxlnZ+2.5:
                                         print(">>> Evidence Warning <<<")
@@ -869,9 +873,12 @@ class Pulsar:
                                         bestmodelpar = postpar
                                         bestmodel = model
                                         bestf2 = f2
+                                        newglep = glep
+                                        newglepstd = glepstd
                         else:
                             print(">>> Missing evidence file {} <<<".format(ev_file))
         print("### Best model par is:", bestmodelpar)
+        print("### Epoch of glitch No.{} update to {}+/-{}".format(glitchnum, self.pglep[glitchnum-1], self.pglepstd[glitchnum-1]))
         if bestmodelpar is None:
             print(">>> Missing post par for best model <<<")
         else:
@@ -879,6 +886,9 @@ class Pulsar:
             rslt_file = bestmodelpar.replace("post","results")
             print("<<< Reading {} results from {} for glitch {} >>>".format(results_value, rslt_file, glitchnum))
             self.gli_slt[str(glitchnum)] = self.read_results_file(rslt_file, max_like=max_like)
+            self.pglep[glitchnum-1], self.pglepstd[glitchnum-1] = newglep, newglepstd
+            self.gli_slt[str(glitchnum)]["GLEP"] = self.pglep[glitchnum-1]
+            self.gli_slt[str(glitchnum)]["GLEP std"] = self.pglepstd[glitchnum-1]
             print("<<< The solution for glitch {} is {} >>>".format(glitchnum, self.gli_slt[str(glitchnum)]))
         return bestmodelpar
 
