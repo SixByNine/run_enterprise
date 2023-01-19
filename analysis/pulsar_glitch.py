@@ -863,6 +863,8 @@ class Pulsar:
                                 line = f.readline()
                                 line = f.readline()
                                 line = f.readline()
+                                while int(line.split()[1][-1]) != 5:
+                                    line = f.readline()
                                 glep, glepstd = float(line.split()[1]), float(line.split()[2])
                                 if lnev > maxlnZ:
                                     if lnev < maxlnZ+2.5:
@@ -878,7 +880,7 @@ class Pulsar:
                         else:
                             print(">>> Missing evidence file {} <<<".format(ev_file))
         print("### Best model par is:", bestmodelpar)
-        print("### Epoch of glitch No.{} update to {}+/-{}".format(glitchnum, self.pglep[glitchnum-1], self.pglepstd[glitchnum-1]))
+        print("### Epoch of glitch No.{} update to {}+/-{}".format(glitchnum, newglep, newglepstd))
         if bestmodelpar is None:
             print(">>> Missing post par for best model <<<")
         else:
