@@ -819,6 +819,7 @@ class Pulsar:
         maxlnZ = -np.inf
         bestmodelpar = None
         bestmodel = None
+        newglep, newglepstd = self.pglep[glitchnum-1], self.pglepstd[glitchnum-1]
         if isinstance(recoveries, int) and 0 <= recoveries <= 3:
             recoveries, model = recovery_name(recoveries)
             for f2 in f2fix:
@@ -834,6 +835,12 @@ class Pulsar:
                             #lnev = float(line.split()[5])
                             lnev = ufloat(float(line.split()[5]), float(line.split()[7]))
                             print("Evidence of glitch {} model {} (GLF2: {}) is {}".format(glitchnum, model, f2, lnev))
+                            line = f.readline()
+                            line = f.readline()
+                            line = f.readline()
+                            while int(line.split()[1][-1]) != 5:
+                                line = f.readline()
+                            glep, glepstd = float(line.split()[1]), float(line.split()[2])
                             if lnev > maxlnZ:
                                 if lnev < maxlnZ+2.5:
                                     print(">>> Evidence Warning <<<")
@@ -843,6 +850,8 @@ class Pulsar:
                                     bestmodelpar = postpar
                                     bestmodel = model
                                     bestf2 = f2
+                                    newglep = glep
+                                    newglepstd = glepstd
                     else:
                         print(">>> Missing evidence file {} <<<".format(ev_file))
         else:
