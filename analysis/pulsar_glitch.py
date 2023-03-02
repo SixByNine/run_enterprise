@@ -841,6 +841,14 @@ class Pulsar:
                             while int(line.split()[1][-1]) != 5:
                                 line = f.readline()
                             glep, glepstd = float(line.split()[1]), float(line.split()[2])
+                            if max_like is True:
+                                while not line.startswith('Maximum'):
+                                    line = f.readline()
+                                line = f.readline()
+                                line = f.readline()
+                                while int(line.split()[1][-1]) != 5:
+                                    line = f.readline()
+                                glep = float(line.split()[1])
                             if lnev > maxlnZ:
                                 if lnev < maxlnZ+2.5:
                                     print(">>> Evidence Warning <<<")
@@ -875,6 +883,14 @@ class Pulsar:
                                 while int(line.split()[1][-1]) != 5:
                                     line = f.readline()
                                 glep, glepstd = float(line.split()[1]), float(line.split()[2])
+                                if max_like is True:
+                                    while not line.startswith('Maximum'):
+                                        line = f.readline()
+                                    line = f.readline()
+                                    line = f.readline()
+                                    while int(line.split()[1][-1]) != 5:
+                                        line = f.readline()
+                                    glep = float(line.split()[1])
                                 if lnev > maxlnZ:
                                     if lnev < maxlnZ+2.5:
                                         print(">>> Evidence Warning <<<")
@@ -903,7 +919,7 @@ class Pulsar:
             print("<<< The solution for glitch {} is {} >>>".format(glitchnum, self.gli_slt[str(glitchnum)]))
         return bestmodelpar
 
-    def final_par(self, largeglitch=[1], recoveries=[None]*10, GLF2=[], max_like=False, run=True, thread=16):
+    def final_par(self, largeglitch=[1], recoveries=[None]*10, GLF2=[], max_like=False, run=True, thread=1):
         '''Merge glitch parameters in the best model of each glitches to create final par for the pulsar'''
         self.sumpar = "sum_"+self.psrn+".par"
         parlines = []
