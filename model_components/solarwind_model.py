@@ -147,7 +147,7 @@ def setup_psr(psr):
     for i, c in enumerate(conjunction_toas_mjds):
 
         close_t = np.linspace(c-10, c+10, num=2000)
-        close_ctheta = (-1) * np.cos(solar_angle(coords_pst, close_t))
+        close_ctheta = (-1) * np.cos(solar_angle(coords_psr, close_t))
         real_conjunction_toas_mjds[i] = close_t[np.argmin(close_ctheta)] 
 
 
