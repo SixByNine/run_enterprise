@@ -11,7 +11,6 @@ from enterprise.signals import deterministic_signals
 from astropy.coordinates import Angle
 from astropy import units
 from astropy.coordinates import SkyCoord
-from astropy.coordinates import FK5
 from astropy.coordinates import get_sun
 from astropy.time import Time
 from functools import partial
@@ -111,7 +110,7 @@ def setup_psr(psr):
         
         coord_long = Angle(t2psr.vals()[t2psr.pars().index('RAJ')], unit=units.rad)
         coord_lat = Angle(t2psr.vals()[t2psr.pars().index('DECJ')], unit=units.rad)
-        frame_psr = 'FK5'
+        frame_psr = 'fk5'
 
     else:
         
