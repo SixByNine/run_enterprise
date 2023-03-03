@@ -168,7 +168,7 @@ def setup_model(args, psr, parfile):
         parfile.append("NE_SW_IFUNC 0 1\n")
 
         for conj_toa in psr.sphconj_mjd:
-            parfile.append("_NE_SW {:.4f}\n".format(conj_toa))
+            parfile.append("_NE_SW {:.3f}\n".format(conj_toa))
 
         sw_model = solar_wind_basis_GP(priors=sw_priors(sw_sigma=sw_sigma))
 
