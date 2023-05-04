@@ -605,9 +605,12 @@ class Pulsar:
         if splittim is None:
             splittim = self.splittim
         if isinstance(glitchnum, int) and 0 < glitchnum <= self.max_glitch:
-            pass
+            glitches = glitchnum
+        elif isinstance(glitchnum, list) and len(glitchnum)==2:
+            glitches = glitchnum[-1]
+            glitchnum = glitchnum[0]
         else:
-            glitchnum = int(self.splittim.split("_")[-1].split(".")[0].split(":")[0])
+            glitches = glitchnum = int(self.splittim.split("_")[-1].split(".")[0].split(":")[0])+1
         recoveries, modelname = recovery_name(recoveries)
         f2 = "n"
         if GLF2 is True:
@@ -618,11 +621,15 @@ class Pulsar:
         splitminmjd, splitmaxmjd = self.load_tim(splittim)[:2]
         sml_gli = np.where(np.logical_and(self.pglep>splitminmjd, self.pglep<splitmaxmjd))[0]+1
         sml_gli = np.delete(sml_gli, np.where(sml_gli == glitchnum))
+        sml_gli = np.delete(sml_gli, np.where(sml_gli == glitches))
         print("The small glitches included in splittim are:", sml_gli)
-        pre_tim = "chp_"+self.psrn+"_"+str(glitchnum-1)+".tim"
+        prenum = glitchnum-1
+        if glitchnum>glitches:
+            prenum = glitches
+        pre_tim = "chp_"+self.psrn+"_"+str(prenum)+".tim"
         if pre_gli is True and glitchnum>1 and os.path.exists(pre_tim):
-            pre_par = self.best_model(glitchnum=glitchnum-1)
-            print("Found the best post results {} for previous glitch No.{}".format(pre_par.rsplit("/",maxsplit=1)[-1], glitchnum-1))
+            pre_par = self.best_model(glitchnum=prenum)
+            print("Found the best post results {} for previous glitch No.{}".format(pre_par.rsplit("/",maxsplit=1)[-1], prenum))
         else:
             pre_gli = False
         parlines = []
@@ -697,12 +704,12 @@ class Pulsar:
             newline = "GLF2_{}".format(str(glitchnum))+"   "+"0"+"\n"
             parlines.append(newline)
         if pre_gli is True:
-            pre_para = lambda x : x.split()[0].startswith("GL") and int(x.split()[0].split("_")[-1])==glitchnum-1
+            pre_para = lambda x : x.split()[0].startswith("GL") and int(x.split()[0].split("_")[-1])==prenum
             parlines[:] = [line for line in parlines if not pre_para(line)]
             with open(pre_par) as f2:
                 for line in f2:
                     e = line.split()
-                    if any(e[0].startswith(ls) for ls in ["GLEP", "GLF0_", "GLF1_", "GLF2_", "GLF0D", "GLTD"]) and int(e[0].split("_")[-1])==glitchnum-1:                    
+                    if any(e[0].startswith(ls) for ls in ["GLEP", "GLF0_", "GLF1_", "GLF2_", "GLF0D", "GLTD"]) and int(e[0].split("_")[-1])==prenum:                    
                         parlines.append(line)
         with open(self.splitpar, "w") as f3:
             f3.writelines(parlines)
@@ -721,11 +728,14 @@ class Pulsar:
         if tim is None:
             tim = self.splittim
         if isinstance(glitchnum, int) and 0 < glitchnum <= self.max_glitch:
-            pass
+            glitches = glitchnum
         elif glitchnum is None:
             pass
+        elif isinstance(glitchnum, list) and len(glitchnum)>1:
+            glitches = glitchnum
+            glitchnum = glitchnum[0]
         else:
-            glitchnum = int(self.splittim.split("_")[-1].split(".")[0].split(":")[0])
+            glitches = glitchnum = int(self.splittim.split("_")[-1].split(".")[0].split(":")[0])+1
         recoveries, modelname = recovery_name(recoveries)
         f2 = "n"
         if GLF2 is True:
@@ -742,7 +752,10 @@ class Pulsar:
         command.extend([par, tim])
         if glitchnum is not None:
             plotname = str(glitchnum)+modelname+f2
-            command.extend(["--glitches", str(glitchnum)])
+            if isinstance(glitches, list) and len(glitches)>1:
+                command.extend(["--glitches", str(glitches[0]), str(glitches[1])])
+            else:
+                command.extend(["--glitches", str(glitches)])
         else:
             plotname = "sum"
         dirname = self.psrn+"_"+plotname
@@ -797,7 +810,7 @@ class Pulsar:
         elif glitchnum is None:
             pass
         else:
-            glitchnum = int(self.splittim.split("_")[-1].split(".")[0].split(":")[0])
+            glitchnum = int(self.splittim.split("_")[-1].split(".")[0].split(":")[0])+1
         modelname = par.split("_")[-1].split(".")[0][-2]
         f2 = par.split("_")[-1].split(".")[0][-1]
         postpar = par+".post"
@@ -815,7 +828,7 @@ class Pulsar:
         if isinstance(glitchnum, int) and 0 < glitchnum <= self.max_glitch:
             pass
         else:
-            glitchnum = int(self.splittim.split("_")[-1].split(".")[0].split(":")[0])
+            glitchnum = int(self.splittim.split("_")[-1].split(".")[0].split(":")[0])+1
         if max_like is True:
             results_value = "max-likelihood"
         else:
@@ -1023,7 +1036,7 @@ class Pulsar:
                         if e[0].startswith("GLEP_"):
                             self.mglep[glnum-1] = float(e[value_idx])
                             self.mglepstd[glnum-1] = float(e[3])
-                            #self.c16glep[glnum-1], self.c50glep[glnum-1], self.c84glep[glnum-1] = float(e[5]), float(e[6]), float(e[7]) add percentiles in the future
+                            #self.c16glep[glnum-1], self.c50glep[glnum-1], self.c84glep[glnum-1] = float(e[5]), float(e[6]), float(e[7]) # add percentiles in the future
                         elif e[0].startswith("GLF0_"):
                             self.mglf0[glnum-1] = float(e[value_idx])
                             self.mglf0std[glnum-1] = float(e[3])
@@ -1178,6 +1191,8 @@ class Pulsar:
                 self.gli_slt[str(glitchnum+1)]["GLF0 std"] = self.mglf0std[glitchnum]
                 self.gli_slt[str(glitchnum+1)]["GLF1"] = self.mglf1[glitchnum]
                 self.gli_slt[str(glitchnum+1)]["GLF1 std"] = self.mglf1std[glitchnum]
+                self.gli_slt[str(glitchnum+1)]["GLF2"] = self.mglf2[glitchnum]
+                self.gli_slt[str(glitchnum+1)]["GLF2 std"] = self.mglf2std[glitchnum]
                 glf0 = std_error(self.mglf0[glitchnum], self.mglf0std[glitchnum])
                 glf1 = std_error(self.mglf1[glitchnum], self.mglf1std[glitchnum])
                 glf2 = std_error(self.mglf2[glitchnum], self.mglf2std[glitchnum])
@@ -1198,19 +1213,19 @@ class Pulsar:
                     gltd = std_error(self.mgltd[glitchnum], self.mgltdstd[glitchnum])
                     glf0ins += glf0d
                     glf1ins -= glf0d/(86400*gltd)                    
-                    glf0tg[glitchnum] += glf0d*(np.exp(-self.taug[glitchnum]/gltd)-1)
+                    glf0tg += glf0d*(np.exp(-self.taug[glitchnum]/self.mgltd[glitchnum])-1)
                 if self.mglf0d2[glitchnum] != 0:
                     glf0d2 = std_error(self.mglf0d2[glitchnum], self.mglf0d2std[glitchnum])
                     gltd2 = std_error(self.mgltd2[glitchnum], self.mgltd2std[glitchnum])
                     glf0ins += glf0d2
-                    glf1ins -= glf0d/(86400*gltd)
-                    glf0tg[glitchnum] += glf0d2*(np.exp(-self.taug[glitchnum]/gltd2)-1)
+                    glf1ins -= glf0d2/(86400*gltd2)
+                    glf0tg += glf0d2*(np.exp(-self.taug[glitchnum]/self.mgltd2[glitchnum])-1)
                 if self.mglf0d3[glitchnum] != 0:
                     glf0d3 = std_error(self.mglf0d3[glitchnum], self.mglf0d3std[glitchnum])
                     gltd3 = std_error(self.mgltd3[glitchnum], self.mgltd3std[glitchnum])
                     glf0ins += glf0d3
-                    glf1ins -= glf0d/(86400*gltd)
-                    glf0tg[glitchnum] += glf0d3*(np.exp(-self.taug[glitchnum]/gltd3)-1)
+                    glf1ins -= glf0d3/(86400*gltd3)
+                    glf0tg += glf0d3*(np.exp(-self.taug[glitchnum]/self.mgltd3[glitchnum])-1)
                 if self.mglf0d[glitchnum] != 0:
                     q1 = glf0d/glf0ins
                     self.gli_slt[str(glitchnum+1)]["Q1"] = q1.n
