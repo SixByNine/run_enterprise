@@ -112,6 +112,7 @@ def setup_model(args, psr, parfile):
             ## pre-compute the model for the existing glitch
             glf0=glf1=glf2=glf0d=glf0d2=glf0d3=0
             gltd=gltd2=gltd3=200
+            glf2fit = False
             glep = glitches[gl]['EP']
             if 'F0' in glitches[gl]:
                 glf0 = glitches[gl]['F0']
@@ -119,6 +120,7 @@ def setup_model(args, psr, parfile):
                 glf1 = glitches[gl]['F1']
             if 'F2' in glitches[gl]:
                 glf2 = glitches[gl]['F2']
+                glf2fit = True
             if 'F0D' in glitches[gl]:
                 glf0d = glitches[gl]['F0D']
             if 'TD' in glitches[gl]:
@@ -167,7 +169,7 @@ def setup_model(args, psr, parfile):
             if args.glitch_f0d_positive and glf0d_range[0]<0:
                 glf0d_range[0]=0
 
-            if args.glitch_f2_range is None or args.glitch_f2_range==0:
+            if glf2fit is False or args.glitch_f2_range is None or args.glitch_f2_range==0:
                 glf2_range = 0
                 glf2 = parameter.Constant(0)
             elif glf2==0:
