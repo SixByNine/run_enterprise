@@ -30,7 +30,7 @@ parser.add_argument('-s', '--step', type=int, default=0, help='Size of stride (d
 parser.add_argument('-a', '--gap', type=float, default=0, help='Threshold of gap (days), defualt: 10*cadence')
 parser.add_argument('-u', '--taug', type=int, default=[200]*100, nargs='+', help='Replace GLF1 with change of spin frequency tau_g days after the glitch respectively')
 parser.add_argument('-g', '--glitches', type=int, default=[], nargs='+', help='Glitches that need to split tim file for')
-parser.add_argument('-m', '--multiple', type=list, default=[], nargs='+', help='Multiple glitches that need to split tim file together for')
+parser.add_argument('-m', '--multiple', type=int, default=[], nargs='+', help='Multiple glitches that need to split tim file together for, the first entry is the start glitch, the middle entries is the large glitches(max: 2) to be fitted, the last entry is the end glitch')
 parser.add_argument('-r', '--recoveries', type=int, default=[0, 1], nargs='+', help='Number of recoveries to fit in models for all large glitches')
 parser.add_argument('--glf2', type=str, default="a", help='Include GLF2 term in glitch model')
 parser.add_argument('--f2', '--glf2-range', type=float, default=10, help='The prior range for glf2')
@@ -73,9 +73,18 @@ for gi in args.glitches:
         #sfpsr.post_par(glitchnum=gi)
     sfpsr.best_model(glitchnum=gi, recoveries=None, GLF2=args.glf2)
 
-'''
-for multi in args.multiple:
-    start = int(multi[0])-1
-    end = int(multi[-1])+1
+if len(args.multiple)>0:
+    start = args.multiple[0]
+    end = args.multiple[-1]
+    gi = args.multiple[1:-1]
+    if len(gi)==1:
+        gi = gi[0]
     sfpsr.split_tim(startnum=start, endnum=end)
-'''
+    for exp in args.recoveries:
+        for gf2 in g2:
+            if gf2 is True and exp==3:
+                continue
+            sfpsr.split_par(glitchnum=gi, recoveries=exp, GLF2=gf2, small_glitches=args.small, pre_gli=args.pre)
+            sfpsr.MCMC_fit(glitchnum=gi, recoveries=exp, GLF2=gf2, gleprange=args.glep, glf0drange=args.glf0d, sigma=args.sigma, gltdsplit=args.split, glf2range=args.f2)
+        #sfpsr.post_par(glitchnum=args.multiple[1])
+    sfpsr.best_model(glitchnum=args.multiple[1], recoveries=None, GLF2=args.glf2)
