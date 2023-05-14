@@ -434,14 +434,14 @@ class Pulsar:
             glitches[ig]["id"] = idx
             if "GLTD" in glitches[ig]:
                 if "GLTD2" in glitches[ig]: # Swap 1st and 2nd recoveries if the 1st longer than 2nd
-                    if glitches[ig]["GLTD"] > glitches[ig]["GLTD2"]:
+                    if float(glitches[ig]["GLTD"]) > float(glitches[ig]["GLTD2"]):
                         glitches[ig]["GLF0D"], glitches[ig]["GLF0D2"] = glitches[ig]["GLF0D2"], glitches[ig]["GLF0D"]
                         glitches[ig]["GLTD"], glitches[ig]["GLTD2"] = glitches[ig]["GLTD2"], glitches[ig]["GLTD"]
                     if "GLTD3" in glitches[ig]: # Swap 1st and 3rd recoveries if the 1st longer than 3rd
-                        if glitches[ig]["GLTD"] > glitches[ig]["GLTD3"]:
+                        if float(glitches[ig]["GLTD"]) > float(glitches[ig]["GLTD3"]):
                             glitches[ig]["GLF0D"], glitches[ig]["GLF0D3"] = glitches[ig]["GLF0D3"], glitches[ig]["GLF0D"]
                             glitches[ig]["GLTD"], glitches[ig]["GLTD3"] = glitches[ig]["GLTD3"], glitches[ig]["GLTD"]
-                        if glitches[ig]["GLTD2"] > glitches[ig]["GLTD3"]:
+                        if float(glitches[ig]["GLTD2"]) > float(glitches[ig]["GLTD3"]): # Swap 2nd and 3rd recoveries if the 2nd longer than 3rd
                             glitches[ig]["GLF0D2"], glitches[ig]["GLF0D3"] = glitches[ig]["GLF0D3"], glitches[ig]["GLF0D2"]
                             glitches[ig]["GLTD2"], glitches[ig]["GLTD3"] = glitches[ig]["GLTD3"], glitches[ig]["GLTD2"]
         #outpar = par.split(".", 1)[0]+"_tdy."+par.split(".", 1)[1]
@@ -957,7 +957,7 @@ class Pulsar:
                 if line.startswith("GL"):
                     glnum = int(e[0].split("_")[-1])
                     if glnum not in largeglitch:
-                        if line.startswith("GLEP"):
+                        if line.startswith("GLEP") or line.startswith("GLTD"):
                             newline = e[0]+"   "+e[1]+"\n"
                         elif line.startswith("GLPH"):
                             newline = "#"+line
@@ -1001,7 +1001,7 @@ class Pulsar:
             f3.writelines(parlines)
         self.sumpar = self.tidy_par(self.sumpar)
         self.tim = self.split_tim()
-        self.MCMC_fit(par=self.sumpar, tim=self.tim, glitchnum=None, run=run, thread=thread) #, solver="emcee", redc=200)
+        self.MCMC_fit(par=self.sumpar, tim=self.tim, glitchnum=None, run=run, thread=thread)#, solver="emcee", redc=200)
         self.par = self.post_par(par=self.sumpar, tim=self.tim, glitchnum=None)
         self.load_info(new=False)
         self.delete_null()
