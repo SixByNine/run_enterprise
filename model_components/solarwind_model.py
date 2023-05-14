@@ -10,6 +10,9 @@ from enterprise.signals import selections
 from enterprise.signals import deterministic_signals
 from astropy.coordinates import Angle
 from astropy import units
+from astropy.coordinates import SkyCoord
+from astropy.coordinates import get_sun
+from astropy.time import Time
 from functools import partial
 
 name="Time Variable Solar wind"
@@ -26,19 +29,20 @@ def setup_argparse(parser):
     parser.add_argument('--sw-sigma-min', type=float, default=1e-3, help='Min solar wind')
 
 
-def fcos_full(x, phi, eclat_rad):
+def fcos_full(x, phi, eclat):
     # function to fit ctheta
-    return np.cos(eclat_rad) * np.cos(2*np.pi*x/365.25 - phi)
+    return np.cos(eclat) * np.cos(2*np.pi*x/365.25 - phi)
 
-def convert_to_elat(raj_rad, decj_rad):
-    # adapted from convertEcliptic function in tempo2 sw_model.C
 
-    deg2rad = np.pi/180
-    epsilon = 23.439292 * deg2rad
-    sinb = np.sin(decj_rad) * np.cos(epsilon) - np.cos(decj_rad) * np.sin(epsilon) * np.sin(raj_rad)
-    elat = np.arcsin(sinb)
+def solar_angle(coords_psr, mjd):
 
-    return elat
+    #RA Dec of the pulsar in format e.g.: 10h22m57.9992s +10d01m52.78s)                                                                                                                                            
+
+    t = Time(mjd, format='mjd')
+    sunpos = get_sun(t)
+    sep = sunpos.separation(coords_psr)
+
+    return sep   
 
 def setup_psr(psr):
 
@@ -46,16 +50,6 @@ def setup_psr(psr):
 
     t2psr = psr.t2pulsar
 
-    # get ELAT, i.e. the max approach angle to the sun
-    
-    if 'ELAT' in t2psr.pars():
-        
-        ELAT_rad = t2psr.vals()[t2psr.pars().index('ELAT')]
-
-    else:
-        RAJ_rad = t2psr.vals()[t2psr.pars().index('RAJ')]
-        DECJ_rad = t2psr.vals()[t2psr.pars().index('DECJ')]
-        ELAT_rad = convert_to_elat(RAJ_rad, DECJ_rad)
 
     rsa = -t2psr.sun_ssb[:, :3] + t2psr.earth_ssb[:, :3] + t2psr.observatory_earth[:, :3]
 
@@ -109,11 +103,31 @@ def setup_psr(psr):
 
     mjds = toas_mjds.astype(np.float64)
 
-    fcos = partial(fcos_full, eclat_rad=ELAT_rad)
+
+    # get ELAT, i.e. the max approach angle to the sun
+    
+    if 'RAJ' in t2psr.pars():
+        
+        coord_long = Angle(t2psr.vals()[t2psr.pars().index('RAJ')], unit=units.rad)
+        coord_lat = Angle(t2psr.vals()[t2psr.pars().index('DECJ')], unit=units.rad)
+        frame_psr = 'fk5'
+
+    else:
+        
+        coord_long = Angle(t2psr.vals()[t2psr.pars().index('ELONG')], unit=units.rad)
+        coord_lat = Angle(t2psr.vals()[t2psr.pars().index('ELAT')], unit=units.rad)
+        frame_psr = 'barycentrictrueecliptic'
+
+    coords_psr = SkyCoord(coord_long, coord_lat, frame=frame_psr)
+    elat = coords_psr.barycentrictrueecliptic.lat
+
+
+
+    fcos = partial(fcos_full, eclat=elat)
     popt, _ = scipy.optimize.curve_fit(fcos, mjds, ctheta, bounds=([0], [2*np.pi]))
     # phase = popt[0]
 
-    # find the first conjuction in the data at theta = pi-ELAT
+    # find the first APPROXIMATE conjuction in the data at theta = pi-ELAT
     Nfirstconj = int(mjds.min()/365.25 - 0.5 - (popt[0])/2/np.pi) + 1
     toa_solconj = 365.25 * (Nfirstconj + 0.5 + (popt[0])/2/np.pi)
 
@@ -124,10 +138,20 @@ def setup_psr(psr):
 
     conjunction_toas_mjds = np.concatenate((toa_solconj - np.arange(1, int(nlower) + 1) * day_per_year, [toa_solconj], toa_solconj + np.arange(1, int(nhigher) + 1) * day_per_year ))
     conjunction_toas_mjds.sort()
-
     nconj = len(conjunction_toas_mjds)
 
-    psr.sphconj_mjd = conjunction_toas_mjds.astype(np.float64)
+    # Now zoom in around these approximate conjunctions to find the conjunction MJD to 0.01 days:
+
+    real_conjunction_toas_mjds = np.zeros_like(conjunction_toas_mjds)
+
+    for i, c in enumerate(conjunction_toas_mjds):
+
+        close_t = np.linspace(c-10, c+10, num=2000)
+        close_ctheta = (-1) * np.cos(solar_angle(coords_psr, close_t))
+        real_conjunction_toas_mjds[i] = close_t[np.argmin(close_ctheta)] 
+
+
+    psr.sphconj_mjd = real_conjunction_toas_mjds.astype(np.float64)
 
 
 
@@ -144,10 +168,7 @@ def setup_model(args, psr, parfile):
         parfile.append("NE_SW_IFUNC 0 1\n")
 
         for conj_toa in psr.sphconj_mjd:
-            parfile.append("_NE_SW {:.4f}\n".format(conj_toa))
-
-
-        # TODO: Maybe we need to care about input solar wind parameter NE_SW?
+            parfile.append("_NE_SW {:.2f}\n".format(conj_toa))
 
         sw_model = solar_wind_basis_GP(priors=sw_priors(sw_sigma=sw_sigma))
 
