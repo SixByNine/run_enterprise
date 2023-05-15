@@ -16,6 +16,7 @@ import numpy.ma as ma
 import pandas as pd
 #from __future__ import print_function
 from uncertainties import ufloat
+from copy import deepcopy
 #from scipy.optimize import curve_fit
 #from scipy import linalg
 #from astropy import coordinates as coord
@@ -108,7 +109,7 @@ class Pulsar:
         self.redamp, self.redgam, self.redc = red
         self.ef_jbafb, self.ef_jbdfb, self.eq_jbafb, self.eq_jbdfb = white
         self.pglep, self.pglf0, self.pglf1, self.pglf2, self.pglf0ins, self.pglf1ins, self.pglf0tg = glitch
-        self.mglep, self.mglf0, self.mglf1, self.mglf2, self.mglf0ins, self.mglf1ins, self.mglf0tg = glitch
+        self.mglep, self.mglf0, self.mglf1, self.mglf2, self.mglf0ins, self.mglf1ins, self.mglf0tg = deepcopy(glitch)
         self.pglf0d, self.pgltd, self.pglf0d2, self.pgltd2, self.pglf0d3, self.pgltd3 = recovery
         self.mglf0d, self.mgltd, self.mglf0d2, self.mgltd2, self.mglf0d3, self.mgltd3 = recovery
         self.max_glitch, self.waittime, self.lifetime, self.spantime, self.taug, self.numofexp = summary
@@ -866,7 +867,7 @@ class Pulsar:
                             line = f.readline()
                             line = f.readline()
                             line = f.readline()
-                            while int(line.split()[1][-1]) != 5:
+                            while np.abs(float(line.split()[1])-self.pglep[glitchnum-1]) > 10:
                                 line = f.readline()
                             glep, glepstd = float(line.split()[1]), float(line.split()[2])
                             if max_like is True:
@@ -874,7 +875,7 @@ class Pulsar:
                                     line = f.readline()
                                 line = f.readline()
                                 line = f.readline()
-                                while int(line.split()[1][-1]) != 5:
+                                while np.abs(float(line.split()[1])-self.pglep[glitchnum-1]) > 10:
                                     line = f.readline()
                                 glep = float(line.split()[1])
                             if lnev > maxlnZ:
@@ -908,7 +909,7 @@ class Pulsar:
                                 line = f.readline()
                                 line = f.readline()
                                 line = f.readline()
-                                while int(line.split()[1][-1]) != 5:
+                                while np.abs(float(line.split()[1])-self.pglep[glitchnum-1]) > 10:
                                     line = f.readline()
                                 glep, glepstd = float(line.split()[1]), float(line.split()[2])
                                 if max_like is True:
@@ -916,7 +917,7 @@ class Pulsar:
                                         line = f.readline()
                                     line = f.readline()
                                     line = f.readline()
-                                    while int(line.split()[1][-1]) != 5:
+                                    while np.abs(float(line.split()[1])-self.pglep[glitchnum-1]) > 10:
                                         line = f.readline()
                                     glep = float(line.split()[1])
                                 if lnev > maxlnZ:
