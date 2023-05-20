@@ -591,9 +591,12 @@ class Pulsar:
             self.splittim = "chp_"+self.psrn+"_all.tim"
         else:
             self.splittim = "chp_"+self.psrn+"_"+str(startnum)+":"+str(endnum)+".tim"
+            copytim = "chp_"+self.psrn+"_"+str(glitchnum)+".tim"
+            with open(copytim,"w") as f2:
+                f2.writelines(timlines)
         print("Generating split tim {} for glitch {}".format(self.splittim, self.splittim.split(".")[-2].split("_")[-1]))
-        with open(self.splittim,"w") as f2:
-            f2.writelines(timlines)
+        with open(self.splittim,"w") as f3:
+            f3.writelines(timlines)
         if isinstance(glitchnum, int):
             self.toastart[startnum], self.toafinish[startnum], self.toacount[startnum], self.toaspan[startnum] = self.load_tim(self.splittim)[:4]
         return self.splittim
@@ -640,6 +643,8 @@ class Pulsar:
                 if any(line.startswith(ls) for ls in ["GLEP", "GLF0_", "GLF1_", "GLF2_", "GLF0("]):
                     if line.startswith("GLF2_{} ".format(str(glitchnum))):
                         GLF2=False
+                        if f2 == "n":
+                            continue
                     if small_glitches is True:
                         if line.startswith("GLF") and int(e[0].split("_")[-1]) in sml_gli:
                         # Turn on tempo2 fitting of these parameters for small glitches included in this range
@@ -1002,7 +1007,7 @@ class Pulsar:
             f3.writelines(parlines)
         self.sumpar = self.tidy_par(self.sumpar)
         self.tim = self.split_tim()
-        self.MCMC_fit(par=self.sumpar, tim=self.tim, glitchnum=None, run=run, thread=thread)#, solver="emcee", redc=200)
+        self.MCMC_fit(par=self.sumpar, tim=self.tim, glitchnum=None, run=run, thread=thread) #, solver="emcee", redc=200)
         self.par = self.post_par(par=self.sumpar, tim=self.tim, glitchnum=None)
         self.load_info(new=False)
         self.delete_null()
@@ -1026,6 +1031,7 @@ class Pulsar:
             value_idx = 1
         else:
             value_idx = 2
+        gln = res_file.split("_")[-1].split(".")[0][:-2]
         with open(res_file) as f:
             f.readline()
             for line in f:
@@ -1151,7 +1157,7 @@ class Pulsar:
                         results[e[0]] = float(e[value_idx])
                         results[e[0]+" std"] = float(e[3])
         if noise is False:
-            fittim = "chp_"+self.psrn+"_"+str(glnum)+".tim"
+            fittim = "chp_"+self.psrn+"_"+str(gln)+".tim"
             results["ToA start"], results["ToA finish"], results["ToA count"], results["ToA span"] = self.load_tim(fittim)[:4]
         return results
 
