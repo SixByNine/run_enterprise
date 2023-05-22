@@ -8,6 +8,9 @@ import argparse
 parser=argparse.ArgumentParser(description="Run 'enterprise' on a single pulsar")
 parser.add_argument('-n','--wavmax',type=int,default=100000)
 parser.add_argument('-D','--dm',action='store_true')
+parser.add_argument('--subpoly',action='store_true')
+parser.add_argument('--f0',type=float,default=None)
+parser.add_argument('--pepoch',type=float,default=None)
 parser.add_argument('-P','--plot',action='store_true')
 parser.add_argument('-s','--start',type=float,default=50000.0)
 parser.add_argument('-f','--finish',type=float,default=58000.0)
@@ -42,6 +45,7 @@ else:
 omega=meta[0]
 epoch=meta[1]
 
+polyidx=lab[1]=='param_f'
 
 wavmax=args.wavmax
 
@@ -111,6 +115,39 @@ else:
     cvm_y = M.dot(cvm_mod).dot(M.T)
     e=np.sqrt(np.diag(cvm_y))
 
+    model = np.zeros_like(y)
+
+    if args.subpoly:
+        f0 = args.f0
+        pepoch = args.pepoch
+        polybeta = beta[polyidx]
+        polycoef=np.array(lab[2,polyidx],dtype=int)
+        print(polybeta,polycoef)
+
+        for b,k in zip(polybeta,polycoef):
+            if k == 0:
+                val = f0 - f0*(1-b/f0)
+            else:
+                scale = 1
+                if k==2:
+                    scale= 1e9
+                elif k >2 and k<10:
+                    scale=1e18
+                elif k > 9:
+                    scale=1e23
+
+                val = f0 * b/(24*3600)**(k+1)/scale
+
+            print(polycoef,val)
+            model = val * (86400.0*(t-pepoch))**(k+1)
+            # divide by k factorial
+            for i in np.arange(k+1)[1:]:
+                model /= i
+
+            #plt.plot(t,model)
+            #plt.show()
+
+
     if args.ifunc:
         with open("cm.ifunc","w") as outf:
             outf.write("SIFUNC 2 0\n")
@@ -119,7 +156,7 @@ else:
     else:
         with open("cm.asc","w") as outf:
             for i in range(len(t)):
-                outf.write("{} {} {}\n".format(t[i],y[i],e[i]))
+                outf.write("{} {} {}\n".format(t[i],y[i]+model[i],e[i]))
 
 
 
