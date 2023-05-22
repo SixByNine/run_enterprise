@@ -1037,7 +1037,7 @@ class Pulsar:
             for line in f:
                 e=line.strip().rsplit(maxsplit=8)
                 if noise is False:
-                    if e[0].startswith("GL") or e[0].startswith("Q"):
+                    if (e[0].startswith("GL") or e[0].startswith("Q")) and gln == e[0].split("_")[-1]:
                         glnum = int(e[0].split("_")[-1])
                         glkey = e[0].split("_")[0]
                         if e[0].startswith("GLEP_"):
