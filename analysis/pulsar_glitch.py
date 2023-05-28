@@ -111,15 +111,18 @@ class Pulsar:
         self.pglep, self.pglf0, self.pglf1, self.pglf2, self.pglf0ins, self.pglf1ins, self.pglf0tg = glitch
         self.mglep, self.mglf0, self.mglf1, self.mglf2, self.mglf0ins, self.mglf1ins, self.mglf0tg = deepcopy(glitch)
         self.pglf0d, self.pgltd, self.pglf0d2, self.pgltd2, self.pglf0d3, self.pgltd3 = recovery
-        self.mglf0d, self.mgltd, self.mglf0d2, self.mgltd2, self.mglf0d3, self.mgltd3 = recovery
+        self.mglf0d, self.mgltd, self.mglf0d2, self.mgltd2, self.mglf0d3, self.mgltd3 = deepcopy(recovery)
         self.max_glitch, self.waittime, self.lifetime, self.spantime, self.taug, self.numofexp = summary
         self.minmjds, self.maxmjds, self.toanum, self.span, self.cadence, self.toaseries = self.load_tim(self.tim)
         if new is True:
             self.reset_error()
-            self.q1, self.q2, self.q3 = devide(self.mglf0d, self.mglf0ins), devide(self.mglf0d2, self.mglf0ins), devide(self.mglf0d3, self.mglf0ins)
+            self.q1, self.q2, self.q3 = devide(self.pglf0d, self.pglf0ins), devide(self.pglf0d2, self.pglf0ins), devide(self.pglf0d3, self.pglf0ins)
             self.q = self.q1 + self.q2 + self.q3
             self.toastart, self.toafinish = self.minmjds*np.ones(100), self.maxmjds*np.ones(100)
             self.toacount, self.toaspan = self.toanum*np.ones(100), self.span*np.ones(100)
+            self.gf1m, self.gf1p, self.dgf1b, self.dgf1a = np.zeros(100), np.zeros(100), np.zeros(100), np.zeros(100)
+            self.df1before, self.df1after = np.zeros(100), np.zeros(100)
+            self.f2bg, self.f2ag = np.zeros(100), np.zeros(100)
         self.fdnu, self.fdnudot = self.mglf0ins/self.F0, self.mglf1ins/self.F1
         self.A_g = np.sum(self.fdnu)/self.span
         self.E_dot, self.tau_c, self.B_sur, self.brake = self.calculate_derived()
@@ -1040,93 +1043,103 @@ class Pulsar:
                     if (e[0].startswith("GL") or e[0].startswith("Q")) and gln == e[0].split("_")[-1]:
                         glnum = int(e[0].split("_")[-1])
                         glkey = e[0].split("_")[0]
+                        i = glnum -1
                         if e[0].startswith("GLEP_"):
-                            self.mglep[glnum-1] = float(e[value_idx])
-                            self.mglepstd[glnum-1] = float(e[3])
-                            #self.c16glep[glnum-1], self.c50glep[glnum-1], self.c84glep[glnum-1] = float(e[5]), float(e[6]), float(e[7]) # add percentiles in the future
+                            self.mglep[i] = float(e[value_idx])
+                            self.mglepstd[i] = float(e[3])
+                            #self.c16glep[i], self.c50glep[i], self.c84glep[i] = float(e[5]), float(e[6]), float(e[7]) # add percentiles in the future
                         elif e[0].startswith("GLF0_"):
-                            self.mglf0[glnum-1] = float(e[value_idx])
-                            self.mglf0std[glnum-1] = float(e[3])
+                            self.mglf0[i] = float(e[value_idx])
+                            self.mglf0std[i] = float(e[3])
                         elif e[0].startswith("GLF1_"):
-                            self.mglf1[glnum-1] = float(e[value_idx])
-                            self.mglf1std[glnum-1] = float(e[3])
+                            self.mglf1[i] = float(e[value_idx])
+                            self.mglf1std[i] = float(e[3])
                         elif e[0].startswith("GLF2_"):
-                            self.mglf2[glnum-1] = float(e[value_idx])
-                            self.mglf2std[glnum-1] = float(e[3])
+                            self.mglf2[i] = float(e[value_idx])
+                            self.mglf2std[i] = float(e[3])
                         elif e[0].startswith("GLTD_"):
-                            self.mgltd[glnum-1] = float(e[value_idx])
-                            self.mgltdstd[glnum-1] = float(e[3])
+                            self.mgltd[i] = float(e[value_idx])
+                            self.mgltdstd[i] = float(e[3])
                         elif e[0].startswith("GLF0D_"):
-                            self.mglf0d[glnum-1] = float(e[value_idx])
-                            self.mglf0dstd[glnum-1] = float(e[3])
+                            self.mglf0d[i] = float(e[value_idx])
+                            self.mglf0dstd[i] = float(e[3])
                         elif e[0].startswith("GLTD2_"):
-                            self.mgltd2[glnum-1] = float(e[value_idx])
-                            self.mgltd2std[glnum-1] = float(e[3])
+                            self.mgltd2[i] = float(e[value_idx])
+                            self.mgltd2std[i] = float(e[3])
                         elif e[0].startswith("GLF0D2_"):
-                            self.mglf0d2[glnum-1] = float(e[value_idx])
-                            self.mglf0d2std[glnum-1] = float(e[3])
+                            self.mglf0d2[i] = float(e[value_idx])
+                            self.mglf0d2std[i] = float(e[3])
                         elif e[0].startswith("GLTD3_"):
-                            self.mgltd3[glnum-1] = float(e[value_idx])
-                            self.mgltd3std[glnum-1] = float(e[3])
+                            self.mgltd3[i] = float(e[value_idx])
+                            self.mgltd3std[i] = float(e[3])
                         elif e[0].startswith("GLF0D3_"):
-                            self.mglf0d3[glnum-1] = float(e[value_idx])
-                            self.mglf0d3std[glnum-1] = float(e[3])
+                            self.mglf0d3[i] = float(e[value_idx])
+                            self.mglf0d3std[i] = float(e[3])
                         elif e[0].startswith("Q_"):
-                            self.q[glnum-1] = float(e[value_idx])
-                            self.qstd[glnum-1] = float(e[3])
+                            results[glkey] = self.q[i]
+                            results[glkey+" std"] = self.qstd[i]
+                            continue
                         elif e[0].startswith("Q1_"):
-                            self.q1[glnum-1] = float(e[value_idx])
-                            self.q1std[glnum-1] = float(e[3])
+                            results[glkey] = self.q1[i]
+                            results[glkey+" std"] = self.q1std[i]
+                            continue
                         elif e[0].startswith("Q2_"):
-                            self.q2[glnum-1] = float(e[value_idx])
-                            self.q2std[glnum-1] = float(e[3])
+                            results[glkey] = self.q2[i]
+                            results[glkey+" std"] = self.q2std[i]
+                            continue
                         elif e[0].startswith("Q3_"):
-                            self.q3[glnum-1] = float(e[value_idx])
-                            self.q3std[glnum-1] = float(e[3])
+                            results[glkey] = self.q3[i]
+                            results[glkey+" std"] = self.q3std[i]
+                            continue
                         elif e[0].startswith("GLF0(instant)_"):
-                            self.mglf0ins[glnum-1] = float(e[value_idx])
-                            self.mglf0insstd[glnum-1] = float(e[3])
-                            deltanu = std_error(self.mglf0ins[glnum-1], self.mglf0insstd[glnum-1])
+                            self.mglf0ins[i] = float(e[value_idx])
+                            self.mglf0insstd[i] = float(e[3])
+                            deltanu = std_error(self.mglf0ins[i], self.mglf0insstd[i])
                             nu = std_error(self.F0, self.F0std)
                             deltanu_nu = deltanu/nu
-                            self.fdnu[glnum-1], self.fdnustd[glnum-1] = deltanu_nu.n, deltanu_nu.s
+                            self.fdnu[i], self.fdnustd[i] = deltanu_nu.n, deltanu_nu.s
                             results["Glitch magnitude"] = deltanu_nu.n
                             results["Glitch magnitude std"] = deltanu_nu.s
                         elif e[0].startswith("GLF1(instant)_"):
-                            self.mglf1ins[glnum-1] = float(e[value_idx])
-                            self.mglf1insstd[glnum-1] = float(e[3])
-                            deltanudot = std_error(self.mglf1ins[glnum-1], self.mglf1insstd[glnum-1])
+                            self.mglf1ins[i] = float(e[value_idx])
+                            self.mglf1insstd[i] = float(e[3])
+                            deltanudot = std_error(self.mglf1ins[i], self.mglf1insstd[i])
                             nudot = std_error(self.F1, self.F1std)
                             deltanudot_nudot = deltanudot/nudot
-                            self.fdnudot[glnum-1], self.fdnudotstd[glnum-1] = deltanudot_nudot.n, deltanudot_nudot.s
+                            self.fdnudot[i], self.fdnudotstd[i] = deltanudot_nudot.n, deltanudot_nudot.s
                             results["Spindown magnitude"] = deltanudot_nudot.n
                             results["Spindown magnitude std"] = deltanudot_nudot.s
                         elif e[0].startswith("GLF0(T="):
-                            self.mglf0tg[glnum-1] = float(e[value_idx])
-                            self.mglf0tgstd[glnum-1] = float(e[3])
+                            self.mglf0tg[i] = float(e[value_idx])
+                            self.mglf0tgstd[i] = float(e[3])
                             results["Tau_g"] = int(e[0].split("=")[1].split(")")[0])
                             glkey = "GLF0(T=tau_g)"
                         if glnum > 1:
-                            glep1 = std_error(self.mglep[glnum-1], self.mglepstd[glnum-1])
-                            glep2 = std_error(self.mglep[glnum-2], self.mglepstd[glnum-2])
-                            delta_glep = glep1 - glep2
-                            self.waittime[glnum-1] = delta_glep.n
-                            results["Waiting time"] = delta_glep.n
-                            results["Waiting time std"] = delta_glep.s
+                            delta_glep = self.pglep[i] - self.pglep[i-1]
+                            self.waittime[i] = delta_glep
+                            results["Waiting time"] = delta_glep
+                            deltanub = (self.F2+np.sum(self.pglf2[:i]))*delta_glep*86400
+                            deltanub += (1-np.exp(-delta_glep/self.pgltd[i-1]))*self.pglf0d[i-1]/self.pgltd[i-1]/86400
+                            deltanub += (1-np.exp(-delta_glep/self.pgltd2[i-1]))*self.pglf0d2[i-1]/self.pgltd2[i-1]/86400
+                            deltanub += (1-np.exp(-delta_glep/self.pgltd3[i-1]))*self.pglf0d3[i-1]/self.pgltd3[i-1]/86400
+                            self.df1before[i], self.f2bg[i] = deltanub, deltanub/delta_glep/86400
+                            results["dF1 before"] = deltanub
+                            results["F2 before glitch"] = deltanub/delta_glep/86400
                         if glnum < self.max_glitch:
-                            glep1 = std_error(self.mglep[glnum], self.mglepstd[glnum])
-                            glep2 = std_error(self.mglep[glnum-1], self.mglepstd[glnum-1])
-                            delta_glep = glep1 - glep2
-                            self.lifetime[glnum-1] = delta_glep.n
-                            results["Living time"] = delta_glep.n
-                            results["Living time std"] = delta_glep.s
+                            delta_glep = self.pglep[i+1] - self.pglep[i]
+                            self.lifetime[i] = delta_glep
+                            results["Living time"] = delta_glep
+                            deltanua = (self.F2+np.sum(self.pglf2[:i+1]))*delta_glep*86400
+                            deltanua += (1-np.exp(-delta_glep/self.pgltd[i]))*self.pglf0d[i]/self.pgltd[i]/86400
+                            deltanua += (1-np.exp(-delta_glep/self.pgltd2[i]))*self.pglf0d2[i]/self.pgltd2[i]/86400
+                            deltanua += (1-np.exp(-delta_glep/self.pgltd3[i]))*self.pglf0d3[i]/self.pgltd3[i]/86400
+                            self.df1after[i], self.f2ag[i] = deltanua, deltanua/delta_glep/86400
+                            results["dF1 after"] = deltanua
+                            results["F2 after glitch"] = deltanua/delta_glep/86400
                         if 1<glnum<self.max_glitch:
-                            glep1 = std_error(self.mglep[glnum], self.mglepstd[glnum])
-                            glep2 = std_error(self.mglep[glnum-2], self.mglepstd[glnum-2])
-                            delta_glep = (glep1 - glep2)/2.
-                            self.spantime[glnum-1] = delta_glep.n
-                            results["Spanning time"] = delta_glep.n
-                            results["Spanning time std"] = delta_glep.s
+                            delta_glep = (self.pglep[i+1] - self.pglep[i-1])/2.
+                            self.spantime[i] = delta_glep
+                            results["Spanning time"] = delta_glep
                         glkeystd = glkey + " std"
                         results[glkey] = float(e[value_idx])
                         results[glkeystd] = float(e[3])
@@ -1185,106 +1198,115 @@ class Pulsar:
                         if e[0].startswith("GLF2_"):
                             self.mglf2[glnum-1] = float(e[1])
                             self.mglf2std[glnum-1] = std
-        for glitchnum in range(self.max_glitch):
-            if glitchnum+1 not in largeglitch:
-                self.gli_slt[str(glitchnum+1)] = {}
-                self.gli_slt[str(glitchnum+1)]["ToA start"] = self.toastart[glitchnum]
-                self.gli_slt[str(glitchnum+1)]["ToA finish"] = self.toafinish[glitchnum]
-                self.gli_slt[str(glitchnum+1)]["ToA count"] = self.toacount[glitchnum]
-                self.gli_slt[str(glitchnum+1)]["ToA span"] = self.toaspan[glitchnum]
-                self.gli_slt[str(glitchnum+1)]["GLEP"] = self.mglep[glitchnum]
-                self.gli_slt[str(glitchnum+1)]["GLEP std"] = self.mglepstd[glitchnum]
-                self.gli_slt[str(glitchnum+1)]["GLF0"] = self.mglf0[glitchnum]
-                self.gli_slt[str(glitchnum+1)]["GLF0 std"] = self.mglf0std[glitchnum]
-                self.gli_slt[str(glitchnum+1)]["GLF1"] = self.mglf1[glitchnum]
-                self.gli_slt[str(glitchnum+1)]["GLF1 std"] = self.mglf1std[glitchnum]
-                self.gli_slt[str(glitchnum+1)]["GLF2"] = self.mglf2[glitchnum]
-                self.gli_slt[str(glitchnum+1)]["GLF2 std"] = self.mglf2std[glitchnum]
-                glf0 = std_error(self.mglf0[glitchnum], self.mglf0std[glitchnum])
-                glf1 = std_error(self.mglf1[glitchnum], self.mglf1std[glitchnum])
-                glf2 = std_error(self.mglf2[glitchnum], self.mglf2std[glitchnum])
+        for i in range(self.max_glitch):
+            if i+1 not in largeglitch:
+                self.gli_slt[str(i+1)] = {}
+                self.gli_slt[str(i+1)]["ToA start"] = self.toastart[i]
+                self.gli_slt[str(i+1)]["ToA finish"] = self.toafinish[i]
+                self.gli_slt[str(i+1)]["ToA count"] = self.toacount[i]
+                self.gli_slt[str(i+1)]["ToA span"] = self.toaspan[i]
+                self.gli_slt[str(i+1)]["GLEP"] = self.mglep[i]
+                self.gli_slt[str(i+1)]["GLEP std"] = self.mglepstd[i]
+                self.gli_slt[str(i+1)]["GLF0"] = self.mglf0[i]
+                self.gli_slt[str(i+1)]["GLF0 std"] = self.mglf0std[i]
+                self.gli_slt[str(i+1)]["GLF1"] = self.mglf1[i]
+                self.gli_slt[str(i+1)]["GLF1 std"] = self.mglf1std[i]
+                self.gli_slt[str(i+1)]["GLF2"] = self.mglf2[i]
+                self.gli_slt[str(i+1)]["GLF2 std"] = self.mglf2std[i]
+                glf0 = std_error(self.mglf0[i], self.mglf0std[i])
+                glf1 = std_error(self.mglf1[i], self.mglf1std[i])
+                glf2 = std_error(self.mglf2[i], self.mglf2std[i])
                 glf0ins = glf0
                 glf1ins = glf1
-                glf0tg = glf1 * self.taug[glitchnum] + 0.5 * glf2 * self.taug[glitchnum]**2
+                glf0tg = glf1 * self.taug[i] + 0.5 * glf2 * self.taug[i]**2
                 q, q1, q2, q3 = np.nan, np.nan, np.nan, np.nan
-                self.gli_slt[str(glitchnum+1)]["Q"] = q
-                self.gli_slt[str(glitchnum+1)]["Q std"] = np.nan
-                self.gli_slt[str(glitchnum+1)]["Q1"] = q1
-                self.gli_slt[str(glitchnum+1)]["Q1 std"] = np.nan
-                self.gli_slt[str(glitchnum+1)]["Q2"] = q2
-                self.gli_slt[str(glitchnum+1)]["Q2 std"] = np.nan
-                self.gli_slt[str(glitchnum+1)]["Q3"] = q3
-                self.gli_slt[str(glitchnum+1)]["Q3 std"] = np.nan              
-                if self.mglf0d[glitchnum] != 0:
-                    glf0d = std_error(self.mglf0d[glitchnum], self.mglf0dstd[glitchnum])
-                    gltd = std_error(self.mgltd[glitchnum], self.mgltdstd[glitchnum])
+                self.gli_slt[str(i+1)]["Q"] = q
+                self.gli_slt[str(i+1)]["Q std"] = np.nan
+                self.gli_slt[str(i+1)]["Q1"] = q1
+                self.gli_slt[str(i+1)]["Q1 std"] = np.nan
+                self.gli_slt[str(i+1)]["Q2"] = q2
+                self.gli_slt[str(i+1)]["Q2 std"] = np.nan
+                self.gli_slt[str(i+1)]["Q3"] = q3
+                self.gli_slt[str(i+1)]["Q3 std"] = np.nan              
+                if self.mglf0d[i] != 0:
+                    glf0d = std_error(self.mglf0d[i], self.mglf0dstd[i])
+                    gltd = std_error(self.mgltd[i], self.mgltdstd[i])
                     glf0ins += glf0d
                     glf1ins -= glf0d/(86400*gltd)                    
-                    glf0tg += glf0d*(np.exp(-self.taug[glitchnum]/self.mgltd[glitchnum])-1)
-                if self.mglf0d2[glitchnum] != 0:
-                    glf0d2 = std_error(self.mglf0d2[glitchnum], self.mglf0d2std[glitchnum])
-                    gltd2 = std_error(self.mgltd2[glitchnum], self.mgltd2std[glitchnum])
+                    glf0tg += glf0d*(np.exp(-self.taug[i]/self.mgltd[i])-1)
+                    self.gli_slt[str(i+1)]["GLF0D"] = self.mglf0d[i]
+                    self.gli_slt[str(i+1)]["GLF0D std"] = self.mglf0dstd[i]
+                if self.mglf0d2[i] != 0:
+                    glf0d2 = std_error(self.mglf0d2[i], self.mglf0d2std[i])
+                    gltd2 = std_error(self.mgltd2[i], self.mgltd2std[i])
                     glf0ins += glf0d2
                     glf1ins -= glf0d2/(86400*gltd2)
-                    glf0tg += glf0d2*(np.exp(-self.taug[glitchnum]/self.mgltd2[glitchnum])-1)
-                if self.mglf0d3[glitchnum] != 0:
-                    glf0d3 = std_error(self.mglf0d3[glitchnum], self.mglf0d3std[glitchnum])
-                    gltd3 = std_error(self.mgltd3[glitchnum], self.mgltd3std[glitchnum])
+                    glf0tg += glf0d2*(np.exp(-self.taug[i]/self.mgltd2[i])-1)
+                    self.gli_slt[str(i+1)]["GLF0D2"] = self.mglf0d2[i]
+                    self.gli_slt[str(i+1)]["GLF0D2 std"] = self.mglf0d2std[i]
+                if self.mglf0d3[i] != 0:
+                    glf0d3 = std_error(self.mglf0d3[i], self.mglf0d3std[i])
+                    gltd3 = std_error(self.mgltd3[i], self.mgltd3std[i])
                     glf0ins += glf0d3
                     glf1ins -= glf0d3/(86400*gltd3)
-                    glf0tg += glf0d3*(np.exp(-self.taug[glitchnum]/self.mgltd3[glitchnum])-1)
-                if self.mglf0d[glitchnum] != 0:
+                    glf0tg += glf0d3*(np.exp(-self.taug[i]/self.mgltd3[i])-1)
+                    self.gli_slt[str(i+1)]["GLF0D3"] = self.mglf0d3[i]
+                    self.gli_slt[str(i+1)]["GLF0D3 std"] = self.mglf0d3std[i]
+                if self.mglf0d[i] != 0:
                     q1 = glf0d/glf0ins
-                    self.gli_slt[str(glitchnum+1)]["Q1"] = q1.n
-                    self.gli_slt[str(glitchnum+1)]["Q1 std"] = q1.s
-                    if self.mglf0d2[glitchnum] != 0:
+                    self.gli_slt[str(i+1)]["Q1"] = q1.n
+                    self.gli_slt[str(i+1)]["Q1 std"] = q1.s
+                    if self.mglf0d2[i] != 0:
                         q2 = glf0d2/glf0ins
-                        self.gli_slt[str(glitchnum+1)]["Q2"] = q2.n
-                        self.gli_slt[str(glitchnum+1)]["Q2 std"] = q2.s
-                        if self.mglf0d3[glitchnum] != 0:
+                        self.gli_slt[str(i+1)]["Q2"] = q2.n
+                        self.gli_slt[str(i+1)]["Q2 std"] = q2.s
+                        if self.mglf0d3[i] != 0:
                             q3 = glf0d3/glf0ins
-                            self.gli_slt[str(glitchnum+1)]["Q3"] = q3.n
-                            self.gli_slt[str(glitchnum+1)]["Q3 std"] = q3.s
+                            self.gli_slt[str(i+1)]["Q3"] = q3.n
+                            self.gli_slt[str(i+1)]["Q3 std"] = q3.s
                     q = q1 + q2 + q3
-                    self.gli_slt[str(glitchnum+1)]["Q"] = q.n
-                    self.gli_slt[str(glitchnum+1)]["Q std"] = q.s
+                    self.gli_slt[str(i+1)]["Q"] = q.n
+                    self.gli_slt[str(i+1)]["Q std"] = q.s
                 deltanu_nu = glf0ins/std_error(self.F0, self.F0std)
                 deltanudot_nudot = glf1ins/std_error(self.F1, self.F1std)
-                self.gli_slt[str(glitchnum+1)]["GLF0(instant)"] = glf0ins.n
-                self.gli_slt[str(glitchnum+1)]["GLF0(instant) std"] = glf0ins.s
-                self.gli_slt[str(glitchnum+1)]["GLF1(instant)"] = glf1ins.n
-                self.gli_slt[str(glitchnum+1)]["GLF1(instant) std"] = glf1ins.s
-                self.gli_slt[str(glitchnum+1)]["GLF0(T=tau_g)"] = glf0tg.n
-                self.gli_slt[str(glitchnum+1)]["GLF0(T=tau_g) std"] = glf0tg.s
-                self.gli_slt[str(glitchnum+1)]["Tau_g"] = self.taug[glitchnum]
-                self.gli_slt[str(glitchnum+1)]["Glitch magnitude"] = deltanu_nu.n
-                self.gli_slt[str(glitchnum+1)]["Glitch magnitude std"] = deltanu_nu.s
-                self.gli_slt[str(glitchnum+1)]["Spindown magnitude"] = deltanudot_nudot.n
-                self.gli_slt[str(glitchnum+1)]["Spindown magnitude std"] = deltanudot_nudot.s
-                if glitchnum > 0:
-                    glep1 = std_error(self.mglep[glitchnum], self.mglepstd[glitchnum])
-                    glep2 = std_error(self.mglep[glitchnum-1], self.mglepstd[glitchnum-1])
-                    delta_glep = glep1 - glep2
-                    self.waittime[glitchnum] = self.mglep[glitchnum] - self.mglep[glitchnum-1]
-                    self.gli_slt[str(glitchnum+1)]["Waiting time"] = delta_glep.n
-                    self.gli_slt[str(glitchnum+1)]["Waiting time std"] = delta_glep.s
-                if glitchnum < self.max_glitch-1:
-                    glep1 = std_error(self.mglep[glitchnum+1], self.mglepstd[glitchnum+1])
-                    glep2 = std_error(self.mglep[glitchnum], self.mglepstd[glitchnum])
-                    delta_glep = glep1 - glep2
-                    self.lifetime[glitchnum] = self.mglep[glitchnum+1] - self.mglep[glitchnum]
-                    self.gli_slt[str(glitchnum+1)]["Living time"] = delta_glep.n
-                    self.gli_slt[str(glitchnum+1)]["Living time std"] = delta_glep.s
-                if 0<glitchnum<self.max_glitch-1:
-                    glep1 = std_error(self.mglep[glitchnum+1], self.mglepstd[glitchnum+1])
-                    glep2 = std_error(self.mglep[glitchnum-1], self.mglepstd[glitchnum-1])
-                    delta_glep = (glep1 - glep2)/2.
-                    self.spantime[glitchnum] = (self.mglep[glitchnum+1] - self.mglep[glitchnum-1])/2.
-                    self.gli_slt[str(glitchnum+1)]["Spanning time"] = delta_glep.n
-                    self.gli_slt[str(glitchnum+1)]["Spanning time std"] = delta_glep.s
-        for glitchnum in range(self.max_glitch):
-            if glitchnum+1 not in largeglitch:
-                print("<<< The solution for glitch {} is {} >>>".format(glitchnum+1, self.gli_slt[str(glitchnum+1)]))
+                self.gli_slt[str(i+1)]["GLF0(instant)"] = glf0ins.n
+                self.gli_slt[str(i+1)]["GLF0(instant) std"] = glf0ins.s
+                self.gli_slt[str(i+1)]["GLF1(instant)"] = glf1ins.n
+                self.gli_slt[str(i+1)]["GLF1(instant) std"] = glf1ins.s
+                self.gli_slt[str(i+1)]["GLF0(T=tau_g)"] = glf0tg.n
+                self.gli_slt[str(i+1)]["GLF0(T=tau_g) std"] = glf0tg.s
+                self.gli_slt[str(i+1)]["Tau_g"] = self.taug[i]
+                self.gli_slt[str(i+1)]["Glitch magnitude"] = deltanu_nu.n
+                self.gli_slt[str(i+1)]["Glitch magnitude std"] = deltanu_nu.s
+                self.gli_slt[str(i+1)]["Spindown magnitude"] = deltanudot_nudot.n
+                self.gli_slt[str(i+1)]["Spindown magnitude std"] = deltanudot_nudot.s
+                if i > 0:
+                    delta_glep = self.pglep[i] - self.pglep[i-1]
+                    self.waittime[i] = delta_glep
+                    self.gli_slt[str(i+1)]["Waiting time"] = delta_glep
+                    deltanub = (self.F2+np.sum(self.pglf2[:i]))*delta_glep*86400
+                    deltanub += (1-np.exp(-delta_glep/self.pgltd[i-1]))*self.pglf0d[i-1]/self.pgltd[i-1]/86400
+                    deltanub += (1-np.exp(-delta_glep/self.pgltd2[i-1]))*self.pglf0d2[i-1]/self.pgltd2[i-1]/86400
+                    deltanub += (1-np.exp(-delta_glep/self.pgltd3[i-1]))*self.pglf0d3[i-1]/self.pgltd3[i-1]/86400
+                    self.df1before[i], self.f2bg[i] = deltanub, deltanub/delta_glep/86400
+                    self.gli_slt[str(i+1)]["dF1 before"] = deltanub
+                    self.gli_slt[str(i+1)]["F2 before glitch"] = deltanub/delta_glep/86400
+                if i < self.max_glitch-1:
+                    delta_glep = self.pglep[i+1] - self.pglep[i]
+                    self.lifetime[i] = delta_glep
+                    self.gli_slt[str(i+1)]["Living time"] = delta_glep
+                    deltanua = (self.F2+np.sum(self.pglf2[:i+1]))*delta_glep*86400
+                    deltanua += (1-np.exp(-delta_glep/self.pgltd[i]))*self.pglf0d[i]/self.pgltd[i]/86400
+                    deltanua += (1-np.exp(-delta_glep/self.pgltd2[i]))*self.pglf0d2[i]/self.pgltd2[i]/86400
+                    deltanua += (1-np.exp(-delta_glep/self.pgltd3[i]))*self.pglf0d3[i]/self.pgltd3[i]/86400
+                    self.df1after[i], self.f2ag[i] = deltanua, deltanua/delta_glep/86400
+                    self.gli_slt[str(i+1)]["dF1 after"] = deltanua
+                    self.gli_slt[str(i+1)]["F2 after glitch"] = deltanua/delta_glep/86400
+                if 0 < i < self.max_glitch-1:
+                    delta_glep = (self.pglep[i+1] - self.pglep[i-1])/2.
+                    self.spantime[i] = delta_glep
+                    self.gli_slt[str(i+1)]["Spanning time"] = delta_glep
+                print("<<< The solution for glitch {} is {} >>>".format(i+1, self.gli_slt[str(i+1)]))
         self.A_g = np.sum(self.fdnu)/self.span
         print("The glitch activity for pulsar {} is {}".format(self.psrn, self.A_g))
 
@@ -1340,13 +1362,15 @@ class Pulsar:
         toa_idx = ["ToA start", "ToA finish", "ToA count", "ToA span"]
         glitch_idx = ["GLEP", "GLEP std", "GLF0", "GLF0 std", "GLF1", "GLF1 std", "GLF2", "GLF2 std"]
         alter_idx = ["GLF0(instant)", "GLF0(instant) std", "GLF1(instant)", "GLF1(instant) std", "GLF0(T=tau_g)", "GLF0(T=tau_g) std", "Tau_g", "Waiting time", "Living time", "Spanning time"]
+        dnudot_idx = ["dF1 before", "dF1 after", "F2 before glitch", "F2 after glitch"]
+        data_idx = ["f1 minus", "f1 plus", "dgf1 before", "dgf1 after"]
         recovery_idx = ["GLF0D", "GLF0D std", "GLTD", "GLTD std", "GLF0D2", "GLF0D2 std", "GLTD2", "GLTD2 std", "GLF0D3", "GLF0D3 std", "GLTD3", "GLTD3 std"]
         ratio_idx = ["Q", "Q std", "Q1", "Q1 std", "Q2", "Q2 std", "Q3", "Q3 std"]
         magnitude_idx = ["Glitch magnitude", "Glitch magnitude std", "Spindown magnitude", "Spindown magnitude std"]
         red_idx = ["TNRedAmp", "TNRedAmp std", "TNRedGam", "TNRedGam std"]
         white_idx = ["TNEF -be jbafb", "TNEF -be jbafb std", "TNEF -be jbdfb", "TNEF -be jbdfb std", "TNEQ -be jbafb", "TNEQ -be jbafb std", "TNEQ -be jbdfb", "TNEQ -be jbdfb std"]
         sum_idx = spin_idx + period_idx + plot_idx + observe_idx + derived_idx + toa_idx + glitch_idx + alter_idx
-        sum_idx += recovery_idx + ratio_idx + magnitude_idx + red_idx #+ white_idx
+        sum_idx += dnudot_idx + data_idx + recovery_idx + ratio_idx + magnitude_idx + red_idx #+ white_idx
         #unit = np.full(len(sum_idx), None)
         #unit[19:22] = ["erg/s", "kyr", "1e12G"]
         #col_id = pd.MultiIndex.from_tuples([(i, j) for i, j in zip(sum_idx, unit)], names=["Parameters", "Units"])
@@ -1874,6 +1898,16 @@ class Pulsar:
         print("###")
         pp_pepoch = self.pp_pepoch
         self.E_dot, self.tau_c, self.B_sur, self.brake = self.calculate_derived(epoch=pp_pepoch, t=t, deltanu=deltanu, nudot=nudot, nuddot=nuddot)
+        for i, glep in enumerate(self.pglep):
+            idminus, idplus = bisect.bisect_left(t, glep)-2, bisect.bisect_left(t, glep)+1
+            self.gf1m[i], self.gf1p[i] = 1e-15*nudot[idminus], 1e-15*nudot[idplus]
+            self.gli_slt[str(i+1)]["f1 minus"] = 1e-15*nudot[idminus]
+            self.gli_slt[str(i+1)]["f1 plus"] = 1e-15*nudot[idplus]
+            if i > 0:
+                self.dgf1b[i] = self.gf1m[i] - self.gf1p[i-1]
+                self.gli_slt[str(i+1)]["dgf1 before"] = self.gf1m[i] - self.gf1p[i-1]
+                self.dgf1a[i-1] = self.gf1m[i] - self.gf1p[i-1]
+                self.gli_slt[str(i)]["dgf1 after"] = self.gf1m[i] - self.gf1p[i-1]
         return x
 
     # def measure_prior
