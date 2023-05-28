@@ -216,6 +216,8 @@ if not args.plot_t2 is None:
 if logA!=0 and gamma!=0:
     tnModel_psd = cholspec.PSD(f2/365.25, fc_yr, logA, gamma)
     plt.loglog(f2,tnModel_psd,color='red',label='TN')
+    if args.savetxt:
+        np.savetxt("tnmodel.txt", [f2, tnModel_psd])
 
 if args.t2model:
     for fn in t2funcs:

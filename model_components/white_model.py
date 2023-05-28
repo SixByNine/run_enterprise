@@ -17,6 +17,10 @@ def setup_argparse(parser):
     parser.add_argument('--equad-max', type=float, default=None, help='Max for equad prior (default based on median error)')
     parser.add_argument('--equad-min', type=float, default=None, help='Min for equad prior (default based on median error)')
     parser.add_argument('--ngecorr', action='store_true', help='Add ECORR for the nanograv backends')
+    parser.add_argument('--ecorr', action='store_true', help='Add ECORR for all')
+
+    parser.add_argument('--ecorr-max', type=float, default=-5, help='Max for ecorr prior')
+    parser.add_argument('--ecorr-min', type=float, default=-9, help='Min for ecorr prior')
 
 
 def setup_model(args, psr, parfile):
@@ -41,7 +45,7 @@ def setup_model(args, psr, parfile):
         if "ecorr" in p:
             flag=p.split('_',1)[1]
             flag=flag[:-12]
-            return "TNECORR -be %s"%(flag), np.pow(10,chain)*1e6 # Convert log-seconds to microseconds
+            return "TNECORR -be %s"%(flag), np.power(10,chain)*1e6 # Convert log-seconds to microseconds
         else:
             return None
     s = selection(psr)
@@ -70,9 +74,21 @@ def setup_model(args, psr, parfile):
         model = ef
 
 
+    if args.ecorr:
+        if args.white_prior_log:
+            ecorr = parameter.Uniform(args.ecorr_min, args.ecorr_max,to_par=to_par)
+        else:
+            ecorr = parameter.LinearExp(args.ecorr_min,args.ecorr_max,to_par=to_par)
+        ec = white_signals.EcorrKernelNoise(log10_ecorr=ecorr, selection=selection)
+        model += ec
+
+
     if args.ngecorr:
         ngselection = selections.Selection(selections.nanograv_backends)
-        ecorr = parameter.LinearExp(-9,-5)
+        if args.white_prior_log:
+            ecorr = parameter.Uniform(-9,-5,to_par=to_par)
+        else:
+            ecorr = parameter.LinearExp(-9,-5,to_par=to_par)
         ec = white_signals.EcorrKernelNoise(log10_ecorr=ecorr, selection=ngselection)
         model += ec
 
