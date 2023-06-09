@@ -123,6 +123,8 @@ class Pulsar:
             self.gf1m, self.gf1p, self.dgf1b, self.dgf1a = np.zeros(100), np.zeros(100), np.zeros(100), np.zeros(100)
             self.df1before, self.df1after = np.zeros(100), np.zeros(100)
             self.f2bg, self.f2ag = np.zeros(100), np.zeros(100)
+            self.df1b, self.df1a = np.zeros(100), np.zeros(100)
+            self.f2b, self.f2a = np.zeros(100), np.zeros(100)
         self.fdnu, self.fdnudot = self.mglf0ins/self.F0, self.mglf1ins/self.F1
         self.A_g = np.sum(self.fdnu)/self.span
         self.E_dot, self.tau_c, self.B_sur, self.brake = self.calculate_derived()
@@ -1114,6 +1116,11 @@ class Pulsar:
                             self.mglf0tgstd[i] = float(e[3])
                             results["Tau_g"] = int(e[0].split("=")[1].split(")")[0])
                             glkey = "GLF0(T=tau_g)"
+                        if 0 < glnum <= self.max_glitch:
+                            dnub = self.F2+np.sum(self.pglf2[:i])
+                            dnua = self.F2+np.sum(self.pglf2[:i+1])
+                            self.f2b[i], self.f2a[i] = dnub, dnua
+                            results["F2before"], results["F2after"] = dnub, dnua
                         if glnum > 1:
                             delta_glep = self.pglep[i] - self.pglep[i-1]
                             self.waittime[i] = delta_glep
@@ -1125,6 +1132,8 @@ class Pulsar:
                             self.df1before[i], self.f2bg[i] = deltanub, deltanub/delta_glep/86400
                             results["dF1 before"] = deltanub
                             results["F2 before glitch"] = deltanub/delta_glep/86400
+                            self.df1b[i] = dnub*delta_glep*86400
+                            results["dF1b"] = dnub*delta_glep*86400
                         if glnum < self.max_glitch:
                             delta_glep = self.pglep[i+1] - self.pglep[i]
                             self.lifetime[i] = delta_glep
@@ -1136,6 +1145,8 @@ class Pulsar:
                             self.df1after[i], self.f2ag[i] = deltanua, deltanua/delta_glep/86400
                             results["dF1 after"] = deltanua
                             results["F2 after glitch"] = deltanua/delta_glep/86400
+                            self.df1a[i] = dnua*delta_glep*86400
+                            results["dF1a"] = dnua*delta_glep*86400
                         if 1<glnum<self.max_glitch:
                             delta_glep = (self.pglep[i+1] - self.pglep[i-1])/2.
                             self.spantime[i] = delta_glep
@@ -1280,6 +1291,11 @@ class Pulsar:
                 self.gli_slt[str(i+1)]["Glitch magnitude std"] = deltanu_nu.s
                 self.gli_slt[str(i+1)]["Spindown magnitude"] = deltanudot_nudot.n
                 self.gli_slt[str(i+1)]["Spindown magnitude std"] = deltanudot_nudot.s
+                if 0 <= i < self.max_glitch:
+                    dnub = self.F2+np.sum(self.pglf2[:i])
+                    dnua = self.F2+np.sum(self.pglf2[:i+1])
+                    self.f2b[i], self.f2a[i] = dnub, dnua
+                    self.gli_slt[str(i+1)]["F2before"], self.gli_slt[str(i+1)]["F2after"] = dnub, dnua
                 if i > 0:
                     delta_glep = self.pglep[i] - self.pglep[i-1]
                     self.waittime[i] = delta_glep
@@ -1291,6 +1307,8 @@ class Pulsar:
                     self.df1before[i], self.f2bg[i] = deltanub, deltanub/delta_glep/86400
                     self.gli_slt[str(i+1)]["dF1 before"] = deltanub
                     self.gli_slt[str(i+1)]["F2 before glitch"] = deltanub/delta_glep/86400
+                    self.df1b[i] = dnub*delta_glep*86400
+                    self.gli_slt[str(i+1)]["dF1b"] = dnub*delta_glep*86400
                 if i < self.max_glitch-1:
                     delta_glep = self.pglep[i+1] - self.pglep[i]
                     self.lifetime[i] = delta_glep
@@ -1302,6 +1320,8 @@ class Pulsar:
                     self.df1after[i], self.f2ag[i] = deltanua, deltanua/delta_glep/86400
                     self.gli_slt[str(i+1)]["dF1 after"] = deltanua
                     self.gli_slt[str(i+1)]["F2 after glitch"] = deltanua/delta_glep/86400
+                    self.df1a[i] = dnua*delta_glep*86400
+                    self.gli_slt[str(i+1)]["dF1a"] = dnua*delta_glep*86400
                 if 0 < i < self.max_glitch-1:
                     delta_glep = (self.pglep[i+1] - self.pglep[i-1])/2.
                     self.spantime[i] = delta_glep
@@ -1362,7 +1382,7 @@ class Pulsar:
         toa_idx = ["ToA start", "ToA finish", "ToA count", "ToA span"]
         glitch_idx = ["GLEP", "GLEP std", "GLF0", "GLF0 std", "GLF1", "GLF1 std", "GLF2", "GLF2 std"]
         alter_idx = ["GLF0(instant)", "GLF0(instant) std", "GLF1(instant)", "GLF1(instant) std", "GLF0(T=tau_g)", "GLF0(T=tau_g) std", "Tau_g", "Waiting time", "Living time", "Spanning time"]
-        dnudot_idx = ["dF1 before", "dF1 after", "F2 before glitch", "F2 after glitch"]
+        dnudot_idx = ["dF1 before", "dF1 after", "F2 before glitch", "F2 after glitch", "dF1b", "dF1a", "F2before", "F2after"]
         data_idx = ["f1 minus", "f1 plus", "dgf1 before", "dgf1 after"]
         recovery_idx = ["GLF0D", "GLF0D std", "GLTD", "GLTD std", "GLF0D2", "GLF0D2 std", "GLTD2", "GLTD2 std", "GLF0D3", "GLF0D3 std", "GLTD3", "GLTD3 std"]
         ratio_idx = ["Q", "Q std", "Q1", "Q1 std", "Q2", "Q2 std", "Q3", "Q3 std"]
