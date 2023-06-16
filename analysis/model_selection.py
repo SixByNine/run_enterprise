@@ -79,7 +79,7 @@ if len(args.multiple)>0:
     gi = args.multiple[1:-1]
     if len(gi)==1:
         gi = gi[0]
-    sfpsr.split_tim(glitchnum=str(gi[0]), startnum=start, endnum=end)
+    sfpsr.split_tim(glitchnum=str(gi), startnum=start, endnum=end)
     for exp in args.recoveries:
         for gf2 in g2:
             if gf2 is True and exp==3:
