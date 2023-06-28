@@ -1874,7 +1874,7 @@ class Pulsar:
                 f.write("{} {} {} {}\n".format(t[i], value, ydd_model[i], ydd2[i]))
         return rx, ry, re, y_dat, freqs, pwrs
 
-    def pp_new_pepoch(self, t, deltanu, nudot, nuddot):
+    def pp_new_pepoch(self, t, deltanu, nudot, nuddot, replot=False):
         '''Calculate the new pepoch and F0/F1/F2 used in plots'''
         idmax = bisect.bisect_left(t, self.pglep[0])
         if len(t)%2==0:
@@ -1922,16 +1922,17 @@ class Pulsar:
         print("###")
         pp_pepoch = self.pp_pepoch
         self.E_dot, self.tau_c, self.B_sur, self.brake = self.calculate_derived(epoch=pp_pepoch, t=t, deltanu=deltanu, nudot=nudot, nuddot=nuddot)
-        for i, glep in enumerate(self.pglep):
-            idminus, idplus = bisect.bisect_left(t, glep)-2, bisect.bisect_left(t, glep)+1
-            self.gf1m[i], self.gf1p[i] = 1e-15*nudot[idminus], 1e-15*nudot[idplus]
-            self.gli_slt[str(i+1)]["f1 minus"] = 1e-15*nudot[idminus]
-            self.gli_slt[str(i+1)]["f1 plus"] = 1e-15*nudot[idplus]
-            if i > 0:
-                self.dgf1b[i] = self.gf1m[i] - self.gf1p[i-1]
-                self.gli_slt[str(i+1)]["dgf1 before"] = self.gf1m[i] - self.gf1p[i-1]
-                self.dgf1a[i-1] = self.gf1m[i] - self.gf1p[i-1]
-                self.gli_slt[str(i)]["dgf1 after"] = self.gf1m[i] - self.gf1p[i-1]
+        if replot is False:
+            for i, glep in enumerate(self.pglep):
+                idminus, idplus = bisect.bisect_left(t, glep)-2, bisect.bisect_left(t, glep)+1
+                self.gf1m[i], self.gf1p[i] = 1e-15*nudot[idminus], 1e-15*nudot[idplus]
+                self.gli_slt[str(i+1)]["f1 minus"] = 1e-15*nudot[idminus]
+                self.gli_slt[str(i+1)]["f1 plus"] = 1e-15*nudot[idplus]
+                if i > 0:
+                    self.dgf1b[i] = self.gf1m[i] - self.gf1p[i-1]
+                    self.gli_slt[str(i+1)]["dgf1 before"] = self.gf1m[i] - self.gf1p[i-1]
+                    self.dgf1a[i-1] = self.gf1m[i] - self.gf1p[i-1]
+                    self.gli_slt[str(i)]["dgf1 after"] = self.gf1m[i] - self.gf1p[i-1]
         return x
 
     # def measure_prior

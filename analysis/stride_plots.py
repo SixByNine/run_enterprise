@@ -3,13 +3,15 @@
 import argparse
 import sys, os
 import subprocess
+import psrchive
 import matplotlib
 #matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-#import matplotlib.gridspec as gridspec
+import matplotlib.gridspec as gridspec
 import numpy as np
 import numpy.ma as ma
 import pulsar_glitch as pg
+import pylab
 #from __future__ import print_function
 #from scipy.optimize import curve_fit
 #from scipy import linalg
@@ -18,7 +20,8 @@ from astropy import units as u
 #from matplotlib.ticker import FormatStrFormatter
 #from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
 #from mpl_toolkits.axes_grid1.inset_locator import mark_inset
-#from mpl_toolkits.axes_grid.inset_locator import inset_axes
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from matplotlib import rc, rcParams
 
 
 
@@ -265,6 +268,13 @@ def plot_range(func, a=0.15, b=0.15):
     top += b*span
     return bottom, top
 
+label_size = 15
+rc('text', usetex=True )
+rc('font',family='serif',size= 15, weight = 'normal')
+pylab.locator_params(axis='y',nbins=15)
+pylab.ticklabel_format(style='plain', axis='y',scilimits=(0,0))
+M_SIZE = 8
+
 # Plot the spin frequency and spin-down rate residuals panels
 if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     fig, ax = plt.subplots(4, 1, sharex=True, figsize=(12, 9.6), gridspec_kw={'height_ratios': [1, 5, 5, 5]}) 
@@ -302,7 +312,7 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     for gls in gleps:
         ax[3].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     plt.ylim(plot_range(1e-3*ana4, 0.5, 0.5)[0], plot_range(1e-3*ana4, 0.5, 0.5)[1])
-    plt.ylabel(r'$\dot{\nu}$ ($10^{-12}$Hz$^{2}$)', fontsize=24, labelpad=5)
+    plt.ylabel(r'$\dot{\nu}$ ($10^{-12}$Hz s$^{-1}$)', fontsize=24, labelpad=5)
     plt.xlabel('Modified Julian Date', fontsize=24)
     plt.yticks(fontsize=24)
     plt.xticks(fontsize=24)
@@ -318,14 +328,14 @@ if 1>0: # Some option for plot all panels
     for gls in gleps:
         ax[0].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     ax[0].set_yticks([])
-    plt.ylabel('ToA', fontsize=24, labelpad=15)
+    plt.ylabel('ToA', fontsize=15, labelpad=15)
     plt.subplot(712)
     ax[1].plot(t_mask, 1e6*ana1, 'k-', zorder=2, label='Analytic model')
     ax[1].plot(t_inverse, 1e6*ana1, 'g-', zorder=2, label='Extrapolation', alpha=0.8)
     ax[1].errorbar(p1_mjd, stf1, yerr=p1_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, label='Stirde fit')
     plt.ylim(plot_range(1e6*ana1)[0], plot_range(1e6*ana1)[1])
-    plt.ylabel(r'$\delta \nu$ ($\mu$Hz)', fontsize=24, labelpad=5)
-    plt.yticks(fontsize=24)
+    plt.ylabel(r'$\delta \nu$'+'\n'+'($\mu$Hz)', fontsize=15, labelpad=5)
+    plt.yticks(fontsize=15)
     for gls in gleps:
         ax[1].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     #plt.legend(loc='upper left')
@@ -336,8 +346,8 @@ if 1>0: # Some option for plot all panels
     for gls in gleps:
         ax[2].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     plt.ylim(plot_range(1e6*ana2)[0], plot_range(1e6*ana2)[1])
-    plt.ylabel(r'$\delta \nu-\nu_{gp}$ ($\mu$Hz)', fontsize=24, labelpad=5)
-    plt.yticks(fontsize=24)
+    plt.ylabel(r'$\delta \nu-\nu_{gp}$'+'\n'+'($\mu$Hz)', fontsize=15, labelpad=5)
+    plt.yticks(fontsize=15)
     #If exists recovery
     plt.subplot(714)
     ax[3].plot(t_mask, 1e6*ana3, 'k-', zorder=2)
@@ -346,8 +356,8 @@ if 1>0: # Some option for plot all panels
     for gls in gleps:
         ax[3].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     plt.ylim(plot_range(1e6*ana3, 0.5, 0.5)[0], plot_range(1e6*ana3, 0.5, 0.5)[1])
-    plt.ylabel(r'$\delta \nu-\nu_{g}$ ($\mu$Hz)', fontsize=24, labelpad=5)
-    plt.yticks(fontsize=24)
+    plt.ylabel(r'$\delta \nu-\nu_{g}$'+'\n'+'($\mu$Hz)', fontsize=15, labelpad=5)
+    plt.yticks(fontsize=15)
     plt.subplot(715)
     ax[4].plot(t_mask, 1e-3*ana4, 'k-', zorder=2)
     ax[4].plot(t_inverse, 1e-3*ana4, 'g-', zorder=2, alpha=0.8)
@@ -355,8 +365,8 @@ if 1>0: # Some option for plot all panels
     for gls in gleps:
         ax[4].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     plt.ylim(plot_range(1e-3*ana4, 0.5, 0.5)[0], plot_range(1e-3*ana4, 0.5, 0.5)[1])
-    plt.ylabel(r'$\dot{\nu}$ ($10^{-12}$Hz$^{2}$)', fontsize=24, labelpad=5)
-    plt.yticks(fontsize=24)
+    plt.ylabel(r'$\dot{\nu}$'+'\n'+'($10^{-12}$Hz s$^{-1}$)', fontsize=15, labelpad=5)
+    plt.yticks(fontsize=15)
     plt.subplot(716)
     ax[5].plot(t_mask, ana5, 'k-', zorder=2)
     ax[5].plot(t_inverse, ana5, 'g-', zorder=2, alpha=0.8)
@@ -364,8 +374,8 @@ if 1>0: # Some option for plot all panels
     for gls in gleps:
         ax[5].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     plt.ylim(plot_range(ana5, 0.5, 0.5)[0], plot_range(ana5, 0.5, 0.5)[1])
-    plt.ylabel(r'$\delta \dot{\nu}-\dot{\nu_{g}}$ ($10^{-15}$Hz$^{2}$)', fontsize=24, labelpad=5)
-    plt.yticks(fontsize=24)
+    plt.ylabel(r'$\delta \dot{\nu}-\dot{\nu_{g}}$'+'\n'+'($10^{-15}$Hz s$^{-1}$)', fontsize=15, labelpad=5)
+    plt.yticks(fontsize=15)
     plt.subplot(717)
     ax[6].plot(t_mask, 10*ana6, 'k-', zorder=2)
     ax[6].plot(t_inverse, 10*ana6, 'g-', zorder=2, alpha=0.8)
@@ -373,10 +383,10 @@ if 1>0: # Some option for plot all panels
     for gls in gleps:
         ax[6].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     plt.ylim(plot_range(10*ana6, 0.5, 0.5)[0], plot_range(10*ana6, 0.5, 0.5)[1])
-    plt.ylabel(r'$\ddot{\nu}$ ($10^{-21}$Hz$^{3}$)', fontsize=24, labelpad=5)
-    plt.xlabel('Modified Julian Date', fontsize=24)
-    plt.yticks(fontsize=24)
-    plt.xticks(fontsize=24)
+    plt.ylabel(r'$\ddot{\nu}$'+'\n'+'($10^{-21}$Hz s$^{-2}$)', fontsize=15, labelpad=5)
+    plt.xlabel('Modified Julian Date', fontsize=15)
+    plt.yticks(fontsize=15)
+    plt.xticks(fontsize=15)
     plt.savefig('full_nu_nudot_gp_{}.pdf'.format(sfpsr.psrn), format='pdf', dpi=400, bbox_inches='tight')
     plt.show()
 
