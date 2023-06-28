@@ -1078,18 +1078,22 @@ class Pulsar:
                             self.mglf0d3[i] = float(e[value_idx])
                             self.mglf0d3std[i] = float(e[3])
                         elif e[0].startswith("Q_"):
+                            self.qstd[i] = float(e[3])
                             results[glkey] = self.q[i]
                             results[glkey+" std"] = self.qstd[i]
                             continue
                         elif e[0].startswith("Q1_"):
+                            self.q1std[i] = float(e[3])
                             results[glkey] = self.q1[i]
                             results[glkey+" std"] = self.q1std[i]
                             continue
                         elif e[0].startswith("Q2_"):
+                            self.q2std[i] = float(e[3])
                             results[glkey] = self.q2[i]
                             results[glkey+" std"] = self.q2std[i]
                             continue
                         elif e[0].startswith("Q3_"):
+                            self.q3std[i] = float(e[3])
                             results[glkey] = self.q3[i]
                             results[glkey+" std"] = self.q3std[i]
                             continue
