@@ -24,7 +24,7 @@ def setup_argparse(parser):
     parser.add_argument('--all-corner', '--corner-all', action='store_true', help='Make corner plots with all params')
     parser.add_argument('--plot-chain', action='store_true', help='Make a plot of the chains/posterior samples')
     parser.add_argument('--plot-derived', action='store_true', help='Include derived parameters in corner plots etc.')
-    parser.add_argument('--burn', default=0.25, help='Fraction of chain to burn-in (MC only; default=0.25)')
+    parser.add_argument('--burn', default=0.25, type=float, help='Fraction of chain to burn-in (MC only; default=0.25)')
     parser.add_argument('--truth-file', default=None, help='Truths values of parameters; maxlike=maximum likelihood, default=None')
     parser.add_argument('--dump-samples', default=0,type=int, help='Dump N samples of final scaled parameters')
     parser.add_argument('--dump-samples-npy', default=0,type=int, help='Dump N samples of final scaled parameters as a numpy file')
@@ -55,6 +55,8 @@ def cornerplot(samples, labels, weights=None, truths=None, truth_color='blue',sm
         cc.configure_truth(color=truth_color, ls=":", alpha=0.8)
         fig = cc.plotter.plot(figsize='grow', truth=truths)
     else:
+        if smooth is None:
+            smooth=0.02
         if weights is None:
             weights = np.ones_like(samples[:, 0])
         res = {'samples': samples, 'weights': weights, 'logwt': np.log(weights), 'logz': [0]}

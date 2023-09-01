@@ -20,7 +20,7 @@ def doit(par,tim,par2, plots=True, write=True):
 
     rx2,ry2,re2 = np.loadtxt("out.res",usecols=(0,5,6),unpack=True)
 
-    if par2 == par:
+    if par2 != par:
         subprocess.call(["tempo2","-output","exportres","-f",par,tim,"-writeres"])
     #subprocess.run(["ls","-l"])
 

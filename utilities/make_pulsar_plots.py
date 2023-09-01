@@ -140,7 +140,7 @@ A=CCof.dot(LLfinv)
 cvm_mod_unf = cvm_mod_orig - np.dot(A,A.T)
 
 cvm_mod=np.diag(np.diag(cvm_mod_unf))
-
+#cvm_mod = cvm_mod_unf
 
 Lcvm = linalg.cholesky(cvm_mod)
 
