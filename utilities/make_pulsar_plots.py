@@ -3,7 +3,9 @@ from __future__ import print_function
 # Import the libraries we need.
 import numpy as np
 import matplotlib
+
 matplotlib.use('Agg')
+
 import matplotlib.pyplot as plt
 
 from scipy import linalg
@@ -14,17 +16,21 @@ par=sys.argv[1]
 tim=sys.argv[2]
 par2=sys.argv[3]
 
+do_cov_method=False
+use_P_in_cvm=False
+
 subprocess.call(["tempo2","-output","exportres","-f",par2,tim,"-nofit"])
 
 rx2,ry2,re2 = np.loadtxt("out.res",usecols=(0,5,6),unpack=True)
 
-subprocess.call(["tempo2","-output","exportres","-f",par,tim,"-writeres"])
+if par2 != par:
+    subprocess.call(["tempo2","-output","exportres","-f",par,tim,"-writeres"])
 #subprocess.run(["ls","-l"])
 
-lab = np.loadtxt("param.labels",dtype=np.str).T
+lab = np.loadtxt("param.labels",dtype=str).T
 beta = np.loadtxt("param.vals")
 cvm  = np.loadtxt("cov.matrix")
-meta = np.loadtxt("tnred.meta",usecols=(1))
+meta = np.loadtxt("tnred.meta",usecols=(1,))
 F0=0
 start =46500
 finish=58200
@@ -44,9 +50,18 @@ PB=0
 
 inpar=[]
 
+TNRedAmp=None
+TNRedGam=None
+
 with open(par) as f:
     for line in f:
-        if not line.startswith("TNRed"):
+        if line.startswith("TNRed"):
+            e=line.split()
+            if e[0]=="TNRedAmp":
+                TNRedAmp=float(e[1])
+            if e[0] == "TNRedGam":
+                TNRedGam = float(e[1])
+        else:
             inpar.append(line)
         line = line.strip()
         e=line.split()
@@ -129,6 +144,8 @@ cvm_mod = cvm[np.logical_or(sinidx,cosidx)][:,np.logical_or(sinidx,cosidx)]
 
 cvm_mod_orig = np.copy(cvm_mod)
 
+W=np.power(dat_e,2)  # np.zeros_like(dat_e)+np.power(0.5e-3,2)#
+
 frqidx=lab[1]=='param_f'
 
 CCof = cvm[np.logical_or(sinidx,cosidx),:][:,frqidx]
@@ -167,6 +184,8 @@ print("set up matricies")
 
 freqs=[]
 pwrs=np.power(beta_mod[:nwav],2) + np.power(beta_mod[nwav:],2)
+pwrs2=np.zeros_like(pwrs)
+
 
 for i in range(nwav):
     omegai = omega*(i+1.0)
@@ -178,12 +197,73 @@ for i in range(nwav):
     dM[i]      = -F0*omegai*s2d*M[i+nwav]
     dM[i+nwav] = F0*omegai*s2d*M[i]
     
-    ddM[i]      = 1e15*F0*omegai*omegai*s2d2*M[i]
-    ddM[i+nwav] = 1e15*F0*omegai*omegai*s2d2*M[i+nwav]
+    ddM[i]      = F0*omegai*omegai*s2d2*M[i]
+    ddM[i+nwav] = F0*omegai*omegai*s2d2*M[i+nwav]
                          
     M2[i]       = np.sin(omegai * (dat_t-epoch))
     M2[i+nwav]  = np.cos(omegai * (dat_t-epoch))
-  
+
+
+fyr = 1/(365.25*86400.0)
+P0 = (10**(2*TNRedAmp) / (12*np.pi**2)) * fyr**-3
+
+if use_P_in_cvm:
+    print("Use PSD directly in place of tempo2 cvm")
+    cvm_mod = np.zeros_like(cvm_mod)
+
+for i in range(nwav):
+    omegai = omega * (i + 1.0) / 86400.0  # Want omega in per second not per day
+    df = (omega / 2.0 / np.pi) / 86400.0  # df in per second as well.
+    P = P0 * (freqs[i]) ** -TNRedGam  # freqs[] is in per year, so no need to divide
+
+    pwrs2[i] = P*df
+
+    if use_P_in_cvm:
+        cvm_mod[i,i] = P*df
+        cvm_mod[i+nwav,i+nwav] = P*df
+
+if do_cov_method:
+    dt_D_D = np.zeros((len(dat_t), len(dat_t)))
+    dt_D_S = np.zeros((len(dat_t), len(t)))
+    dt_S_S = np.zeros((len(t), len(t)))
+    C_D_D = np.zeros_like(dt_D_D)
+    C_D_S = np.zeros_like(dt_D_S)
+    C_S_S = np.zeros_like(dt_S_S)
+
+    d2C_D_S = np.zeros_like(dt_D_S)
+    d4C_S_S = np.zeros_like(dt_S_S)
+
+    for i, it in enumerate(dat_t):
+        dt_D_D[i] = np.abs(dat_t - it)*86400.0
+        dt_D_S[i] = np.abs(t - it)*86400.0
+
+    for i, it in enumerate(t):
+        dt_S_S[i] = np.abs(t-it)*86400.0
+
+    print(TNRedAmp, TNRedGam,P0)
+    print("Make Cov Matricies")
+    for i in range(nwav):
+        omegai = omega*(i+1.0)/86400.0 # Want omega in per second not per day
+        df=(omega/2.0/np.pi)/86400.0 # df in per second as well.
+        P = P0 * (freqs[i])**-TNRedGam # freqs[] is in per year, so no need to divide
+
+        C_D_D += P*np.cos(omegai*dt_D_D)*df
+        C_D_S += P*np.cos(omegai*dt_D_S)*df
+        C_S_S += P*np.cos(omegai*dt_S_S)*df
+
+        d2C_D_S += F0 * omegai * omegai * P*np.cos(omegai*dt_D_S)*df
+        d4C_S_S += ((F0*omegai * omegai)**2) *P*np.cos(omegai*dt_S_S)*df
+
+
+        #cvm_mod[i,i] = P*df
+        #cvm_mod[i+nwav,i+nwav] = P*df
+
+    Cn_D_D = C_D_D + np.diag(W)
+    print("Invert C_D_D")
+    Cn_D_D_inv = linalg.inv(Cn_D_D)
+    C_S_D = C_D_S.T
+    d2C_S_D = d2C_D_S.T
+
 print("Do linear algebra")
 
 freqs=np.array(freqs)
@@ -202,8 +282,19 @@ y=M.dot(beta_mod)
 
 y_dat = M2.dot(beta_mod)
 
+if do_cov_method:
+    ALT_y = C_S_D.dot(Cn_D_D_inv.dot(ry))
+    ALT_y_C = C_S_S - C_S_D.dot(Cn_D_D_inv).dot(C_D_S)
+    print(np.diag(dt_S_S)[:10])
+    print(np.diag(C_S_S)[:10])
 
 
+    ALT_y_err = np.sqrt(np.diag(ALT_y_C))
+
+    ALT_dd = 1e15*d2C_S_D.dot(Cn_D_D_inv.dot(ry))
+    ALT_dd_C = d4C_S_S - d2C_S_D.dot(Cn_D_D_inv).dot(d2C_D_S)
+    ALT_dd_err = 1e15*np.sqrt(np.diag(ALT_dd_C))
+    print(ALT_y_err[0],ALT_dd_err[0])
 
 """
     if (t < mjd[0]){
@@ -243,10 +334,12 @@ def ifunc(t,mjd,yoffs):
                 return (y2-y1)*x + y1
 
 
-W=np.power(dat_e,2)  # np.zeros_like(dat_e)+np.power(0.5e-3,2)#
-Coo=M.dot(cvm_mod).dot(M.T)                         
+Coo=M.dot(cvm_mod).dot(M.T)
+
+
+
 Cf = M2.dot(cvm_mod).dot(M2.T) 
-Cof = M.dot(cvm_mod).dot(M2.T)        
+Cof = M.dot(cvm_mod).dot(M2.T)
 
 #Cf = correlation_tools.cov_nearest(Cf,n_fact=1000,method="clipped") 
 
@@ -271,7 +364,9 @@ Cof = M.dot(cvm_mod).dot(M2.T)
 #        #print(origCf[0][0],np.power(a/d,2)*origCf[0][0],np.power(b/d,2) * p_m)
 #print(a)
 
-Cf+= 5*np.diag(W)
+Cf+= np.diag(W)
+
+
 Lf = linalg.cholesky(Cf)
 Lf_inv = linalg.inv(Lf)
 
@@ -282,6 +377,10 @@ Cf_inv = linalg.inv(Cf)
 A=Cof.dot(Lf_inv)
 Co = Coo - np.dot(A,A.T)
 
+
+
+
+
 print("Negative Co: ",np.sum(np.diag(Co)<0))
 #print("a^2/d^2 = ",np.power(a/d,2))
 
@@ -291,16 +390,16 @@ ey = np.sqrt(np.diag(Co))
 
 
 
-
-
 ddCoo    =ddM.dot(cvm_mod).dot(ddM.T)                         
-ddCof    = ddM.dot(cvm_mod).dot(M2.T)        
+ddCof    = ddM.dot(cvm_mod).dot(M2.T)
+
+
 A=ddCof.dot(Lf_inv)
 ddCo = ddCoo - np.dot(A,A.T)
 print("Negative ddCo: ",np.sum(np.diag(ddCo)<0))
 
-yd = ddM.dot(beta_mod)
-ed=np.sqrt(np.diag(ddCo))
+yd = ddM.dot(beta_mod)*1e15
+ed=np.sqrt(np.diag(ddCo))*1e15
 
 tt=(t-pepoch)*86400.0
 yd_model=np.zeros_like(yd)
@@ -344,7 +443,7 @@ for ge in glep:
         yf2[t>ge] += glf0d[i] * np.exp(-(t[t>ge]-glep[i])/gltd[i])
 
     if gltd2[i] > 0:
-        yf2[t>ge] += glf0d2[i] * np.exp(-(t[t>ge]-glep2[i])/gltd2[i])
+        yf2[t>ge] += glf0d2[i] * np.exp(-(t[t>ge]-glep[i])/gltd2[i])
     i+=1
 
 
@@ -393,6 +492,11 @@ ax = fig.add_subplot(312)
 plt.plot(t,y,color='green')
 plt.errorbar(dat_t,ry,yerr=dat_e,color='k',marker='.',ls='None',ms=3.0,alpha=0.7)
 
+if do_cov_method:
+    plt.plot(t,ALT_y,color='red')
+    plt.fill_between(t,ALT_y-ALT_y_err,ALT_y+ALT_y_err,color='red',alpha=0.5)
+
+
 plt.fill_between(t,y-ey,y+ey,color='green',alpha=0.5)
 #plt.title("PSR "+psrn)
 plt.xlabel("MJD")
@@ -410,6 +514,9 @@ plt.plot(t,y-y,color='green')
 plt.errorbar(dat_t,ry-y_dat,yerr=dat_e,color='k',marker='.',ls='None',ms=3.0,alpha=0.7)
 
 plt.fill_between(t,-ey,+ey,color='green',alpha=0.5)
+if do_cov_method:
+    plt.fill_between(t, -ALT_y_err, ALT_y_err, color='red', alpha=0.5)
+
 #plt.title("PSR "+psrn)
 plt.xlabel("MJD")
 plt.ylabel("Residual - Model (s)")
@@ -426,6 +533,9 @@ plt.savefig("residuals_{}.pdf".format(psrn))
 plt.figure(figsize=(16,9))
 plt.plot(t,yd,color='blue')
 plt.fill_between(t,yd-ed,yd+ed,color='blue',alpha=0.5)
+if do_cov_method:
+    plt.plot(t,ALT_dd,color='brown')
+    plt.fill_between(t,ALT_dd-ALT_dd_err,ALT_dd+ALT_dd_err,color='brown',alpha=0.5)
 for ge in glep:
     plt.axvline(ge,linestyle="--",color='purple',alpha=0.7)
 
@@ -575,6 +685,7 @@ if PB > 0:
     plt.figtext(x=0.59,y=0.94,s="$P_B$:{:.1g}".format(PB),horizontalalignment='center')
 
 plt.loglog(freqs,pwrs)
+plt.loglog(freqs,pwrs2)
 plt.title("PSR "+psrn)
 plt.xlabel("Freq (yr^-1)")
 plt.xlabel("Power (???)")

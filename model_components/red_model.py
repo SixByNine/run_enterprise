@@ -37,6 +37,12 @@ def setup_argparse(parser):
 
     parser.add_argument('--plot-Ared-at-T', type=float, default=None, help="Plot derived Ared at freq 1/(T yr)")
 
+    parser.add_argument('--double-powerlaw',action='store_true',help='Use double powerlaw model')
+    parser.add_argument('--double-powerlaw-delta-gamma','--delta-gamma',type=float,default=2.5)
+
+    parser.add_argument('--A2red-max', type=float, default=-12, help='Max log10A_Red for double pl')
+    parser.add_argument('--A2red-min', type=float, default=-18, help='Min log10A_Red for double pl')
+
 
 def setup_model(args, psr, parfile):
     if args.red:
@@ -58,6 +64,13 @@ def setup_model(args, psr, parfile):
             log10_A = parameter.LinearExp(args.Ared_min, args.Ared_max, to_par=to_par)
         gamma = parameter.Uniform(args.red_gamma_min, args.red_gamma_max, to_par=to_par)
 
+        log10_A2,delta_gamma=None
+        if args.double_powerlaw:
+            delta_gamma=parameter.Uniform(1, args.double_powerlaw_delta_gamma, to_par=to_par)
+            if args.red_prior_log:
+                log10_A2 = parameter.Uniform(args.A2red_min, args.A2red_max, to_par=to_par)
+            else:
+                log10_A2 = parameter.LinearExp(args.A2red_min, args.A2red_max, to_par=to_par)
         if args.qp:
             tspan_days = (np.amax(psr.toas) - np.amin(psr.toas)) / 86400.0
             avg_cadence = tspan_days / len(psr.toas)
@@ -67,7 +80,7 @@ def setup_model(args, psr, parfile):
 
             fmin = nC / tspan_days / args.tspan_mult
             qp_p_max = tspan_days / args.qp_p_min_np if args.qp_p_max is None else args.qp_p_max
-            qp_p_min = max(2 * avg_cadence, 1.2/fmin) if args.qp_p_min is None else args.qp_p_min
+            qp_p_min = max(2 * avg_cadence, 1.2 / fmin) if args.qp_p_min is None else args.qp_p_min
             qp_f0_max = np.log10(1.0 / qp_p_min)  ## for below calculation
             if 10 ** qp_f0_max > fmin:
                 fstep = 1.0 / tspan_days / args.tspan_mult
@@ -84,32 +97,41 @@ def setup_model(args, psr, parfile):
             lam = parameter.Uniform(0.01, 10, to_par=to_par)
             df = 86400.0 / (np.amax(psr.toas) - np.amin(psr.toas))
             df = parameter.Constant(df)
-            pl = powerlaw_qp(log10_A=log10_A, gamma=gamma, log_qp_ratio=log_qp_ratio, p=qp_period, sig=sig, lam=lam,
-                             fmin=df)
+            if args.double_powerlaw:
+                pl = double_powerlaw_qp(log10_A1=log10_A, gamma1=gamma,
+                                        log10_A2=log10_A2, delta_gamma=delta_gamma,
+                                        log_qp_ratio=log_qp_ratio, p=qp_period, sig=sig, lam=lam,
+                                 fmin=df)
+            else:
+                pl = powerlaw_qp(log10_A=log10_A, gamma=gamma, log_qp_ratio=log_qp_ratio, p=qp_period, sig=sig, lam=lam,
+                                 fmin=df)
         else:
-            pl = utils.powerlaw(log10_A=log10_A, gamma=gamma)
+            if args.double_powerlaw:
+                pl = utils.double_powerlaw(log10_A=log10_A, gamma=gamma, log10_A2 = log10_A2, delta_gamma=delta_gamma)
+            else:
+                pl = utils.powerlaw(log10_A=log10_A, gamma=gamma)
 
-        modes=None
-        fmodes=None
+        modes = None
+        fmodes = None
         if not (args.red_minf is None):
             modes = 1.0 * np.arange(1, nC + 1) / Tspan
-            sectoyr=86400.0*365.25
-            fmodes=modes[modes<=args.red_minf/sectoyr]
-            modes = modes[modes>args.red_minf/sectoyr]
-            print("Now have {} fourier components above {} yr^-1".format(len(modes),args.red_minf))
+            sectoyr = 86400.0 * 365.25
+            fmodes = modes[modes <= args.red_minf / sectoyr]
+            modes = modes[modes > args.red_minf / sectoyr]
+            print("Now have {} fourier components above {} yr^-1".format(len(modes), args.red_minf))
 
             if len(modes) < 1:
-                print("Not enough modes! ",(1.0 * np.arange(1, nC + 1) / Tspan)[0])
+                print("Not enough modes! ", (1.0 * np.arange(1, nC + 1) / Tspan)[0])
                 sys.exit(1)
             nC = len(modes)
 
         rn = gp_signals.FourierBasisGP(spectrum=pl, components=nC, Tspan=Tspan, modes=modes)
 
         if not fmodes is None:
-            for i,f in enumerate(fmodes):
-                A = parameter.Uniform(-50, 50,to_par=to_par)("fsinA{}".format(i))
-                B = parameter.Uniform(-50, 50,to_par=to_par)("fcosB{}".format(i))
-                rn += deterministic_signals.Deterministic(sinusoid(A=A,B=B,om=2*np.pi*f))
+            for i, f in enumerate(fmodes):
+                A = parameter.Uniform(-50, 50, to_par=to_par)("fsinA{}".format(i))
+                B = parameter.Uniform(-50, 50, to_par=to_par)("fcosB{}".format(i))
+                rn += deterministic_signals.Deterministic(sinusoid(A=A, B=B, om=2 * np.pi * f))
 
         return rn
     else:
@@ -132,7 +154,7 @@ def to_par(self, p, chain):
     elif "_lam" in p:
         return "TN_QpLam", chain
     elif "fsin" in p:
-        return p,chain
+        return p, chain
     elif "fcos" in p:
         return p, chain
     else:
@@ -158,8 +180,37 @@ def powerlaw_qp(f, log10_A, gamma, log_qp_ratio, p, sig, lam, fmin, components=2
 
 
 @function
-def sinusoid(toas,A,B,om):
-    return B*np.sin(om*toas)+A*np.cos(om*toas)
+def double_powerlaw(f, log10_A1, gamma, log10_A2, delta_gamma, components=2):
+    gamma1=gamma
+    gamma2=gamma-delta_gamma
+    df = np.diff(np.concatenate((np.array([0]), f[::components])))
+    df2 = np.repeat(df, components)
+    red1 = (10 ** log10_A1) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma1 - 3) * f ** (-gamma1) * df2
+    red2 = (10 ** log10_A2) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma2 - 3) * f ** (-gamma2) * df2
+    return red1 + red2
 
 
+@function
+def double_powerlaw_qp(f, log10_A1, gamma, log10_A2, delta_gamma, log_qp_ratio, p, sig, lam, fmin, components=2):
+    gamma1=gamma
+    gamma2=gamma-delta_gamma
+    df = np.diff(np.concatenate((np.array([0]), f[::components])))
+    df2 = np.repeat(df, components)
+    red1 = (10 ** log10_A1) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma1 - 3) * f ** (-gamma1) * df2
+    red2 = (10 ** log10_A2) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma2 - 3) * f ** (-gamma2) * df2
+    red = red1 + red2
 
+    f0 = 1.0 / p
+    logPqp = log_qp_ratio + np.log10(
+        (10 ** log10_A1) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma1 - 3) * (f0 * 365.25 * const.fyr) ** (
+            -gamma1) * df2) + \
+             np.log10(
+                 (10 ** log10_A2) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma2 - 3) * (f0 * 365.25 * const.fyr) ** (
+                     -gamma2) * df2)
+    qp = qp_term_cutoff(f / const.fyr, logPqp, f0, sig, lam, fmin)
+    return red + qp
+
+
+@function
+def sinusoid(toas, A, B, om):
+    return B * np.sin(om * toas) + A * np.cos(om * toas)
