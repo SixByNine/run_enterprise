@@ -52,6 +52,7 @@ def ppplot(f2,ff,color,alpha):
 psr=Pulsar(args.par,args.tim,drop_t2pulsar=False)
 is_binary=False
 logA=gamma=F0=F1=PB=0
+qp_period=0
 with open(args.par) as f:
     for line in f:
         split_line = line.split()
@@ -68,6 +69,15 @@ with open(args.par) as f:
         elif split_line[0] == 'PB':
             is_binary=True
             PB=float(split_line[1])
+        elif split_line[0] == 'TN_QpPeriod':
+            qp_period = float(split_line[1])
+            qp_logf0 = -np.log10(qp_period)
+        elif split_line[0] == 'TN_QpRatio':
+            qp_ratio = float(split_line[1])
+        elif split_line[0] == 'TN_QpLam':
+            qp_lam = float(split_line[1])
+        elif split_line[0] == 'TN_QpSig':
+            qp_sig = float(split_line[1])
 
 psr.sort_data()
 toa = psr.toas/86400.0 # convert back to days for sanity
@@ -89,8 +99,13 @@ if args.t2model:
     print("Using t2model parameters")
     red_cvm,t2funcs = read_t2_model(args.t2model,psr)
 elif logA != 0 and gamma != 0:
-    print("Using TN parameters")
-    red_cvm = cholspec.getC(toa, logA, gamma, fc_yr)
+    if qp_period != 0:
+        print("Using TN QP parameters")
+        red_cvm = cholspec.getC(toa, logA, gamma, fc_yr,
+                            qp_ratio,qp_logf0,qp_sig,qp_lam)
+    else:
+        print("Using TN parameters")
+        red_cvm = cholspec.getC(toa, logA, gamma, fc_yr)
 else:
     red_cvm = np.zeros((ntoa,ntoa))
 
@@ -214,7 +229,10 @@ if not args.plot_t2 is None:
     plt.loglog(x,y,color='black',label=args.plot_t2)
 
 if logA!=0 and gamma!=0:
-    tnModel_psd = cholspec.PSD(f2/365.25, fc_yr, logA, gamma)
+    if qp_period != 0:
+        tnModel_psd = cholspec.PSD_QP(f2 / 365.25, fc_yr, logA, gamma,qp_ratio,qp_logf0,qp_sig,qp_lam,f2[0]/365.25)
+    else:
+        tnModel_psd = cholspec.PSD(f2/365.25, fc_yr, logA, gamma)
     plt.loglog(f2,tnModel_psd,color='red',label='TN')
     if args.savetxt:
         np.savetxt("tnmodel.txt", [f2, tnModel_psd])

@@ -137,11 +137,11 @@ def PSD_QP(freqs_days,fc_yr,logA,gamma,log_qp_ratio, log_f0, sig, lam,df):
         1. / (12. * np.power(np.pi, 2)) * Amp2 * np.power(np.power((f0 / fc_days), 2) + 1., -gamma / 2.) * ( fc_yr) ** (-gamma)
     )
     qp = qp_term_cutoff(freqs_days*days_per_yr, logPqp, f0, sig, lam,df)
-
+    qp[0]=0
     return red+qp
 
 
-def getC(times,logA,gamma,fc_yr):
+def getC(times,logA,gamma,fc_yr,log_qp_ratio=None, log_f0=None, sig=None, lam=None):
     days_per_yr = 365.25
     sec_per_year = 365.25 * 60. * 60. * 24.
     sec_per_day = 60. * 60. * 24.
@@ -172,13 +172,16 @@ def getC(times,logA,gamma,fc_yr):
     #delta_nu = (nu[-1] - nu[0])/nu.shape[0] #day^-1
 
     # calculate power spectral density
-    psd_nu = PSD(nu, fc_yr, logA, gamma) # yr^3
+    if log_qp_ratio is None:
+        psd_nu = PSD(nu, fc_yr, logA, gamma) # yr^3
+    else:
+        psd_nu = PSD_QP(nu, fc_yr, logA, gamma,log_qp_ratio, log_f0, sig, lam, nu[0])  # yr^3
 
     psd_nu[nu>0] /= 2 # MJK - One-sided to two-sided PSD.
-
     # get the covariance function:
     covFunc = np.fft.irfft(psd_nu*sec_per_year**3/(delta_regtimes*sec_per_day)) #sec^2
     # len(covFunc) == (len(nu)-1)*2 == npts_regtimes
+
 
     # need covFunc to work for abs(times[j]-times[i]), any j,i
     # ndays_time-1 <max (abs(times[j]-times[i])) =< ndays_time

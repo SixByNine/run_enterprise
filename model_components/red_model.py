@@ -64,7 +64,8 @@ def setup_model(args, psr, parfile):
             log10_A = parameter.LinearExp(args.Ared_min, args.Ared_max, to_par=to_par)
         gamma = parameter.Uniform(args.red_gamma_min, args.red_gamma_max, to_par=to_par)
 
-        log10_A2,delta_gamma=None
+        log10_A2=None
+        delta_gamma=None
         if args.double_powerlaw:
             delta_gamma=parameter.Uniform(1, args.double_powerlaw_delta_gamma, to_par=to_par)
             if args.red_prior_log:
@@ -98,7 +99,7 @@ def setup_model(args, psr, parfile):
             df = 86400.0 / (np.amax(psr.toas) - np.amin(psr.toas))
             df = parameter.Constant(df)
             if args.double_powerlaw:
-                pl = double_powerlaw_qp(log10_A1=log10_A, gamma1=gamma,
+                pl = double_powerlaw_qp(log10_A1=log10_A, gamma=gamma,
                                         log10_A2=log10_A2, delta_gamma=delta_gamma,
                                         log_qp_ratio=log_qp_ratio, p=qp_period, sig=sig, lam=lam,
                                  fmin=df)
@@ -139,6 +140,12 @@ def setup_model(args, psr, parfile):
 
 
 def to_par(self, p, chain):
+    if "red_noise_log10_A1" in p:
+        return "TNRedAmp", chain
+    if "red_noise_log10_A2" in p:
+        return "TNRedAmp2", chain
+    if "red_noise_delta_gamma" in p:
+        return "TNRedDeltaGam", chain
     if "red_noise_log10_A" in p:
         return "TNRedAmp", chain
     if "red_noise_gamma" in p:
