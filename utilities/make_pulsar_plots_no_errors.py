@@ -16,12 +16,12 @@ import subprocess
 
 def doit(par,tim,par2, plots=True, write=True):
 
-    subprocess.call(["tempo2","-output","exportres","-f",par2,tim,"-nofit","-writeres"])
+    subprocess.call(["tempo2","-output","exportres","-f",par2,tim,"-nofit","-writeres",'-npsr','1','-nobs','50000'])
 
     rx2,ry2,re2 = np.loadtxt("out.res",usecols=(0,5,6),unpack=True)
 
     if par2 != par:
-        subprocess.call(["tempo2","-output","exportres","-f",par,tim,"-writeres"])
+        subprocess.call(["tempo2","-output","exportres","-f",par,tim,"-writeres",'-npsr','1','-nobs','50000'])
     #subprocess.run(["ls","-l"])
 
     lab = np.loadtxt("param.labels",dtype=np.str).T
