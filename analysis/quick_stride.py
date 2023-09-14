@@ -277,11 +277,11 @@ rc('font',family='serif',size= 15, weight = 'normal')
 pylab.locator_params(axis='y',nbins=15)
 pylab.ticklabel_format(style='plain', axis='y',scilimits=(0,0))
 M_SIZE = 8
-fig = plt.figure(figsize=(12, 9.6))
+#fig = plt.figure(figsize=(12, 9.6))
 
 # Plot the spin frequency and spin-down rate residuals panels
 if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
-    fig, ax = plt.subplots(4, 1, sharex=True, gridspec_kw={'height_ratios': [1, 5, 5, 5]}) 
+    fig, ax = plt.subplots(4, 1, sharex=True, figsize=(12, 9.6), gridspec_kw={'height_ratios': [1, 5, 5, 5]}) 
     fig.subplots_adjust(hspace=0)
     plt.subplot(411)
     for toa in sfpsr.toaseries:
@@ -323,9 +323,9 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     plt.savefig('nu_nudot_gp_{}.pdf'.format(sfpsr.psrn), format='pdf', dpi=400, bbox_inches='tight')
     plt.show()
 
-fig = plt.figure(figsize=(12, 18.6))
+#fig = plt.figure(figsize=(12, 18.6))
 if 1>0: # Some option for plot all panels
-    fig, ax = plt.subplots(7, 1, sharex=True, gridspec_kw={'height_ratios': [1, 5, 5, 5, 5, 5, 5]})
+    fig, ax = plt.subplots(7, 1, sharex=True, figsize=(12, 18.6), gridspec_kw={'height_ratios': [1, 5, 5, 5, 5, 5, 5]})
     fig.subplots_adjust(hspace=0)
     plt.subplot(711)
     for toa in sfpsr.toaseries:
