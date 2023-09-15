@@ -100,7 +100,7 @@ a5 = a4 - (sfpsr.F1 + tdf2 + tdglf1 + tdglf2 - tdexp)*1e15 # in 1e-15
 a6 = sfpsr.mask_glep(t1, ydd2) # in 1e-20
 
 # Calculate new pepoch and F0/F1/F2 used for plots
-pre_x = sfpsr.pp_new_pepoch(t1, a1, a4, a6)
+pre_x, p2x = sfpsr.pp_new_pepoch(t1, a1, a4, a6)
 
 # Update results
 sfpsr.extract_results()

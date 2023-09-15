@@ -1877,25 +1877,16 @@ class Pulsar:
     def pp_new_pepoch(self, t, deltanu, nudot, nuddot, replot=False):
         '''Calculate the new pepoch and F0/F1/F2 used in plots'''
         idmax = bisect.bisect_left(t, self.pglep[0])
-        if len(t)%2==0:
-            pp_mf0 = np.median(deltanu[1:]) # median F0 before the first glitch
-            pp_mf1 = np.median(nudot[1:]) # median F1 before the first glitch
-            pp_mf2 = np.median(nuddot[1:]) # median F2 before the first glitch
-        else:
-            pp_mf0 = np.median(deltanu[:]) # median F0 before the first glitch
-            pp_mf1 = np.median(nudot[:]) # median F1 before the first glitch
-            pp_mf2 = np.median(nuddot[:]) # median F2 before the first glitch
-        self.pp_f1 = 1e-15*pp_mf1
-        self.pp_f2 = 1e-20*pp_mf2
-        idx = np.where(nudot==pp_mf1)[0][0] # Find the first index where F1 is median value
-        xpepoch = t[idx] # time at the point
-        xf0 = self.F0 + deltanu[idx] # F0 at the point
-        xf1 = 1e-15*nudot[idx] # F1 at the point
-        xf2 = 1e-20*nuddot[idx] # F2 at the point
-        self.pp_pepoch = self.pepoch - (self.F1 - self.pp_f1)/(86400*self.F2) # Find the pepoch based on fixed F2
+        self.pp_f2 = self.F2 # F2 constant, same as in final par file
+        self.pp_f1 = 1e-15*nudot[idmax-2] # F1 just before the 1st glitch
+        self.pp_pepoch = self.pepoch - (self.F1 - self.pp_f1)/(86400*self.pp_f2) # Find the pepoch which keeps the slope in panel 1 and 2 the same
         x = mjd2sec(t, self.pp_pepoch)
-        df0 = deltanu[idmax-2] - self.pp_f1*x[idmax-2] - 0.5*self.F2*x[idmax-2]**2
+        df0 = deltanu[idmax-2] - self.pp_f1*x[idmax-2] # Panel 1 is 0 just before 1st glitch
         self.pp_f0 = df0 + self.F0 + self.F1*mjd2sec(t[idmax-2], self.pepoch)
+        print("Old pepoch:", self.pepoch)
+        print("F0 in final par:", self.F0)
+        print("F1 in final par:", self.F1)
+        print("F2 in final par:", self.F2)
         print("###") 
         if t[0] <= self.pp_pepoch <= t[-1]:
             idt = np.argmin(np.abs(t - self.pp_pepoch))
@@ -1912,13 +1903,13 @@ class Pulsar:
             self.pp_pepoch = self.pepoch
             self.pp_f0 = self.F0
             self.pp_f1 = self.F1
+            self.pp_f2 = self.F2
             x = mjd2sec(t, self.pp_pepoch)
         print("###")
         print("New pepoch used in panel:", self.pp_pepoch)
         print("F0 used in panel:", self.pp_f0)
         print("F1 used in panel:", self.pp_f1)
-        print("F2 used in panel:", self.F2)
-        print("F2 median:", self.pp_f2)
+        print("F2 used in panel:", self.pp_f2)
         print("###")
         pp_pepoch = self.pp_pepoch
         self.E_dot, self.tau_c, self.B_sur, self.brake = self.calculate_derived(epoch=pp_pepoch, t=t, deltanu=deltanu, nudot=nudot, nuddot=nuddot)
@@ -1933,7 +1924,7 @@ class Pulsar:
                     self.gli_slt[str(i+1)]["dgf1 before"] = self.gf1m[i] - self.gf1p[i-1]
                     self.dgf1a[i-1] = self.gf1m[i] - self.gf1p[i-1]
                     self.gli_slt[str(i)]["dgf1 after"] = self.gf1m[i] - self.gf1p[i-1]
-        return x
+        return x, 0.5*self.pp_f2*x[idmax-2]**2 # Term to reset panel 2 to 0 just before 1st glitch
 
     # def measure_prior
     # def set_prior

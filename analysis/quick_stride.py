@@ -242,13 +242,13 @@ a5 = a4 - (sfpsr.F1 + tdf2 + tdglf1 + tdglf2 - tdexp)*1e15 # in 1e-15
 a6 = sfpsr.mask_glep(t1, ydd2) # in 1e-20
 
 # Calculate new pepoch and F0/F1/F2 used for plots
-pre_x = sfpsr.pp_new_pepoch(t1, a1, a4, a6, replot=True)
+pre_x, p2x = sfpsr.pp_new_pepoch(t1, a1, a4, a6, replot=True)
 sf = pg.mjd2sec(p1_mjd, sfpsr.pepoch)
 pre_sf = pg.mjd2sec(p1_mjd, sfpsr.pp_pepoch)
 
 # Subtract F0 and F1 terms before the first glitch
 ana1 = a1 + (sfpsr.F0 - sfpsr.pp_f0) + (sfpsr.F1*x - sfpsr.pp_f1*pre_x)
-ana2 = ana1 - 0.5*sfpsr.F2*pre_x**2 - tglf0 - tglf1 - tglf2
+ana2 = ana1 - 0.5*sfpsr.F2*pre_x**2 - tglf0 - tglf1 - tglf2 + p2x # Renormalize the 2nd panel
 ana3 = ana2 - texp1 - texp2 - texp3 
 ana4 = a4  # in 1e-15
 ana5 = a5 + 1e15*(sfpsr.F1 - sfpsr.pp_f1 + tdf2 - sfpsr.F2*pre_x) # in 1e-15
@@ -256,8 +256,8 @@ ana6 = a6 #- 1e20*sfpsr.F2 # in 1e-20
 
 # Subtract F0 and F1 terms befroe the first glitch
 stf1 = p1_nu + 1e6*((sfpsr.F0 - sfpsr.pp_f0) + (sfpsr.F1*sf - sfpsr.pp_f1*pre_sf)) # in 1e-6
-stf2 = p2_nu + 1e6*((sfpsr.F0 - sfpsr.pp_f0) + (sfpsr.F1*sf - sfpsr.pp_f1*pre_sf) + 0.5*sfpsr.F2*(sf**2 - pre_sf**2)) # in 1e-6
-stf3 = p3_nu + 1e6*((sfpsr.F0 - sfpsr.pp_f0) + (sfpsr.F1*sf - sfpsr.pp_f1*pre_sf) + 0.5*sfpsr.F2*(sf**2 - pre_sf**2)) # in 1e-6
+stf2 = p2_nu + 1e6*((sfpsr.F0 - sfpsr.pp_f0) + (sfpsr.F1*sf - sfpsr.pp_f1*pre_sf) + 0.5*sfpsr.F2*(sf**2 - pre_sf**2) + p2x) # in 1e-6
+stf3 = p3_nu + 1e6*((sfpsr.F0 - sfpsr.pp_f0) + (sfpsr.F1*sf - sfpsr.pp_f1*pre_sf) + 0.5*sfpsr.F2*(sf**2 - pre_sf**2) + p2x) # in 1e-6
 stf4 = p4_nudot # in 1e-10
 stf5 = p5_nudot + 1e10*(sfpsr.F1 - sfpsr.pp_f1 + sfpsr.F2*sf - sfpsr.F2*pre_sf) # in 1e-10
 stf6 = p6_nuddot #- 1e20*sfpsr.F2 # in 1e-20
@@ -277,7 +277,6 @@ rc('font',family='serif',size= 15, weight = 'normal')
 pylab.locator_params(axis='y',nbins=15)
 pylab.ticklabel_format(style='plain', axis='y',scilimits=(0,0))
 M_SIZE = 8
-#fig = plt.figure(figsize=(12, 9.6))
 
 # Plot the spin frequency and spin-down rate residuals panels
 if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
@@ -395,7 +394,7 @@ if 1>0: # Some option for plot all panels
     plt.savefig('full_nu_nudot_gp_{}.pdf'.format(sfpsr.psrn), format='pdf', dpi=400, bbox_inches='tight')
     plt.show()
 
-'''
+
 # Update info with par results files from best model of each glitch, and extract parameters to slt file
 idx_recovery = 0
 for gi in args.glitches:
@@ -411,4 +410,4 @@ for gi in args.glitches:
         sfpsr.best_model(glitchnum=gi, recoveries=None, GLF2=f2)
     idx_recovery += 1
 sfpsr.extract_results()
-'''
+
