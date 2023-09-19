@@ -1877,6 +1877,16 @@ class Pulsar:
     def pp_new_pepoch(self, t, deltanu, nudot, nuddot, replot=False):
         '''Calculate the new pepoch and F0/F1/F2 used in plots'''
         idmax = bisect.bisect_left(t, self.pglep[0])
+        if len(t)%2==0:
+            pp_mf0 = np.median(deltanu[1:]) # median F0 before the first glitch
+            pp_mf1 = np.median(nudot[1:]) # median F1 before the first glitch
+            pp_mf2 = np.median(nuddot[1:]) # median F2 before the first glitch
+        else:
+            pp_mf0 = np.median(deltanu[:]) # median F0 before the first glitch
+            pp_mf1 = np.median(nudot[:]) # median F1 before the first glitch
+            pp_mf2 = np.median(nuddot[:]) # median F2 before the first glitch
+        #self.pp_f1 = 1e-15*pp_mf1
+        #self.pp_f2 = 1e-20*pp_mf2
         self.pp_f2 = self.F2 # F2 constant, same as in final par file
         self.pp_f1 = 1e-15*nudot[idmax-2] # F1 just before the 1st glitch
         self.pp_pepoch = self.pepoch - (self.F1 - self.pp_f1)/(86400*self.pp_f2) # Find the pepoch which keeps the slope in panel 1 and 2 the same
@@ -1901,7 +1911,7 @@ class Pulsar:
         else:
             print("!!! Warning: New pepoch outside data span!!!", self.pp_pepoch)
             self.pp_pepoch = self.pepoch
-            self.pp_f0 = self.F0
+            self.pp_f0 = deltanu[idmax-2] + self.F0 # Panel 1 is 0 just before 1st glitch
             self.pp_f1 = self.F1
             self.pp_f2 = self.F2
             x = mjd2sec(t, self.pp_pepoch)
