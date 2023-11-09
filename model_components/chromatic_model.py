@@ -14,6 +14,8 @@ def setup_argparse(parser):
     parser.add_argument('--Achrom-max', type=float, default=-12, help='Max log10A_Chrom')
     parser.add_argument('--Achrom-min', type=float, default=-18, help='Min log10A_Chrom')
     parser.add_argument('--chrom-index', type=float, default=4, help='Chromatic index (default=4)')
+    parser.add_argument('--chrom-index-max', type=float, default=None, help='Chromatic index max (fit for it!)')
+    parser.add_argument('--chrom-index-min', type=float, default=None, help='Chromatic index min')
     parser.add_argument('--chrom-gamma-max', type=float, default=5, help='Max gamma red')
     parser.add_argument('--chrom-gamma-min', type=float, default=0, help='Min gamma red')
     parser.add_argument('--chrom-ncoeff', type=int, default=None, help='Number of Chrom bins to use')
@@ -50,7 +52,13 @@ def setup_model(args, psr, parfile):
         nC = int(nC*args.chrom_tspan_mult)
 
         parfile.append("TNChromC {}\n".format(nC))
-        parfile.append("TNChromIdx {}\n".format(args.chrom_index))
+        if args.chrom_index_max is not None:
+            if args.chrom_index_min is None:
+                args.chrom_index_min = 0
+            chrom_index = parameter.Uniform(args.chrom_index_min,args.chrom_index_max,to_par=to_par)("Chrom_index")
+        else:
+            parfile.append("TNChromIdx {}\n".format(args.chrom_index))
+            chrom_index=parameter.Constant(args.chrom_index)
 
         A_min = args.Achrom_min
         A_max = args.Achrom_max
@@ -62,7 +70,7 @@ def setup_model(args, psr, parfile):
 
         gamma_chrom = parameter.Uniform(args.chrom_gamma_min,args.chrom_gamma_max, to_par=to_par)('Chrom_gamma')
         plchrom = utils.powerlaw(log10_A=log10_Achrom, gamma=gamma_chrom)
-        chrom = FourierBasisGP_Chrom(spectrum=plchrom, components=nC, Tspan=Tspan, index=args.chrom_index)
+        chrom = FourierBasisGP_Chrom(spectrum=plchrom, components=nC, Tspan=Tspan, index=chrom_index)
         components.append(chrom)
 
     if args.chrom_yr:
@@ -162,6 +170,8 @@ def to_par(self,p,chain):
         return "TNChromAmp", chain
     elif "Chrom_gamma" in p:
         return "TNChromGam", chain
+    elif "Chrom_index" in p:
+        return "TNChromIdx", chain
     elif "CHROM_YR" in p:
         return p,chain
     elif "CHROM_BUMP" in p:
