@@ -45,10 +45,12 @@ def run_enterprise(args):
 
 
     ### make model
+    print("Building model...")
     model = make_model(args,psr,parfile)
 
     pta = signal_base.PTA(model(psr))
 
+    print("Run Model Fitting!")
     run_modelfit(args, psr, par, pta, parfile)
 
 

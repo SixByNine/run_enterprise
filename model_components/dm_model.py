@@ -12,8 +12,8 @@ argdec="Parameters for fitting dm variations"
 
 def setup_argparse(parser):
     parser.add_argument('-D', '--dm', action='store_true', help='Enable DM variation search')
-    parser.add_argument('--Adm-max', type=float, default=-12, help='Max log10A_DM')
-    parser.add_argument('--Adm-min', type=float, default=-18, help='Min log10A_DM')
+    parser.add_argument('--Adm-max','--dm-amp-max', type=float, default=-12, help='Max log10A_DM')
+    parser.add_argument('--Adm-min','--dm-amp-min', type=float, default=-18, help='Min log10A_DM')
     parser.add_argument('--dm-gamma-max', type=float, default=5, help='Max gamma red')
     parser.add_argument('--dm-gamma-min', type=float, default=0, help='Min gamma red')
     parser.add_argument('--dm-ncoeff', type=int, default=None, help='Number of DM bins to use')

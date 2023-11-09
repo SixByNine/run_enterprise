@@ -6,6 +6,7 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
     derived=[]
     derived_names=[]
 
+
     for i,p in enumerate(parnames):
         if p.startswith("GLF0(instant)"):
             iglitch = int(p.split('_')[1])
@@ -37,6 +38,13 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
             derived.append(glf0)
             derived_names.append("GLF0_{}".format(iglitch))
 
+        if p.startswith("CHROM_BUMP_AMP"):
+            e=p.split("_")
+            ibump=int(e[-1])
+            sign = scaled_samples[:,parnames==f"CHROM_BUMP_SIGN_{ibump}"][:,0]
+            amp = np.sign(sign)*10**scaled_samples[:,i]
+            derived.append(amp)
+            derived_names.append(f"GAUSAMP_{ibump}")
         if p.startswith("GLF0(T="):
             iglitch = int(p.split('_')[1])
             numb = p.split('=')[1]
@@ -143,9 +151,8 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
             PredT = 2*logAred - np.log10(12*np.pi*np.pi) - gamma*np.log10(fref)
             derived.append(PredT)
             derived_names.append("RedP_T{}".format(args.plot_Ared_at_T))
-
-
-    return np.array(derived).T,derived_names
+    derived = np.array(derived).T
+    return derived,derived_names
 
 
 
