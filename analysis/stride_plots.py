@@ -275,6 +275,11 @@ pylab.locator_params(axis='y',nbins=15)
 pylab.ticklabel_format(style='plain', axis='y',scilimits=(0,0))
 M_SIZE = 8
 
+if '-' in sfpsr.psrn:
+    newname = sfpsr.psrn.split('-')[0]+'$-$'+sfpsr.psrn.split('-')[1]
+else:
+    newname = sfpsr.psrn.split('+')[0]+'$+$'+sfpsr.psrn.split('+')[1]
+
 # Plot the spin frequency and spin-down rate residuals panels
 if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     fig, ax = plt.subplots(4, 1, sharex=True, figsize=(12, 9.6), gridspec_kw={'height_ratios': [1, 5, 5, 5]}) 
@@ -290,12 +295,13 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     ax[1].plot(t_mask, 1e6*ana1, 'k-', zorder=2, label='Analytic model')
     ax[1].plot(t_inverse, 1e6*ana1, 'g-', zorder=2, label='Extrapolation', alpha=0.8)
     ax[1].errorbar(p1_mjd, stf1, yerr=p1_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, label='Stirde fit')
+    tb = plt.text(0.01, 0.96, r'%s'%newname, c='k', fontsize=24, ha='left', va='top', transform=ax[1].transAxes)
+    tb.set_bbox(dict(facecolor='w', alpha=0.5, linewidth=0))
     plt.ylim(plot_range(1e6*ana1)[0], plot_range(1e6*ana1)[1])
     plt.ylabel(r'$\delta \nu$ ($\mu$Hz)', fontsize=24, labelpad=5)
     plt.yticks(fontsize=24)
     for gls in gleps:
         ax[1].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
-    #plt.legend(loc='upper left')
     plt.subplot(413)
     ax[2].plot(t_mask, 1e6*ana2, 'k-', zorder=2)
     ax[2].plot(t_inverse, 1e6*ana2, 'g-', zorder=2, alpha=0.8)
@@ -316,9 +322,11 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     plt.xlabel('Modified Julian Date', fontsize=24)
     plt.yticks(fontsize=24)
     plt.xticks(fontsize=24)
+    fig.align_ylabels()
     plt.savefig('nu_nudot_gp_{}.pdf'.format(sfpsr.psrn), format='pdf', dpi=400, bbox_inches='tight')
     plt.show()
 
+#fig = plt.figure(figsize=(12, 18.6))
 if 1>0: # Some option for plot all panels
     fig, ax = plt.subplots(7, 1, sharex=True, figsize=(12, 18.6), gridspec_kw={'height_ratios': [1, 5, 5, 5, 5, 5, 5]})
     fig.subplots_adjust(hspace=0)
@@ -333,12 +341,13 @@ if 1>0: # Some option for plot all panels
     ax[1].plot(t_mask, 1e6*ana1, 'k-', zorder=2, label='Analytic model')
     ax[1].plot(t_inverse, 1e6*ana1, 'g-', zorder=2, label='Extrapolation', alpha=0.8)
     ax[1].errorbar(p1_mjd, stf1, yerr=p1_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, label='Stirde fit')
+    tb = plt.text(0.01, 0.96, r'%s'%newname, c='k', fontsize=24, ha='left', va='top', transform=ax[1].transAxes)
+    tb.set_bbox(dict(facecolor='w', alpha=0.5, linewidth=0))
     plt.ylim(plot_range(1e6*ana1)[0], plot_range(1e6*ana1)[1])
     plt.ylabel(r'$\delta \nu$'+'\n'+'($\mu$Hz)', fontsize=15, labelpad=5)
     plt.yticks(fontsize=15)
     for gls in gleps:
         ax[1].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
-    #plt.legend(loc='upper left')
     plt.subplot(713)
     ax[2].plot(t_mask, 1e6*ana2, 'k-', zorder=2)
     ax[2].plot(t_inverse, 1e6*ana2, 'g-', zorder=2, alpha=0.8)
@@ -387,6 +396,7 @@ if 1>0: # Some option for plot all panels
     plt.xlabel('Modified Julian Date', fontsize=15)
     plt.yticks(fontsize=15)
     plt.xticks(fontsize=15)
+    fig.align_ylabels()
     plt.savefig('full_nu_nudot_gp_{}.pdf'.format(sfpsr.psrn), format='pdf', dpi=400, bbox_inches='tight')
     plt.show()
 
