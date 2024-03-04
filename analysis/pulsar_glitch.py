@@ -1368,6 +1368,7 @@ class Pulsar:
         self.spin_slt["Plot F1"] = self.pp_f1
         self.spin_slt["Median F2"] = self.pp_f2
         self.spin_slt["Plot epoch"] = self.pp_pepoch
+        self.spin_slt["Pepoch"] = self.pepoch
         self.spin_slt["Min MJD"] = self.minmjds
         self.spin_slt["Max MJD"] = self.maxmjds
         self.spin_slt["Total glitches"] = self.max_glitch
@@ -1381,7 +1382,7 @@ class Pulsar:
         spin_idx = ["F0", "F0 std", "F1", "F1 std", "F2", "F2 std"]
         period_idx = ["P", "P std", "P_dot", "P_dot std", "P_ddot", "P_ddot std"]
         plot_idx = ["Plot F0", "Plot F1", "Median F2", "Plot epoch"]
-        observe_idx = ["Min MJD", "Max MJD", "Total glitches"]
+        observe_idx = ["Pepoch", "Min MJD", "Max MJD", "Total glitches"]
         derived_idx = ["E_dot", "Tau_c", "B_sur", "Braking index", "Glitch activity"]
         toa_idx = ["ToA start", "ToA finish", "ToA count", "ToA span"]
         glitch_idx = ["GLEP", "GLEP std", "GLF0", "GLF0 std", "GLF1", "GLF1 std", "GLF2", "GLF2 std"]
