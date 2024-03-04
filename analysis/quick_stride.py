@@ -286,14 +286,14 @@ else:
 # Plot the spin frequency and spin-down rate residuals panels
 if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     fig, ax = plt.subplots(4, 1, sharex=True, figsize=(12, 9.6), gridspec_kw={'height_ratios': [1, 5, 5, 5]}) 
-    fig.subplots_adjust(hspace=0)
+    fig.subplots_adjust(left=0.17, right=0.99, bottom=0.08, top=0.99, hspace=0)
     plt.subplot(411)
     for toa in sfpsr.toaseries:
         ax[0].axvline(toa, color='b', linestyle='dashed', alpha=0.2, linewidth=0.5) #ymax=0.05, 
     for gls in gleps:
         ax[0].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     ax[0].set_yticks([])
-    plt.ylabel('ToA', fontsize=24, labelpad=15)
+    plt.ylabel('ToA', fontsize=24, labelpad=5)
     plt.subplot(412)
     ax[1].plot(t_mask, 1e6*ana1, 'k-', zorder=2, label='Analytic model')
     ax[1].plot(t_inverse, 1e6*ana1, 'g-', zorder=2, label='Extrapolation', alpha=0.8)
@@ -329,20 +329,20 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     plt.yticks(fontsize=24)
     plt.xticks(fontsize=24)
     fig.align_ylabels()
-    plt.savefig('nu_nudot_gp_{}.pdf'.format(sfpsr.psrn), format='pdf', dpi=400, bbox_inches='tight')
+    plt.savefig('nu_nudot_gp_{}.pdf'.format(sfpsr.psrn), format='pdf', dpi=400)
     plt.show()
 
 #fig = plt.figure(figsize=(12, 18.6))
 if 1>0: # Some option for plot all panels
     fig, ax = plt.subplots(7, 1, sharex=True, figsize=(12, 18.6), gridspec_kw={'height_ratios': [1, 5, 5, 5, 5, 5, 5]})
-    fig.subplots_adjust(hspace=0)
+    fig.subplots_adjust(left=0.14, right=0.99, bottom=0.03, top=0.99, hspace=0)
     plt.subplot(711)
     for toa in sfpsr.toaseries:
         ax[0].axvline(toa, color='b', linestyle='dashed', alpha=0.2, linewidth=0.5) #ymax=0.05, 
     for gls in gleps:
         ax[0].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     ax[0].set_yticks([])
-    plt.ylabel('ToA', fontsize=15, labelpad=15)
+    plt.ylabel('ToA', fontsize=15, labelpad=5)
     plt.subplot(712)
     ax[1].plot(t_mask, 1e6*ana1, 'k-', zorder=2, label='Analytic model')
     ax[1].plot(t_inverse, 1e6*ana1, 'g-', zorder=2, label='Extrapolation', alpha=0.8)
@@ -404,7 +404,7 @@ if 1>0: # Some option for plot all panels
     plt.yticks(fontsize=15)
     plt.xticks(fontsize=15)
     fig.align_ylabels()
-    plt.savefig('full_nu_nudot_gp_{}.pdf'.format(sfpsr.psrn), format='pdf', dpi=400, bbox_inches='tight')
+    plt.savefig('full_nu_nudot_gp_{}.pdf'.format(sfpsr.psrn), format='pdf', dpi=400)
     plt.show()
 
 
