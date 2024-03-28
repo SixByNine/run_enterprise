@@ -39,6 +39,7 @@ parser.add_argument('--gltd', '--gltd-range', type=float, default=[1, 3], nargs=
 parser.add_argument('--glep', '--glep-range', type=float, default=2, help='The prior range for glep')
 parser.add_argument('--sigma', '--measured-sigma', type=float, default=[100, 100, 100, 100], nargs='+', help='Minus/Plus sigma range of GLF0(instant), and Minus/Plus sigma range of GLF0(T=taug) respectively')
 parser.add_argument('--split', '--gltd-split', type=float, default=[2.0, 2.3], nargs='+', help='Where to split gltd priors (in log10) for double and triple recoveries respectively')
+parser.add_argument('--alt', '--alt-para', action='store_false', help='Use alternative parameterisation of glitches fitting for instantanious change in F0 rather than GLF0')
 parser.add_argument('--small', '--small-glitches', action='store_false', help='Turn on tempo2 fitting for the small glitches in split par if they are included in split tim')
 parser.add_argument('--pre', '--pre-glitch', action='store_false', help='Use the best model(if exists) of previous glitch in the split par')
 parser.add_argument('--dir', '--root-dir', type=str, default='/nvme1/yliu/yangliu/', help='The absolute path to the run_enterprise directory')
@@ -71,7 +72,7 @@ for gi in args.glitches:
             if gf2 is True and exp==3:
                 continue
             sfpsr.split_par(glitchnum=gi, recoveries=exp, GLF2=gf2, small_glitches=args.small, pre_gli=args.pre)
-            sfpsr.MCMC_fit(glitchnum=gi, recoveries=exp, GLF2=gf2, gleprange=args.glep, gltdrange=args.gltd, glf0drange=args.glf0d, sigma=args.sigma, gltdsplit=args.split, glf2range=args.f2)
+            sfpsr.MCMC_fit(glitchnum=gi, recoveries=exp, GLF2=gf2, gleprange=args.glep, gltdrange=args.gltd, glf0drange=args.glf0d, alt=args.alt, sigma=args.sigma, gltdsplit=args.split, glf2range=args.f2)
         #sfpsr.post_par(glitchnum=gi)
     sfpsr.best_model(glitchnum=gi, recoveries=None, GLF2=args.glf2)
 
@@ -87,6 +88,6 @@ if len(args.multiple)>0:
             if gf2 is True and exp==3:
                 continue
             sfpsr.split_par(glitchnum=gi, recoveries=exp, GLF2=gf2, small_glitches=args.small, pre_gli=args.pre)
-            sfpsr.MCMC_fit(glitchnum=gi, recoveries=exp, GLF2=gf2, gleprange=args.glep, gltdrange=args.gltd, glf0drange=args.glf0d, sigma=args.sigma, gltdsplit=args.split, glf2range=args.f2, rootdir=rootdir)
+            sfpsr.MCMC_fit(glitchnum=gi, recoveries=exp, GLF2=gf2, gleprange=args.glep, gltdrange=args.gltd, glf0drange=args.glf0d, alt=args.alt, sigma=args.sigma, gltdsplit=args.split, glf2range=args.f2, rootdir=rootdir)
         #sfpsr.post_par(glitchnum=args.multiple[1])
     sfpsr.best_model(glitchnum=args.multiple[1], recoveries=None, GLF2=args.glf2)

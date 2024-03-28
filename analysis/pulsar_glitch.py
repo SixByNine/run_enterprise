@@ -669,7 +669,7 @@ class Pulsar:
                     else:
                         newline = e[0]+"   "+e[1]+"   "+e[2]+"   "+e[3]+"   "+"1"+"\n"
                         parlines.append(newline)
-                elif any(line.startswith(ls) for ls in ["RA", "DEC", "F0", "F1", "F2", "PX", "PM", "DM "]):
+                elif any(line.startswith(ls) for ls in ["RA", "DEC", "F0", "F1", "F2", "PX", "PM"]):#, "DM "]):
                     # Turn on tempo2 fitting of these parameters
                     if len(e) >= 3 and float(e[-1]) != 1:
                         newline = e[0]+"   "+e[1]+"   "+"1"+"   "+e[-1]+"\n"
@@ -727,7 +727,7 @@ class Pulsar:
         self.splitpar = self.tidy_par(self.splitpar)
         return self.splitpar
 
-    def MCMC_fit(self, par=None, tim=None, glitchnum=1, solver="multinest", recoveries=0, GLF2=False, sigma=[100, 100, 100, 100], gleprange=2, gltdrange=[1, 3], gltdsplit=[2.0, 2.3], glf0drange=0.8, glf0range=0.8, glf1range=0.8, glf2range=10, red=[-16, -8], tspan=1.1, thread=16, N=8000, nwalkers=128, nlive=500, redc=60, run=True, ce=False, rootdir="/nvme1/yliu/yangliu/"):
+    def MCMC_fit(self, par=None, tim=None, glitchnum=1, solver="multinest", recoveries=0, GLF2=False, alt=True, sigma=[100, 100, 100, 100], gleprange=2, gltdrange=[1, 3], gltdsplit=[2.0, 2.3], glf0drange=0.8, glf0range=0.8, glf1range=0.8, glf2range=10, red=[-16, -8], tspan=1.1, thread=16, N=8000, nwalkers=128, nlive=500, redc=60, run=True, ce=False, rootdir="/nvme1/yliu/yangliu/"):
         '''Call enterprise to do MCMC fit for model selection for par and tim on glitch glitchnum.
            Use options to specify the prior ranges and enterprise settings.
            The directory for enterpresie folder is rootdir'''
@@ -793,9 +793,12 @@ class Pulsar:
         solver = "--"+solver
         command.extend([solver, plotchain, "--plot-derived"]) 
         command.extend(["-j", "--red-prior-log", "--Ared-min", str(red[0]), "-A", str(red[1])])
-        command.extend(["--tspan-mult", str(tspan), "--glitch-alt-f0", "--glitch-alt-f0t"])
-        command.extend(taug)
-        command.extend(["--measured-prior", "--measured-sigma", str(sigma[0]), str(sigma[1]), str(sigma[2]), str(sigma[3])])
+        if alt is True:
+            command.extend(["--tspan-mult", str(tspan), "--glitch-alt-f0", "--glitch-alt-f0t"])
+            command.extend(taug)
+            command.extend(["--measured-prior", "--measured-sigma", str(sigma[0]), str(sigma[1]), str(sigma[2]), str(sigma[3])])
+        else:
+            command.extend(["--tspan-mult", str(tspan)])
         command.extend(["--glitch-epoch-range", str(gleprange), "--glitch-td-min", str(gltdrange[0]), "--glitch-td-max", str(gltdrange[1])])
         command.extend(["--glitch-td-split", str(gltdsplit[0]), str(gltdsplit[1]), "--glitch-f0d-range", str(glf0drange)])
         command.extend(["--glitch-f0-range", str(glf0range), "--glitch-f1-range", str(glf1range), "--glitch-f2-range", str(glf2range)])
@@ -980,7 +983,7 @@ class Pulsar:
                         parlines.append(newline)
                 elif line.startswith("TN"):
                     continue
-                elif any(line.startswith(ls) for ls in ["RA", "DEC", "PX", "PM", "DM ", "F0", "F1", "F2"]):
+                elif any(line.startswith(ls) for ls in ["RA", "DEC", "PX", "PM", "F0", "F1", "F2"]):#, "DM "]):
                 # Turn on tempo2 fitting of these parameters
                     if len(e) >= 3 and float(e[-1]) != 1:
                         newline = e[0]+"   "+e[1]+"   "+"1"+"   "+e[-1]+"\n"
@@ -1460,7 +1463,7 @@ class Pulsar:
                     continue
                 elif line.startswith("TNEF") or line.startswith("TNEQ") or line.startswith("JUMP"):
                     parlines.append(line)
-                elif any(line.startswith(ls) for ls in ["RA", "DEC", "DM ", "PM", "PX", "F0", "F1", "F2"]):
+                elif any(line.startswith(ls) for ls in ["RA", "DEC", "PM", "PX", "F0", "F1", "F2"]):#, "DM "]):
                     # Turn on tempo2 fitting of these parameters
                     if len(e) >= 3 and float(e[-1]) != 1:
                         newline = e[0]+"   "+e[1]+"   "+"1"+"   "+e[-1]+"\n"
