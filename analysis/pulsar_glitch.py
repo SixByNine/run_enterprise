@@ -669,7 +669,7 @@ class Pulsar:
                     else:
                         newline = e[0]+"   "+e[1]+"   "+e[2]+"   "+e[3]+"   "+"1"+"\n"
                         parlines.append(newline)
-                elif any(line.startswith(ls) for ls in ["RA", "DEC", "F0", "F1", "F2", "PX", "PM"]):#, "DM "]):
+                elif any(line.startswith(ls) for ls in ["RA", "DEC", "F0", "F1", "F2", "PX", "PM", "DM "]):
                     # Turn on tempo2 fitting of these parameters
                     if len(e) >= 3 and float(e[-1]) != 1:
                         newline = e[0]+"   "+e[1]+"   "+"1"+"   "+e[-1]+"\n"
@@ -983,7 +983,7 @@ class Pulsar:
                         parlines.append(newline)
                 elif line.startswith("TN"):
                     continue
-                elif any(line.startswith(ls) for ls in ["RA", "DEC", "PX", "PM", "F0", "F1", "F2"]):#, "DM "]):
+                elif any(line.startswith(ls) for ls in ["RA", "DEC", "PX", "PM", "F0", "F1", "F2", "DM "]):
                 # Turn on tempo2 fitting of these parameters
                     if len(e) >= 3 and float(e[-1]) != 1:
                         newline = e[0]+"   "+e[1]+"   "+"1"+"   "+e[-1]+"\n"
@@ -1463,7 +1463,7 @@ class Pulsar:
                     continue
                 elif line.startswith("TNEF") or line.startswith("TNEQ") or line.startswith("JUMP"):
                     parlines.append(line)
-                elif any(line.startswith(ls) for ls in ["RA", "DEC", "PM", "PX", "F0", "F1", "F2"]):#, "DM "]):
+                elif any(line.startswith(ls) for ls in ["RA", "DEC", "PM", "PX", "F0", "F1", "F2", "DM "]):
                     # Turn on tempo2 fitting of these parameters
                     if len(e) >= 3 and float(e[-1]) != 1:
                         newline = e[0]+"   "+e[1]+"   "+"1"+"   "+e[-1]+"\n"
