@@ -37,6 +37,7 @@ parser.add_argument('-m', '--multiple', type=list, default=[], nargs='+', help='
 parser.add_argument('-r', '--recoveries', type=int, default=[], nargs='+', help='Number of recoveries in the best model for each glitch')
 parser.add_argument('--glf2', type=int, default=[], nargs='+', help='Include GLF2 term for the best model of these glitches')
 parser.add_argument('--full', '--full-plot', action='store_true', help='Plot full version of stride fit plots')
+parser.add_argument('--tele', '--telescope', action='store_true', help='Mark ToAs from different telescope with different colours')
 #parser.add_argument('-g', '--glep', type=float, default=[], nargs='+', help='Glitch epochs(MJD)')
 #parser.add_argument('-d', '--data', help='Stride data text file', required=True)
 args = parser.parse_args()
@@ -44,6 +45,7 @@ args = parser.parse_args()
 # Set Pulsar class sfpsr, load info, generate truth file
 sfpsr = pg.Pulsar(args.parfile, args.timfile, glf0t=args.taug)
 sfpsr.delete_null()
+#sfpsr.load_info()
 #sfpsr.generate_truth()
 
 # Convert double recovery to tempo2 style, chop tim file, update info
@@ -288,10 +290,28 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     fig, ax = plt.subplots(4, 1, sharex=True, figsize=(12, 9.6), gridspec_kw={'height_ratios': [1, 5, 5, 5]}) 
     fig.subplots_adjust(left=0.17, right=0.99, bottom=0.08, top=0.99, hspace=0)
     plt.subplot(411)
-    for toa in sfpsr.toaseries:
-        ax[0].axvline(toa, color='b', linestyle='dashed', alpha=0.2, linewidth=0.5) #ymax=0.05, 
-    for gls in gleps:
-        ax[0].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
+    if args.tele is False:
+        for toa in sfpsr.toaseries:
+            ax[0].axvline(toa, color='b', linestyle='dashed', alpha=0.2, linewidth=0.5) #ymax=0.05, 
+    else:
+        cmap = plt.get_cmap('viridis')
+        colors = cmap(np.linspace(0, 1, len(sfpsr.telescopes)))
+        print('### Telescopes and corresponding colors:')
+        for i, (telescope, color) in enumerate(zip(sfpsr.telescopes, colors), 1):
+            print('Telescope %s in color %s'%(telescope, color))
+            for toa in sfpsr.toaseries[np.where(sfpsr.telescopeseries==telescope)]:
+                ax[0].axvline(toa, color=color, linestyle='dashed', alpha=0.2, linewidth=0.5)
+    for i, gls in enumerate(gleps):
+        if np.abs(sfpsr.pglf0d3[i])>0:
+            ax[0].axvline(gls, color='k', linestyle='solid', alpha=0.8, linewidth=1.1)
+        elif np.abs(sfpsr.pglf0d2[i])>0:
+            ax[0].axvline(gls, color='k', linestyle='dashed', alpha=0.7, linewidth=1.4)
+        elif np.abs(sfpsr.pglf0d[i])>0:
+            ax[0].axvline(gls, color='k', linestyle='dashdot', alpha=0.6, linewidth=1.7)
+        else:
+            ax[0].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
+    #for gls in gleps:
+    #    ax[0].axvline(gls, color='k', linestyle='dotted', alpha=0.4, linewidth=2)
     ax[0].set_yticks([])
     plt.ylabel('ToA', fontsize=24, labelpad=5)
     plt.subplot(412)
@@ -303,15 +323,29 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     plt.ylim(plot_range(1e6*ana1)[0], plot_range(1e6*ana1)[1])
     plt.ylabel(r'$\delta \nu$ ($\mu$Hz)', fontsize=24, labelpad=5)
     plt.yticks(fontsize=24)
-    for gls in gleps:
-        ax[1].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
+    for i, gls in enumerate(gleps):
+        if np.abs(sfpsr.pglf0d3[i])>0:
+            ax[1].axvline(gls, color='k', linestyle='solid', alpha=0.8, linewidth=1.1)
+        elif np.abs(sfpsr.pglf0d2[i])>0:
+            ax[1].axvline(gls, color='k', linestyle='dashed', alpha=0.7, linewidth=1.4)
+        elif np.abs(sfpsr.pglf0d[i])>0:
+            ax[1].axvline(gls, color='k', linestyle='dashdot', alpha=0.6, linewidth=1.7)
+        else:
+            ax[1].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     #plt.legend(loc='upper left')
     plt.subplot(413)
     ax[2].plot(t_mask, 1e6*ana2, 'k-', zorder=2)
     ax[2].plot(t_inverse, 1e6*ana2, 'g-', zorder=2, alpha=0.8)
     ax[2].errorbar(p2_mjd, stf2, yerr=p2_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
-    for gls in gleps:
-        ax[2].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
+    for i, gls in enumerate(gleps):
+        if np.abs(sfpsr.pglf0d3[i])>0:
+            ax[2].axvline(gls, color='k', linestyle='solid', alpha=0.8, linewidth=1.1)
+        elif np.abs(sfpsr.pglf0d2[i])>0:
+            ax[2].axvline(gls, color='k', linestyle='dashed', alpha=0.7, linewidth=1.4)
+        elif np.abs(sfpsr.pglf0d[i])>0:
+            ax[2].axvline(gls, color='k', linestyle='dashdot', alpha=0.6, linewidth=1.7)
+        else:
+            ax[2].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     plt.ylim(plot_range(1e6*ana2)[0], plot_range(1e6*ana2)[1])
     #plt.ylim(-0.002, 0.002)
     plt.ylabel(r'$\delta \nu-\nu_{gp}$ ($\mu$Hz)', fontsize=24, labelpad=5)
@@ -320,8 +354,15 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     ax[3].plot(t_mask, 1e-3*ana4, 'k-', zorder=2)
     ax[3].plot(t_inverse, 1e-3*ana4, 'g-', zorder=2, alpha=0.8)
     ax[3].errorbar(p4_mjd, 1e2*stf4, yerr=1e2*p4_err, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
-    for gls in gleps:
-        ax[3].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
+    for i, gls in enumerate(gleps):
+        if np.abs(sfpsr.pglf0d3[i])>0:
+            ax[3].axvline(gls, color='k', linestyle='solid', alpha=0.8, linewidth=1.1)
+        elif np.abs(sfpsr.pglf0d2[i])>0:
+            ax[3].axvline(gls, color='k', linestyle='dashed', alpha=0.7, linewidth=1.4)
+        elif np.abs(sfpsr.pglf0d[i])>0:
+            ax[3].axvline(gls, color='k', linestyle='dashdot', alpha=0.6, linewidth=1.7)
+        else:
+            ax[3].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     plt.ylim(plot_range(1e-3*ana4, 0.5, 0.5)[0], plot_range(1e-3*ana4, 0.5, 0.5)[1])
     #plt.ylim(-0.004, -0.002)
     plt.ylabel(r'$\dot{\nu}$ ($10^{-12}$Hz s$^{-1}$)', fontsize=24, labelpad=5)
@@ -337,10 +378,28 @@ if 1>0: # Some option for plot all panels
     fig, ax = plt.subplots(7, 1, sharex=True, figsize=(12, 18.6), gridspec_kw={'height_ratios': [1, 5, 5, 5, 5, 5, 5]})
     fig.subplots_adjust(left=0.14, right=0.99, bottom=0.03, top=0.99, hspace=0)
     plt.subplot(711)
-    for toa in sfpsr.toaseries:
-        ax[0].axvline(toa, color='b', linestyle='dashed', alpha=0.2, linewidth=0.5) #ymax=0.05, 
-    for gls in gleps:
-        ax[0].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
+    #for toa in sfpsr.toaseries:
+    #    ax[0].axvline(toa, color='b', linestyle='dashed', alpha=0.2, linewidth=0.5) #ymax=0.05, 
+    if args.tele is False:
+        for toa in sfpsr.toaseries:
+            ax[0].axvline(toa, color='b', linestyle='dashed', alpha=0.2, linewidth=0.5) #ymax=0.05, 
+    else:
+        cmap = plt.get_cmap('viridis')
+        colors = cmap(np.linspace(0, 1, len(sfpsr.telescopes)))
+        print('### Telescopes and corresponding colors:')
+        for i, (telescope, color) in enumerate(zip(sfpsr.telescopes, colors), 1):
+            print('Telescope %s in color %s'%(telescope, color))
+            for toa in sfpsr.toaseries[np.where(sfpsr.telescopeseries==telescope)]:
+                ax[0].axvline(toa, color=color, linestyle='dashed', alpha=0.2, linewidth=0.5)
+    for i, gls in enumerate(gleps):
+        if np.abs(sfpsr.pglf0d3[i])>0:
+            ax[0].axvline(gls, color='k', linestyle='solid', alpha=0.8, linewidth=1.1)
+        elif np.abs(sfpsr.pglf0d2[i])>0:
+            ax[0].axvline(gls, color='k', linestyle='dashed', alpha=0.7, linewidth=1.4)
+        elif np.abs(sfpsr.pglf0d[i])>0:
+            ax[0].axvline(gls, color='k', linestyle='dashdot', alpha=0.6, linewidth=1.7)
+        else:
+            ax[0].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     ax[0].set_yticks([])
     plt.ylabel('ToA', fontsize=15, labelpad=5)
     plt.subplot(712)
@@ -352,15 +411,29 @@ if 1>0: # Some option for plot all panels
     plt.ylim(plot_range(1e6*ana1)[0], plot_range(1e6*ana1)[1])
     plt.ylabel(r'$\delta \nu$'+'\n'+'($\mu$Hz)', fontsize=15, labelpad=5)
     plt.yticks(fontsize=15)
-    for gls in gleps:
-        ax[1].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
+    for i, gls in enumerate(gleps):
+        if np.abs(sfpsr.pglf0d3[i])>0:
+            ax[1].axvline(gls, color='k', linestyle='solid', alpha=0.8, linewidth=1.1)
+        elif np.abs(sfpsr.pglf0d2[i])>0:
+            ax[1].axvline(gls, color='k', linestyle='dashed', alpha=0.7, linewidth=1.4)
+        elif np.abs(sfpsr.pglf0d[i])>0:
+            ax[1].axvline(gls, color='k', linestyle='dashdot', alpha=0.6, linewidth=1.7)
+        else:
+            ax[1].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     #plt.legend(loc='upper left')
     plt.subplot(713)
     ax[2].plot(t_mask, 1e6*ana2, 'k-', zorder=2)
     ax[2].plot(t_inverse, 1e6*ana2, 'g-', zorder=2, alpha=0.8)
     ax[2].errorbar(p2_mjd, stf2, yerr=p2_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
-    for gls in gleps:
-        ax[2].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
+    for i, gls in enumerate(gleps):
+        if np.abs(sfpsr.pglf0d3[i])>0:
+            ax[2].axvline(gls, color='k', linestyle='solid', alpha=0.8, linewidth=1.1)
+        elif np.abs(sfpsr.pglf0d2[i])>0:
+            ax[2].axvline(gls, color='k', linestyle='dashed', alpha=0.7, linewidth=1.4)
+        elif np.abs(sfpsr.pglf0d[i])>0:
+            ax[2].axvline(gls, color='k', linestyle='dashdot', alpha=0.6, linewidth=1.7)
+        else:
+            ax[2].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     plt.ylim(plot_range(1e6*ana2)[0], plot_range(1e6*ana2)[1])
     plt.ylabel(r'$\delta \nu-\nu_{gp}$'+'\n'+'($\mu$Hz)', fontsize=15, labelpad=5)
     plt.yticks(fontsize=15)
@@ -369,8 +442,15 @@ if 1>0: # Some option for plot all panels
     ax[3].plot(t_mask, 1e6*ana3, 'k-', zorder=2)
     ax[3].plot(t_inverse, 1e6*ana3, 'g-', zorder=2, alpha=0.8)
     ax[3].errorbar(p3_mjd, stf3, yerr=p3_err, marker='.', color='r', ecolor='r', linestyle='None', alpha=1, zorder=1, markersize=4)
-    for gls in gleps:
-        ax[3].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
+    for i, gls in enumerate(gleps):
+        if np.abs(sfpsr.pglf0d3[i])>0:
+            ax[3].axvline(gls, color='k', linestyle='solid', alpha=0.8, linewidth=1.1)
+        elif np.abs(sfpsr.pglf0d2[i])>0:
+            ax[3].axvline(gls, color='k', linestyle='dashed', alpha=0.7, linewidth=1.4)
+        elif np.abs(sfpsr.pglf0d[i])>0:
+            ax[3].axvline(gls, color='k', linestyle='dashdot', alpha=0.6, linewidth=1.7)
+        else:
+            ax[3].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     plt.ylim(plot_range(1e6*ana3, 0.5, 0.5)[0], plot_range(1e6*ana3, 0.5, 0.5)[1])
     plt.ylabel(r'$\delta \nu-\nu_{g}$'+'\n'+'($\mu$Hz)', fontsize=15, labelpad=5)
     plt.yticks(fontsize=15)
@@ -378,8 +458,15 @@ if 1>0: # Some option for plot all panels
     ax[4].plot(t_mask, 1e-3*ana4, 'k-', zorder=2)
     ax[4].plot(t_inverse, 1e-3*ana4, 'g-', zorder=2, alpha=0.8)
     ax[4].errorbar(p4_mjd, 1e2*stf4, yerr=1e2*p4_err, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
-    for gls in gleps:
-        ax[4].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
+    for i, gls in enumerate(gleps):
+        if np.abs(sfpsr.pglf0d3[i])>0:
+            ax[4].axvline(gls, color='k', linestyle='solid', alpha=0.8, linewidth=1.1)
+        elif np.abs(sfpsr.pglf0d2[i])>0:
+            ax[4].axvline(gls, color='k', linestyle='dashed', alpha=0.7, linewidth=1.4)
+        elif np.abs(sfpsr.pglf0d[i])>0:
+            ax[4].axvline(gls, color='k', linestyle='dashdot', alpha=0.6, linewidth=1.7)
+        else:
+            ax[4].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     plt.ylim(plot_range(1e-3*ana4, 0.5, 0.5)[0], plot_range(1e-3*ana4, 0.5, 0.5)[1])
     plt.ylabel(r'$\dot{\nu}$'+'\n'+'($10^{-12}$Hz s$^{-1}$)', fontsize=15, labelpad=5)
     plt.yticks(fontsize=15)
@@ -387,8 +474,15 @@ if 1>0: # Some option for plot all panels
     ax[5].plot(t_mask, ana5, 'k-', zorder=2)
     ax[5].plot(t_inverse, ana5, 'g-', zorder=2, alpha=0.8)
     ax[5].errorbar(p5_mjd, 1e5*stf5, yerr=1e5*p5_err, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
-    for gls in gleps:
-        ax[5].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
+    for i, gls in enumerate(gleps):
+        if np.abs(sfpsr.pglf0d3[i])>0:
+            ax[5].axvline(gls, color='k', linestyle='solid', alpha=0.8, linewidth=1.1)
+        elif np.abs(sfpsr.pglf0d2[i])>0:
+            ax[5].axvline(gls, color='k', linestyle='dashed', alpha=0.7, linewidth=1.4)
+        elif np.abs(sfpsr.pglf0d[i])>0:
+            ax[5].axvline(gls, color='k', linestyle='dashdot', alpha=0.6, linewidth=1.7)
+        else:
+            ax[5].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     plt.ylim(plot_range(ana5, 0.5, 0.5)[0], plot_range(ana5, 0.5, 0.5)[1])
     plt.ylabel(r'$\delta \dot{\nu}-\dot{\nu_{g}}$'+'\n'+'($10^{-15}$Hz s$^{-1}$)', fontsize=15, labelpad=5)
     plt.yticks(fontsize=15)
@@ -396,8 +490,15 @@ if 1>0: # Some option for plot all panels
     ax[6].plot(t_mask, 10*ana6, 'k-', zorder=2)
     ax[6].plot(t_inverse, 10*ana6, 'g-', zorder=2, alpha=0.8)
     ax[6].errorbar(p6_mjd, 10*stf6, yerr=10*p6_err, marker='.', color='m', ecolor='m', linestyle='None', alpha=1, zorder=1, markersize=4)
-    for gls in gleps:
-        ax[6].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
+    for i, gls in enumerate(gleps):
+        if np.abs(sfpsr.pglf0d3[i])>0:
+            ax[6].axvline(gls, color='k', linestyle='solid', alpha=0.8, linewidth=1.1)
+        elif np.abs(sfpsr.pglf0d2[i])>0:
+            ax[6].axvline(gls, color='k', linestyle='dashed', alpha=0.7, linewidth=1.4)
+        elif np.abs(sfpsr.pglf0d[i])>0:
+            ax[6].axvline(gls, color='k', linestyle='dashdot', alpha=0.6, linewidth=1.7)
+        else:
+            ax[6].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     plt.ylim(plot_range(10*ana6, 0.5, 0.5)[0], plot_range(10*ana6, 0.5, 0.5)[1])
     plt.ylabel(r'$\ddot{\nu}$'+'\n'+'($10^{-21}$Hz s$^{-2}$)', fontsize=15, labelpad=5)
     plt.xlabel('Modified Julian Date', fontsize=15)

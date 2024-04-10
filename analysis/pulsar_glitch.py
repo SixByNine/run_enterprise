@@ -113,7 +113,7 @@ class Pulsar:
         self.pglf0d, self.pgltd, self.pglf0d2, self.pgltd2, self.pglf0d3, self.pgltd3 = recovery
         self.mglf0d, self.mgltd, self.mglf0d2, self.mgltd2, self.mglf0d3, self.mgltd3 = deepcopy(recovery)
         self.max_glitch, self.waittime, self.lifetime, self.spantime, self.taug, self.numofexp = summary
-        self.minmjds, self.maxmjds, self.toanum, self.span, self.cadence, self.toaseries, self.telescopeseries = self.load_tim(self.tim)
+        self.minmjds, self.maxmjds, self.toanum, self.span, self.cadence, self.toaseries, self.telescopeseries, self.telescopes = self.load_tim(self.tim)
         if new is True:
             self.reset_error()
             self.q1, self.q2, self.q3 = devide(self.pglf0d, self.pglf0ins), devide(self.pglf0d2, self.pglf0ins), devide(self.pglf0d3, self.pglf0ins)
@@ -308,9 +308,12 @@ class Pulsar:
                         telescopeseries.append(e[4])
         span = maxmjds-minmjds
         cadence = span/(toanum-1)
-        toaseries.sort()
-        toaseries = np.array(toaseries)
-        return minmjds, maxmjds, toanum, span, cadence, toaseries, telescopeseries
+        telescopes = sorted(set(telescopeseries))
+        telescope_sorted = [y for x, y in sorted(zip(toaseries, telescopeseries))]
+        toa_sorted = sorted(toaseries)
+        toa_sorted = np.array(toa_sorted)
+        telescope_sorted = np.array(telescope_sorted)
+        return minmjds, maxmjds, toanum, span, cadence, toa_sorted, telescope_sorted, telescopes
 
     def toa_gap(self, x, gap=0):
         '''Find huge gap in TOAs and create mask array for x in MJD'''
