@@ -30,6 +30,7 @@ def setup_argparse(parser):
     parser.add_argument('--glitch-f2-range', '--glf2-range', type=float, default=0, help="Fractional change in GLF2")
     parser.add_argument('--glitch-f0d-range', '--glf0d-range', type=float, default=1.0, help="Fractional range of GLF0D compared to GLF0")
     parser.add_argument('--glitch-td-range', '--gltd-range', type=float, default=None, help="Fractional change in GLTD")
+    parser.add_argument('--gltd-linear', action='store_true',help="Use linear prior on gltd")
     parser.add_argument('--glitch-f0d-positive', '--glf0d-positive', action='store_true', help="Allow only positive GLF0D")
     parser.add_argument('--glitch-td-split', type=float, default=[1.8, 2.8], nargs='+', help="Where to split the td prior for multi exponentials")
     parser.add_argument('--glitch-alt-f0', action='store_true', help="Use alternative parameterisation of glitches fitting for instantanious change in F0 rather than GLF0")
@@ -221,7 +222,10 @@ def setup_model(args, psr, parfile):
                         gltd_range = sorted([args.glitch_td_min, args.glitch_td_split[0]])
                         gltd2_range = sorted([args.glitch_td_split[0], args.glitch_td_split[1]])
                         gltd3_range = sorted([args.glitch_td_split[1], args.glitch_td_max])
-                        td = parameter.Uniform(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
+                        if args.td_linear:
+                            td = parameter.LinearExp(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
+                        else:
+                            td = parameter.Uniform(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
                         f0d_2 = parameter.Uniform(glf0d2_range[0]*1e6, glf0d2_range[1]*1e6, to_par=to_par)(
                         "GLF0D2_{}".format(gl))  # units of 10^-6
                         td_2 = parameter.Uniform(gltd2_range[0], gltd2_range[1], to_par=to_par)("GLTD2_{}".format(gl))
