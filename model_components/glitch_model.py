@@ -236,7 +236,10 @@ def setup_model(args, psr, parfile):
                         gltd_range = sorted([gltd+np.log10(1-args.glitch_td_range), gltd+np.log10(1+args.glitch_td_range)])
                         gltd2_range = sorted([gltd2+np.log10(1-args.glitch_td_range), gltd2+np.log10(1+args.glitch_td_range)])
                         gltd3_range = sorted([gltd3+np.log10(1-args.glitch_td_range), gltd3+np.log10(1+args.glitch_td_range)])
-                        td = parameter.Uniform(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
+                        if args.td_linear:
+                            td = parameter.LinearExp(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
+                        else:
+                            td = parameter.Uniform(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
                         f0d_2 = parameter.Uniform(glf0d2_range[0]*1e6, glf0d2_range[1]*1e6, to_par=to_par)(
                         "GLF0D2_{}".format(gl))  # units of 10^-6
                         td_2 = parameter.Uniform(gltd2_range[0], gltd2_range[1], to_par=to_par)("GLTD2_{}".format(gl))
@@ -247,14 +250,20 @@ def setup_model(args, psr, parfile):
                     if args.glitch_td_range is None:
                         gltd_range = sorted([args.glitch_td_min, args.glitch_td_split[0]])
                         gltd2_range = sorted([args.glitch_td_split[0], args.glitch_td_max])
-                        td = parameter.Uniform(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
+                        if args.td_linear:
+                            td = parameter.LinearExp(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
+                        else:
+                            td = parameter.Uniform(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
                         f0d_2 = parameter.Uniform(glf0d2_range[0]*1e6, glf0d2_range[1]*1e6, to_par=to_par)(
                         "GLF0D2_{}".format(gl))  # units of 10^-6
                         td_2 = parameter.Uniform(gltd2_range[0], gltd2_range[1], to_par=to_par)("GLTD2_{}".format(gl))
                     else:
                         gltd_range = sorted([gltd+np.log10(1-args.glitch_td_range), gltd+np.log10(1+args.glitch_td_range)])
                         gltd2_range = sorted([gltd2+np.log10(1-args.glitch_td_range), gltd2+np.log10(1+args.glitch_td_range)])
-                        td = parameter.Uniform(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
+                        if args.td_linear:
+                            td = parameter.LinearExp(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
+                        else:
+                            td = parameter.Uniform(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
                         f0d_2 = parameter.Uniform(glf0d2_range[0]*1e6, glf0d2_range[1]*1e6, to_par=to_par)(
                         "GLF0D2_{}".format(gl))  # units of 10^-6
                         td_2 = parameter.Uniform(gltd2_range[0], gltd2_range[1], to_par=to_par)("GLTD2_{}".format(gl))
@@ -265,10 +274,16 @@ def setup_model(args, psr, parfile):
                 else:
                     if args.glitch_td_range is None:
                         gltd_range = sorted([args.glitch_td_min, args.glitch_td_max])
-                        td = parameter.Uniform(args.glitch_td_min, args.glitch_td_max,to_par=to_par)("GLTD_{}".format(gl))
+                        if args.td_linear:
+                            td = parameter.LinearExp(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
+                        else:
+                            td = parameter.Uniform(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
                     else:
                         gltd_range = sorted([gltd+np.log10(1-args.glitch_td_range), gltd+np.log10(1+args.glitch_td_range)])
-                        td = parameter.Uniform(gltd_range[0], gltd_range[1],to_par=to_par)("GLTD_{}".format(gl))
+                        if args.td_linear:
+                            td = parameter.LinearExp(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
+                        else:
+                            td = parameter.Uniform(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
                     glf0d2_range = 0
                     gltd2_range = 0
                     glf0d3_range = 0
