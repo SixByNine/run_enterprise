@@ -29,8 +29,9 @@ def setup_argparse(parser):
     parser.add_argument('--glitch-f1-range', '--glf1-range', type=float, default=0.3, help="Fractional change in GLF1")
     parser.add_argument('--glitch-f2-range', '--glf2-range', type=float, default=0, help="Fractional change in GLF2")
     parser.add_argument('--glitch-f0d-range', '--glf0d-range', type=float, default=1.0, help="Fractional range of GLF0D compared to GLF0")
+    parser.add_argument('--glf0d-prior-log','--f0d-log',action='store_true',help='Use log prior for glf0d')
     parser.add_argument('--glitch-td-range', '--gltd-range', type=float, default=None, help="Fractional change in GLTD")
-    parser.add_argument('--td-linear', action='store_true',help="Use linear prior on gltd")
+    parser.add_argument('--gltd-prior-linear','--td-linear', action='store_true',help="Use linear prior on gltd")
     parser.add_argument('--glitch-f0d-positive', '--glf0d-positive', action='store_true', help="Allow only positive GLF0D")
     parser.add_argument('--glitch-td-split', type=float, default=[1.8, 2.8], nargs='+', help="Where to split the td prior for multi exponentials")
     parser.add_argument('--glitch-alt-f0', action='store_true', help="Use alternative parameterisation of glitches fitting for instantanious change in F0 rather than GLF0")
@@ -167,7 +168,7 @@ def setup_model(args, psr, parfile):
             glf0d2_range = [-args.glitch_f0d_range*abs(glf0)+glf0d2, args.glitch_f0d_range*abs(glf0)+glf0d2]
             glf0d3_range = [-args.glitch_f0d_range*abs(glf0)+glf0d3, args.glitch_f0d_range*abs(glf0)+glf0d3]
 
-            if args.glitch_f0d_positive and glf0d_range[0]<0:
+            if (args.glf0d_prior_log or args.glitch_f0d_positive) and glf0d_range[0]<0:
                 glf0d_range[0]=0
 
             if glf2fit is False or args.glitch_f2_range is None or args.glitch_f2_range==0:
@@ -216,13 +217,18 @@ def setup_model(args, psr, parfile):
                 glf1 = parameter.Uniform(glf1_range[0]*1e12,glf1_range[1]*1e12,to_par=to_par)("GLF1_{}".format(gl))  # units of 10^-12
 
             if gl in args.glitch_recovery or gl in args.glitch_double_recovery or gl in args.glitch_triple_recovery:
-                f0d = parameter.Uniform(glf0d_range[0]*1e6,glf0d_range[1]*1e6,to_par=to_par)("GLF0D_{}".format(gl))  # units of 10^-6
+                if args.glf0d_prior_log:
+                    if glf0d_range[0] <=0:
+                        glf0d_range[0] = glf0d_range[1]/1e6
+                    f0d = parameter.Uniform(np.log10(glf0d_range[0]*1e6),np.log10(glf0d_range[1]*1e6),to_par=to_par)("GL_logF0D_{}".format(gl))
+                else:
+                    f0d = parameter.Uniform(glf0d_range[0]*1e6,glf0d_range[1]*1e6,to_par=to_par)("GLF0D_{}".format(gl))  # units of 10^-6
                 if gl in args.glitch_triple_recovery:
                     if args.glitch_td_range is None:
                         gltd_range = sorted([args.glitch_td_min, args.glitch_td_split[0]])
                         gltd2_range = sorted([args.glitch_td_split[0], args.glitch_td_split[1]])
                         gltd3_range = sorted([args.glitch_td_split[1], args.glitch_td_max])
-                        if args.td_linear:
+                        if args.gltd_prior_linear:
                             td = parameter.LinearExp(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
                         else:
                             td = parameter.Uniform(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
@@ -236,7 +242,7 @@ def setup_model(args, psr, parfile):
                         gltd_range = sorted([gltd+np.log10(1-args.glitch_td_range), gltd+np.log10(1+args.glitch_td_range)])
                         gltd2_range = sorted([gltd2+np.log10(1-args.glitch_td_range), gltd2+np.log10(1+args.glitch_td_range)])
                         gltd3_range = sorted([gltd3+np.log10(1-args.glitch_td_range), gltd3+np.log10(1+args.glitch_td_range)])
-                        if args.td_linear:
+                        if args.gltd_prior_linear:
                             td = parameter.LinearExp(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
                         else:
                             td = parameter.Uniform(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
@@ -250,7 +256,7 @@ def setup_model(args, psr, parfile):
                     if args.glitch_td_range is None:
                         gltd_range = sorted([args.glitch_td_min, args.glitch_td_split[0]])
                         gltd2_range = sorted([args.glitch_td_split[0], args.glitch_td_max])
-                        if args.td_linear:
+                        if args.gltd_prior_linear:
                             td = parameter.LinearExp(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
                         else:
                             td = parameter.Uniform(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
@@ -260,7 +266,7 @@ def setup_model(args, psr, parfile):
                     else:
                         gltd_range = sorted([gltd+np.log10(1-args.glitch_td_range), gltd+np.log10(1+args.glitch_td_range)])
                         gltd2_range = sorted([gltd2+np.log10(1-args.glitch_td_range), gltd2+np.log10(1+args.glitch_td_range)])
-                        if args.td_linear:
+                        if args.gltd_prior_linear:
                             td = parameter.LinearExp(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
                         else:
                             td = parameter.Uniform(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
@@ -274,13 +280,13 @@ def setup_model(args, psr, parfile):
                 else:
                     if args.glitch_td_range is None:
                         gltd_range = sorted([args.glitch_td_min, args.glitch_td_max])
-                        if args.td_linear:
+                        if args.gltd_prior_linear:
                             td = parameter.LinearExp(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
                         else:
                             td = parameter.Uniform(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
                     else:
                         gltd_range = sorted([gltd+np.log10(1-args.glitch_td_range), gltd+np.log10(1+args.glitch_td_range)])
-                        if args.td_linear:
+                        if args.gltd_prior_linear:
                             td = parameter.LinearExp(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
                         else:
                             td = parameter.Uniform(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
@@ -320,7 +326,7 @@ def setup_model(args, psr, parfile):
                                           glf0=glf0, glf1=glf1, glf0d=f0d, log10_td=td,
                                           glitch_id=parameter.Constant(gl), glf2=glf2,
                                           glf0d2 = f0d_2, log10_td2=td_2, glf0d3 = f0d_3, log10_td3=td_3, 
-                                          glf0_alt=glf0_alt, glf0_at_t=glf0_at_t, glf0t=glf0t)
+                                          glf0_alt=glf0_alt, glf0_at_t=glf0_at_t, glf0t=glf0t,f0d_log=args.glf0d_prior_log)
 
             glexp_f = deterministic_signals.Deterministic(glexp, name="gl{}:".format(gl))
             components.append(glexp_f)
@@ -360,7 +366,9 @@ def print_prior_ranges(gl=None):
 def to_par(self, p, chain):
     if p.startswith("GL"):
         pname=p
-        if "GLF0" in pname:
+        if "GL_logF0D" in pname:
+            return f"GLF0D{pname[9:]}",1e-6*10**chain
+        elif "GLF0" in pname:
             return pname, chain * 1e-6
         elif "GLF1" in pname:
             return pname, chain * 1e-12
@@ -393,8 +401,10 @@ def model_glitch(toas, f0, glep, glf0=0, glf1=0, glf2=0, glf0d=0, gltd=1, glf0d2
 
 
 @signal_base.function
-def model_glitch_residual(toas, f0, glep, glf0=0, glf1=0, glf2=0, glf0d=0, log10_td=0, glitch_id=1, glf0d2=0, log10_td2=0, glf0d3=0, log10_td3=0, glf0_alt=None, glf0_at_t=None, glf0t=None):
+def model_glitch_residual(toas, f0, glep, glf0=0, glf1=0, glf2=0, glf0d=0, log10_td=0, glitch_id=1, glf0d2=0, log10_td2=0, glf0d3=0, log10_td3=0, glf0_alt=None, glf0_at_t=None, glf0t=None,f0d_log=False):
     global glitches
+    if f0d_log: # We are sampling f0d in log space
+        glf0d = 10**glf0d
     ## add conversion for alternative glitch parameters
     if not glf0_alt is None:
         glf0 = (glf0_alt - glf0d - glf0d2 - glf0d3)
