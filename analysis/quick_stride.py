@@ -292,7 +292,7 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     plt.subplot(411)
     if args.tele is False:
         for toa in sfpsr.toaseries:
-            ax[0].axvline(toa, color='b', linestyle='dashed', alpha=0.9, linewidth=0.5) #ymax=0.05, 
+            ax[0].axvline(toa, color='b', linestyle='dashed', alpha=0.4, linewidth=0.5)
     else:
         cmap = plt.get_cmap('viridis')
         colors = cmap(np.linspace(0, 1, len(sfpsr.telescopes)))
@@ -310,8 +310,6 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
             ax[0].axvline(gls, color='k', linestyle='dashdot', alpha=0.6, linewidth=1.7)
         else:
             ax[0].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
-    #for gls in gleps:
-    #    ax[0].axvline(gls, color='k', linestyle='dotted', alpha=0.9, linewidth=2)
     ax[0].set_yticks([])
     plt.ylabel('ToA', fontsize=24, labelpad=5)
     plt.subplot(412)
@@ -332,7 +330,6 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
             ax[1].axvline(gls, color='k', linestyle='dashdot', alpha=0.6, linewidth=1.7)
         else:
             ax[1].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
-    #plt.legend(loc='upper left')
     plt.subplot(413)
     ax[2].plot(t_mask, 1e6*ana2, 'k-', zorder=2)
     ax[2].plot(t_inverse, 1e6*ana2, 'g-', zorder=2, alpha=0.8)
@@ -347,7 +344,6 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
         else:
             ax[2].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     plt.ylim(plot_range(1e6*ana2)[0], plot_range(1e6*ana2)[1])
-    #plt.ylim(-0.002, 0.002)
     plt.ylabel(r'$\delta \nu-\nu_{gp}$ ($\mu$Hz)', fontsize=24, labelpad=5)
     plt.yticks(fontsize=24)
     plt.subplot(414)
@@ -364,7 +360,6 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
         else:
             ax[3].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     plt.ylim(plot_range(1e-3*ana4, 0.5, 0.5)[0], plot_range(1e-3*ana4, 0.5, 0.5)[1])
-    #plt.ylim(-0.004, -0.002)
     plt.ylabel(r'$\dot{\nu}$ ($10^{-12}$Hz s$^{-1}$)', fontsize=24, labelpad=5)
     plt.xlabel('Modified Julian Date', fontsize=24)
     plt.yticks(fontsize=24)
@@ -373,16 +368,13 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     plt.savefig('nu_nudot_gp_{}.pdf'.format(sfpsr.psrn), format='pdf', dpi=400)
     plt.show()
 
-#fig = plt.figure(figsize=(12, 18.6))
 if 1>0: # Some option for plot all panels
     fig, ax = plt.subplots(7, 1, sharex=True, figsize=(12, 18.6), gridspec_kw={'height_ratios': [1, 5, 5, 5, 5, 5, 5]})
     fig.subplots_adjust(left=0.14, right=0.99, bottom=0.03, top=0.99, hspace=0)
     plt.subplot(711)
-    #for toa in sfpsr.toaseries:
-    #    ax[0].axvline(toa, color='b', linestyle='dashed', alpha=0.9, linewidth=0.5) #ymax=0.05, 
     if args.tele is False:
         for toa in sfpsr.toaseries:
-            ax[0].axvline(toa, color='b', linestyle='dashed', alpha=0.9, linewidth=0.5) #ymax=0.05, 
+            ax[0].axvline(toa, color='b', linestyle='dashed', alpha=0.4, linewidth=0.5)
     else:
         cmap = plt.get_cmap('viridis')
         colors = cmap(np.linspace(0, 1, len(sfpsr.telescopes)))
@@ -420,7 +412,6 @@ if 1>0: # Some option for plot all panels
             ax[1].axvline(gls, color='k', linestyle='dashdot', alpha=0.6, linewidth=1.7)
         else:
             ax[1].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
-    #plt.legend(loc='upper left')
     plt.subplot(713)
     ax[2].plot(t_mask, 1e6*ana2, 'k-', zorder=2)
     ax[2].plot(t_inverse, 1e6*ana2, 'g-', zorder=2, alpha=0.8)
