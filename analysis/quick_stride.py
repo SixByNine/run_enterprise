@@ -244,7 +244,7 @@ a5 = a4 - (sfpsr.F1 + tdf2 + tdglf1 + tdglf2 - tdexp)*1e15 # in 1e-15
 a6 = sfpsr.mask_glep(t1, ydd2) # in 1e-20
 
 # Calculate new pepoch and F0/F1/F2 used for plots
-pre_x, p2x = sfpsr.pp_new_pepoch(t1, a1, a4, a6, replot=True)
+pre_x, p2x = sfpsr.pp_new_pepoch(t1, a1, a4, a6, replot=True) ###
 sf = pg.mjd2sec(p1_mjd, sfpsr.pepoch)
 pre_sf = pg.mjd2sec(p1_mjd, sfpsr.pp_pepoch)
 
@@ -292,7 +292,7 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
     plt.subplot(411)
     if args.tele is False:
         for toa in sfpsr.toaseries:
-            ax[0].axvline(toa, color='b', linestyle='dashed', alpha=0.2, linewidth=0.5) #ymax=0.05, 
+            ax[0].axvline(toa, color='b', linestyle='dashed', alpha=0.9, linewidth=0.5) #ymax=0.05, 
     else:
         cmap = plt.get_cmap('viridis')
         colors = cmap(np.linspace(0, 1, len(sfpsr.telescopes)))
@@ -300,7 +300,7 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
         for i, (telescope, color) in enumerate(zip(sfpsr.telescopes, colors), 1):
             print('Telescope %s in color %s'%(telescope, color))
             for toa in sfpsr.toaseries[np.where(sfpsr.telescopeseries==telescope)]:
-                ax[0].axvline(toa, color=color, linestyle='dashed', alpha=0.2, linewidth=0.5)
+                ax[0].axvline(toa, color=color, linestyle='dashed', alpha=0.9, linewidth=0.5)
     for i, gls in enumerate(gleps):
         if np.abs(sfpsr.pglf0d3[i])>0:
             ax[0].axvline(gls, color='k', linestyle='solid', alpha=0.8, linewidth=1.1)
@@ -311,7 +311,7 @@ if args.full is False: # Only plot the 1st, 2nd, 4th panel of stride fit plot
         else:
             ax[0].axvline(gls, color='k', linestyle='dotted', alpha=0.5, linewidth=2)
     #for gls in gleps:
-    #    ax[0].axvline(gls, color='k', linestyle='dotted', alpha=0.4, linewidth=2)
+    #    ax[0].axvline(gls, color='k', linestyle='dotted', alpha=0.9, linewidth=2)
     ax[0].set_yticks([])
     plt.ylabel('ToA', fontsize=24, labelpad=5)
     plt.subplot(412)
@@ -379,10 +379,10 @@ if 1>0: # Some option for plot all panels
     fig.subplots_adjust(left=0.14, right=0.99, bottom=0.03, top=0.99, hspace=0)
     plt.subplot(711)
     #for toa in sfpsr.toaseries:
-    #    ax[0].axvline(toa, color='b', linestyle='dashed', alpha=0.2, linewidth=0.5) #ymax=0.05, 
+    #    ax[0].axvline(toa, color='b', linestyle='dashed', alpha=0.9, linewidth=0.5) #ymax=0.05, 
     if args.tele is False:
         for toa in sfpsr.toaseries:
-            ax[0].axvline(toa, color='b', linestyle='dashed', alpha=0.2, linewidth=0.5) #ymax=0.05, 
+            ax[0].axvline(toa, color='b', linestyle='dashed', alpha=0.9, linewidth=0.5) #ymax=0.05, 
     else:
         cmap = plt.get_cmap('viridis')
         colors = cmap(np.linspace(0, 1, len(sfpsr.telescopes)))
@@ -390,7 +390,7 @@ if 1>0: # Some option for plot all panels
         for i, (telescope, color) in enumerate(zip(sfpsr.telescopes, colors), 1):
             print('Telescope %s in color %s'%(telescope, color))
             for toa in sfpsr.toaseries[np.where(sfpsr.telescopeseries==telescope)]:
-                ax[0].axvline(toa, color=color, linestyle='dashed', alpha=0.2, linewidth=0.5)
+                ax[0].axvline(toa, color=color, linestyle='dashed', alpha=0.9, linewidth=0.5)
     for i, gls in enumerate(gleps):
         if np.abs(sfpsr.pglf0d3[i])>0:
             ax[0].axvline(gls, color='k', linestyle='solid', alpha=0.8, linewidth=1.1)
