@@ -23,7 +23,6 @@ def LinearExp(lo, hi, size=None, to_par=None):
     p.to_par = to_par
     return p
 
-
 def Normal(mu,sigma, size=None, to_par=None):
     def NormalTransform(self, x):
         return stats.norm.ppf(x,mu,sigma)

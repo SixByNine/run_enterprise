@@ -8,6 +8,10 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
 
 
     for i,p in enumerate(parnames):
+        if args.glf0d_prior_log:
+            if p.startswith("GLF0D"):
+                derived.append(np.log10(scaled_samples[:,i]))
+                derived_names.append(f"LOG({p})")
         if p.startswith("GLF0(instant)"):
             iglitch = int(p.split('_')[1])
             glf0ins = np.copy(scaled_samples[:,i])
