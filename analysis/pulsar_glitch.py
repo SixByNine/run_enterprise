@@ -113,11 +113,13 @@ class Pulsar:
         self.c50glep, self.c50glf0, self.c50glf1, self.c50glf2, self.c50glf0ins, self.c50glf1ins, self.c50glf0tg = deepcopy(glitch)
         self.c16glep, self.c16glf0, self.c16glf1, self.c16glf2, self.c16glf0ins, self.c16glf1ins, self.c16glf0tg = deepcopy(glitch)
         self.c84glep, self.c84glf0, self.c84glf1, self.c84glf2, self.c84glf0ins, self.c84glf1ins, self.c84glf0tg = deepcopy(glitch)
+        self.csigglep, self.csigglf0, self.csigglf1, self.csigglf2, self.csigglf0ins, self.csigglf1ins, self.csigglf0tg = deepcopy(glitch)
         self.pglf0d, self.pgltd, self.pglf0d2, self.pgltd2, self.pglf0d3, self.pgltd3 = recovery
         self.mglf0d, self.mgltd, self.mglf0d2, self.mgltd2, self.mglf0d3, self.mgltd3 = deepcopy(recovery)
         self.c50glf0d, self.c50gltd, self.c50glf0d2, self.c50gltd2, self.c50glf0d3, self.c50gltd3 = deepcopy(recovery)
         self.c16glf0d, self.c16gltd, self.c16glf0d2, self.c16gltd2, self.c16glf0d3, self.c16gltd3 = deepcopy(recovery)
         self.c84glf0d, self.c84gltd, self.c84glf0d2, self.c84gltd2, self.c84glf0d3, self.c84gltd3 = deepcopy(recovery)
+        self.csigglf0d, self.csiggltd, self.csigglf0d2, self.csiggltd2, self.csigglf0d3, self.csiggltd3 = deepcopy(recovery)
         self.max_glitch, self.waittime, self.lifetime, self.spantime, self.taug, self.numofexp = summary
         self.minmjds, self.maxmjds, self.toanum, self.span, self.cadence, self.toaseries, self.telescopeseries, self.telescopes = self.load_tim(self.tim)
         if new is True:
@@ -413,6 +415,19 @@ class Pulsar:
         self.c84glf0ins = self.c84glf0ins[:self.max_glitch]
         self.c84glf1ins = self.c84glf1ins[:self.max_glitch]
         self.c84glf0tg = self.c84glf0tg[:self.max_glitch]
+        self.csigglep = self.csigglep[:self.max_glitch]
+        self.csigglf0 = self.csigglf0[:self.max_glitch]
+        self.csigglf1 = self.csigglf1[:self.max_glitch]
+        self.csigglf2 = self.csigglf2[:self.max_glitch]
+        self.csigglf0d = self.csigglf0d[:self.max_glitch]
+        self.csiggltd = self.csiggltd[:self.max_glitch]
+        self.csigglf0d2 = self.csigglf0d2[:self.max_glitch]
+        self.csiggltd2 = self.csiggltd2[:self.max_glitch]
+        self.csigglf0d3 = self.csigglf0d3[:self.max_glitch]
+        self.csiggltd3 = self.csiggltd3[:self.max_glitch]
+        self.csigglf0ins = self.csigglf0ins[:self.max_glitch]
+        self.csigglf1ins = self.csigglf1ins[:self.max_glitch]
+        self.csigglf0tg = self.csigglf0tg[:self.max_glitch]
         self.waittime = self.waittime[:self.max_glitch]
         self.lifetime = self.lifetime[:self.max_glitch]
         self.spantime = self.spantime[:self.max_glitch]
@@ -1108,42 +1123,52 @@ class Pulsar:
                             self.mglep[i] = float(e[value_idx])
                             self.mglepstd[i] = float(e[3])
                             self.c16glep[i], self.c50glep[i], self.c84glep[i] = float(e[5]), float(e[6]), float(e[7])
+                            self.csigglep[i] = np.abs(float(e[5])-float(e[7]))/2.
                         elif e[0].startswith("GLF0_"):
                             self.mglf0[i] = float(e[value_idx])
                             self.mglf0std[i] = float(e[3])
                             self.c16glf0[i], self.c50glf0[i], self.c84glf0[i] = float(e[5]), float(e[6]), float(e[7])
+                            self.csigglf0[i] = np.abs(float(e[5])-float(e[7]))/2.
                         elif e[0].startswith("GLF1_"):
                             self.mglf1[i] = float(e[value_idx])
                             self.mglf1std[i] = float(e[3])
                             self.c16glf1[i], self.c50glf1[i], self.c84glf1[i] = float(e[5]), float(e[6]), float(e[7])
+                            self.csigglf1[i] = np.abs(float(e[5])-float(e[7]))/2.
                         elif e[0].startswith("GLF2_"):
                             self.mglf2[i] = float(e[value_idx])
                             self.mglf2std[i] = float(e[3])
                             self.c16glf2[i], self.c50glf2[i], self.c84glf2[i] = float(e[5]), float(e[6]), float(e[7])
+                            self.csigglf2[i] = np.abs(float(e[5])-float(e[7]))/2.
                         elif e[0].startswith("GLTD_"):
                             self.mgltd[i] = float(e[value_idx])
                             self.mgltdstd[i] = float(e[3])
                             self.c16gltd[i], self.c50gltd[i], self.c84gltd[i] = float(e[5]), float(e[6]), float(e[7])
+                            self.csiggltd[i] = np.abs(float(e[5])-float(e[7]))/2.
                         elif e[0].startswith("GLF0D_"):
                             self.mglf0d[i] = float(e[value_idx])
                             self.mglf0dstd[i] = float(e[3])
                             self.c16glf0d[i], self.c50glf0d[i], self.c84glf0d[i] = float(e[5]), float(e[6]), float(e[7])
+                            self.csigglf0d[i] = np.abs(float(e[5])-float(e[7]))/2.
                         elif e[0].startswith("GLTD2_"):
                             self.mgltd2[i] = float(e[value_idx])
                             self.mgltd2std[i] = float(e[3])
                             self.c16gltd2[i], self.c50gltd2[i], self.c84gltd2[i] = float(e[5]), float(e[6]), float(e[7])
+                            self.csiggltd2[i] = np.abs(float(e[5])-float(e[7]))/2.
                         elif e[0].startswith("GLF0D2_"):
                             self.mglf0d2[i] = float(e[value_idx])
                             self.mglf0d2std[i] = float(e[3])
                             self.c16glf0d2[i], self.c50glf0d2[i], self.c84glf0d2[i] = float(e[5]), float(e[6]), float(e[7])
+                            self.csigglf0d2[i] = np.abs(float(e[5])-float(e[7]))/2.
                         elif e[0].startswith("GLTD3_"):
                             self.mgltd3[i] = float(e[value_idx])
                             self.mgltd3std[i] = float(e[3])
                             self.c16gltd3[i], self.c50gltd3[i], self.c84gltd3[i] = float(e[5]), float(e[6]), float(e[7])
+                            self.csiggltd3[i] = np.abs(float(e[5])-float(e[7]))/2.
                         elif e[0].startswith("GLF0D3_"):
                             self.mglf0d3[i] = float(e[value_idx])
                             self.mglf0d3std[i] = float(e[3])
                             self.c16glf0d3[i], self.c50glf0d3[i], self.c84glf0d3[i] = float(e[5]), float(e[6]), float(e[7])
+                            self.csigglf0d3[i] = np.abs(float(e[5])-float(e[7]))/2.
                         elif e[0].startswith("Q_"):
                             self.qstd[i] = float(e[3])
                             results[glkey] = self.q[i]
@@ -1168,6 +1193,7 @@ class Pulsar:
                             self.mglf0ins[i] = float(e[value_idx])
                             self.mglf0insstd[i] = float(e[3])
                             self.c16glf0ins[i], self.c50glf0ins[i], self.c84glf0ins[i] = float(e[5]), float(e[6]), float(e[7])
+                            self.csigglf0ins[i] = np.abs(float(e[5])-float(e[7]))/2.
                             deltanu = std_error(self.mglf0ins[i], self.mglf0insstd[i])
                             nu = std_error(self.F0, self.F0std)
                             deltanu_nu = deltanu/nu
@@ -1178,6 +1204,7 @@ class Pulsar:
                             self.mglf1ins[i] = float(e[value_idx])
                             self.mglf1insstd[i] = float(e[3])
                             self.c16glf1ins[i], self.c50glf1ins[i], self.c84glf1ins[i] = float(e[5]), float(e[6]), float(e[7])
+                            self.csigglf1ins[i] = np.abs(float(e[5])-float(e[7]))/2.
                             deltanudot = std_error(self.mglf1ins[i], self.mglf1insstd[i])
                             nudot = std_error(self.F1, self.F1std)
                             deltanudot_nudot = deltanudot/nudot
@@ -1188,6 +1215,7 @@ class Pulsar:
                             self.mglf0tg[i] = float(e[value_idx])
                             self.mglf0tgstd[i] = float(e[3])
                             self.c16glf0tg[i], self.c50glf0tg[i], self.c84glf0tg[i] = float(e[5]), float(e[6]), float(e[7])
+                            self.csigglf0tg[i] = np.abs(float(e[5])-float(e[7]))/2.
                             results["Tau_g"] = int(e[0].split("=")[1].split(")")[0])
                             glkey = "GLF0(T=tau_g)"
                         if 0 < glnum <= self.max_glitch:
@@ -1275,18 +1303,22 @@ class Pulsar:
                             self.mglep[glnum-1] = float(e[1])
                             self.mglepstd[glnum-1] = std
                             self.c16glep[glnum-1], self.c50glep[glnum-1], self.c84glep[glnum-1] = float(e[1])-std, float(e[1]), float(e[1])+std
+                            self.csigglep[glnum-1] = std
                         if e[0].startswith("GLF0_"):
                             self.mglf0[glnum-1] = float(e[1])
                             self.mglf0std[glnum-1] = std
                             self.c16glf0[glnum-1], self.c50glf0[glnum-1], self.c84glf0[glnum-1] = float(e[1])-std, float(e[1]), float(e[1])+std
+                            self.csigglf0[glnum-1] = std
                         if e[0].startswith("GLF1_"):
                             self.mglf1[glnum-1] = float(e[1])
                             self.mglf1std[glnum-1] = std
                             self.c16glf1[glnum-1], self.c50glf1[glnum-1], self.c84glf1[glnum-1] = float(e[1])-std, float(e[1]), float(e[1])+std
+                            self.csigglf1[glnum-1] = std
                         if e[0].startswith("GLF2_"):
                             self.mglf2[glnum-1] = float(e[1])
                             self.mglf2std[glnum-1] = std
                             self.c16glf2[glnum-1], self.c50glf2[glnum-1], self.c84glf2[glnum-1] = float(e[1])-std, float(e[1]), float(e[1])+std
+                            self.csigglf2[glnum-1] = std
         for i in range(self.max_glitch):
             if i+1 not in largeglitch:
                 self.gli_slt[str(i+1)] = {}
@@ -1451,19 +1483,19 @@ class Pulsar:
         self.spin_slt["B_sur"] = self.B_sur
         self.spin_slt["Braking index"] = self.brake
         self.spin_slt["Glitch activity"] = self.A_g
-        self.spin_slt["16 GLEP"], self.spin_slt["50 GLEP"], self.spin_slt["84 GLEP"] = self.c16glep, self.c50glep, self.c84glep
-        self.spin_slt["16 GLF0"], self.spin_slt["50 GLF0"], self.spin_slt["84 GLF0"] = self.c16glf0, self.c50glf0, self.c84glf0
-        self.spin_slt["16 GLF1"], self.spin_slt["50 GLF1"], self.spin_slt["84 GLF1"] = self.c16glf1, self.c50glf1, self.c84glf1
-        self.spin_slt["16 GLF2"], self.spin_slt["50 GLF2"], self.spin_slt["84 GLF2"] = self.c16glf2, self.c50glf2, self.c84glf2
-        self.spin_slt["16 GLF0ins"], self.spin_slt["50 GLF0ins"], self.spin_slt["84 GLF0ins"] = self.c16glf0ins, self.c50glf0ins, self.c84glf0ins
-        self.spin_slt["16 GLF1ins"], self.spin_slt["50 GLF1ins"], self.spin_slt["84 GLF1ins"] = self.c16glf1ins, self.c50glf1ins, self.c84glf1ins
-        self.spin_slt["16 GLF0tg"], self.spin_slt["50 GLF0tg"], self.spin_slt["84 GLF0tg"] = self.c16glf0tg, self.c50glf0tg, self.c84glf0tg
-        self.spin_slt["16 GLF0D"], self.spin_slt["50 GLF0D"], self.spin_slt["84 GLF0D"] = self.c16glf0d, self.c50glf0d, self.c84glf0d
-        self.spin_slt["16 GLTD"], self.spin_slt["50 GLTD"], self.spin_slt["84 GLTD"] = self.c16gltd, self.c50gltd, self.c84gltd
-        self.spin_slt["16 GLF0D2"], self.spin_slt["50 GLF0D2"], self.spin_slt["84 GLF0D2"] = self.c16glf0d2, self.c50glf0d2, self.c84glf0d2
-        self.spin_slt["16 GLTD2"], self.spin_slt["50 GLTD2"], self.spin_slt["84 GLTD2"] = self.c16gltd2, self.c50gltd2, self.c84gltd2
-        self.spin_slt["16 GLF0D3"], self.spin_slt["50 GLF0D3"], self.spin_slt["84 GLF0D3"] = self.c16glf0d3, self.c50glf0d3, self.c84glf0d3
-        self.spin_slt["16 GLTD3"], self.spin_slt["50 GLTD3"], self.spin_slt["84 GLTD3"] = self.c16gltd3, self.c50gltd3, self.c84gltd3
+        self.spin_slt["16 GLEP"], self.spin_slt["50 GLEP"], self.spin_slt["84 GLEP"], self.spin_slt["sig GLEP"] = self.c16glep, self.c50glep, self.c84glep, self.csigglep
+        self.spin_slt["16 GLF0"], self.spin_slt["50 GLF0"], self.spin_slt["84 GLF0"], self.spin_slt["sig GLF0"] = self.c16glf0, self.c50glf0, self.c84glf0, self.csigglf0
+        self.spin_slt["16 GLF1"], self.spin_slt["50 GLF1"], self.spin_slt["84 GLF1"], self.spin_slt["sig GLF1"] = self.c16glf1, self.c50glf1, self.c84glf1, self.csigglf1
+        self.spin_slt["16 GLF2"], self.spin_slt["50 GLF2"], self.spin_slt["84 GLF2"], self.spin_slt["sig GLF2"] = self.c16glf2, self.c50glf2, self.c84glf2, self.csigglf2
+        self.spin_slt["16 GLF0ins"], self.spin_slt["50 GLF0ins"], self.spin_slt["84 GLF0ins"], self.spin_slt["sig GLF0ins"] = self.c16glf0ins, self.c50glf0ins, self.c84glf0ins, self.csigglf0ins
+        self.spin_slt["16 GLF1ins"], self.spin_slt["50 GLF1ins"], self.spin_slt["84 GLF1ins"], self.spin_slt["sig GLF1ins"] = self.c16glf1ins, self.c50glf1ins, self.c84glf1ins, self.csigglf1ins
+        self.spin_slt["16 GLF0tg"], self.spin_slt["50 GLF0tg"], self.spin_slt["84 GLF0tg"], self.spin_slt["sig GLF0tg"] = self.c16glf0tg, self.c50glf0tg, self.c84glf0tg, self.csigglf0tg
+        self.spin_slt["16 GLF0D"], self.spin_slt["50 GLF0D"], self.spin_slt["84 GLF0D"], self.spin_slt["sig GLF0D"] = self.c16glf0d, self.c50glf0d, self.c84glf0d, self.csigglf0d
+        self.spin_slt["16 GLTD"], self.spin_slt["50 GLTD"], self.spin_slt["84 GLTD"], self.spin_slt["sig GLTD"] = self.c16gltd, self.c50gltd, self.c84gltd, self.csiggltd
+        self.spin_slt["16 GLF0D2"], self.spin_slt["50 GLF0D2"], self.spin_slt["84 GLF0D2"], self.spin_slt["sig GLF0D2"] = self.c16glf0d2, self.c50glf0d2, self.c84glf0d2, self.csigglf0d2
+        self.spin_slt["16 GLTD2"], self.spin_slt["50 GLTD2"], self.spin_slt["84 GLTD2"], self.spin_slt["sig GLTD2"] = self.c16gltd2, self.c50gltd2, self.c84gltd2, self.csiggltd2
+        self.spin_slt["16 GLF0D3"], self.spin_slt["50 GLF0D3"], self.spin_slt["84 GLF0D3"], self.spin_slt["sig GLF0D3"] = self.c16glf0d3, self.c50glf0d3, self.c84glf0d3, self.csigglf0d3
+        self.spin_slt["16 GLTD3"], self.spin_slt["50 GLTD3"], self.spin_slt["84 GLTD3"], self.spin_slt["sig GLTD3"] = self.c16gltd3, self.c50gltd3, self.c84gltd3, self.csiggltd3
         fnlrslt = "../slt_"+self.psrn+".csv"
         entry = []
         spin_idx = ["F0", "F0 std", "F1", "F1 std", "F2", "F2 std"]
@@ -1481,9 +1513,9 @@ class Pulsar:
         magnitude_idx = ["Glitch magnitude", "Glitch magnitude std", "Spindown magnitude", "Spindown magnitude std"]
         red_idx = ["TNRedAmp", "TNRedAmp std", "TNRedGam", "TNRedGam std"]
         white_idx = ["TNEF -be jbafb", "TNEF -be jbafb std", "TNEF -be jbdfb", "TNEF -be jbdfb std", "TNEQ -be jbafb", "TNEQ -be jbafb std", "TNEQ -be jbdfb", "TNEQ -be jbdfb std"]
-        percentile_idx = ["16 GLEP", "50 GLEP", "84 GLEP", "16 GLF0", "50 GLF0", "84 GLF0", "16 GLF1", "50 GLF1", "84 GLF1", "16 GLF2", "50 GLF2", "84 GLF2"]
-        percent_idx = ["16 GLF0ins", "50 GLF0ins", "84 GLF0ins", "16 GLF1ins", "50 GLF1ins", "84 GLF1ins", "16 GLF0tg", "50 GLF0tg", "84 GLF0tg"]
-        expper_idx = ["16 GLF0D", "50 GLF0D", "84 GLF0D", "16 GLTD", "50 GLTD", "84 GLTD", "16 GLF0D2", "50 GLF0D2", "84 GLF0D2", "16 GLTD2", "50 GLTD2", "84 GLTD2", "16 GLF0D3", "50 GLF0D3", "84 GLF0D3", "16 GLTD3", "50 GLTD3", "84 GLTD3"]
+        percentile_idx = ["16 GLEP", "50 GLEP", "84 GLEP", "sig GLEP", "16 GLF0", "50 GLF0", "84 GLF0", "sig GLF0", "16 GLF1", "50 GLF1", "84 GLF1", "sig GLF1", "16 GLF2", "50 GLF2", "84 GLF2", "sig GLF2"]
+        percent_idx = ["16 GLF0ins", "50 GLF0ins", "84 GLF0ins", "sig GLF0ins", "16 GLF1ins", "50 GLF1ins", "84 GLF1ins", "sig GLF1ins", "16 GLF0tg", "50 GLF0tg", "84 GLF0tg", "sig GLF0tg"]
+        expper_idx = ["16 GLF0D", "50 GLF0D", "84 GLF0D", "sig GLF0D", "16 GLTD", "50 GLTD", "84 GLTD", "sig GLTD", "16 GLF0D2", "50 GLF0D2", "84 GLF0D2", "sig GLF0D2", "16 GLTD2", "50 GLTD2", "84 GLTD2", "sig GLTD2", "16 GLF0D3", "50 GLF0D3", "84 GLF0D3", "sig GLF0D3", "16 GLTD3", "50 GLTD3", "84 GLTD3", "sig GLTD3"]
         sum_idx = spin_idx + period_idx + plot_idx + observe_idx + derived_idx + toa_idx + glitch_idx + alter_idx
         sum_idx += dnudot_idx + data_idx + recovery_idx + ratio_idx + magnitude_idx + red_idx #+ white_idx
         sum_idx += percentile_idx + percent_idx + expper_idx
