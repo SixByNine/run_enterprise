@@ -34,6 +34,8 @@ parser.add_argument('-m', '--multiple', type=int, default=[], nargs='+', help='M
 parser.add_argument('-r', '--recoveries', type=int, default=[0, 1], nargs='+', help='Number of recoveries to fit in models for all large glitches')
 parser.add_argument('--glf2', type=str, default="a", help='Include GLF2 term in glitch model')
 parser.add_argument('--f2', '--glf2-range', type=float, default=10, help='The prior range for glf2')
+parser.add_argument('--f0dlog', '--f0d-log',action='store_true',help='Use log prior for glf0d')
+parser.add_argument('--tdlin', '--td-linear', action='store_true',help="Use linear prior on gltd")
 parser.add_argument('--glf0d', '--glf0d-range', type=float, default=0.8, help='The prior range for glf0d')
 parser.add_argument('--gltd', '--gltd-range', type=float, default=[1, 3], nargs='+', help='The prior range for gltd')
 parser.add_argument('--glep', '--glep-range', type=float, default=2, help='The prior range for glep')
