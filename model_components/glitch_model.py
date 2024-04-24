@@ -132,7 +132,7 @@ def setup_model(args, psr, parfile):
             if 'TD2' in glitches[gl]:
                 gltd2 = glitches[gl]['TD2']
             if 'F0D3' in glitches[gl]:
-                glf0d2 = glitches[gl]['F0D3']
+                glf0d3 = glitches[gl]['F0D3']
             if 'TD3' in glitches[gl]:
                 gltd3 = glitches[gl]['TD3']
             # This is the 'old model'

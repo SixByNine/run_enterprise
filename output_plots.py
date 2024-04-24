@@ -323,6 +323,8 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
 
             for line in parfile:
                 e = line.split()
+                if len(e) == 0: # skip empty lines
+                    continue
                 if e[0] in pars or e[0] in derived_names \
                         or (e[0]=="RAJ" and "dRAJ" in pars) \
                         or (e[0]=="DECJ" and "dDECJ" in pars):
