@@ -74,7 +74,7 @@ for gi in args.glitches:
             if gf2 is True and exp==3:
                 continue
             sfpsr.split_par(glitchnum=gi, recoveries=exp, GLF2=gf2, small_glitches=args.small, pre_gli=args.pre)
-            sfpsr.MCMC_fit(glitchnum=gi, recoveries=exp, GLF2=gf2, gleprange=args.glep, gltdrange=args.gltd, glf0drange=args.glf0d, alt=args.alt, sigma=args.sigma, gltdsplit=args.split, glf2range=args.f2)
+            sfpsr.MCMC_fit(glitchnum=gi, recoveries=exp, GLF2=gf2, gleprange=args.glep, gltdrange=args.gltd, glf0drange=args.glf0d, alt=args.alt, sigma=args.sigma, gltdsplit=args.split, glf2range=args.f2, rootdir=args.dir)
         #sfpsr.post_par(glitchnum=gi)
     sfpsr.best_model(glitchnum=gi, recoveries=None, GLF2=args.glf2)
 
@@ -90,6 +90,6 @@ if len(args.multiple)>0:
             if gf2 is True and exp==3:
                 continue
             sfpsr.split_par(glitchnum=gi, recoveries=exp, GLF2=gf2, small_glitches=args.small, pre_gli=args.pre)
-            sfpsr.MCMC_fit(glitchnum=gi, recoveries=exp, GLF2=gf2, gleprange=args.glep, gltdrange=args.gltd, glf0drange=args.glf0d, alt=args.alt, sigma=args.sigma, gltdsplit=args.split, glf2range=args.f2, rootdir=rootdir)
+            sfpsr.MCMC_fit(glitchnum=gi, recoveries=exp, GLF2=gf2, gleprange=args.glep, gltdrange=args.gltd, glf0drange=args.glf0d, alt=args.alt, sigma=args.sigma, gltdsplit=args.split, glf2range=args.f2, rootdir=args.dir)
         #sfpsr.post_par(glitchnum=args.multiple[1])
     sfpsr.best_model(glitchnum=args.multiple[1], recoveries=None, GLF2=args.glf2)
