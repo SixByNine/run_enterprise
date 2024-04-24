@@ -819,8 +819,6 @@ class Pulsar:
             f2 = "y"
         else:
             glf2range = 0
-        if recoveries == 3:
-            gltdsplit[0] = 1.8
         if solver!="multinest":
             thread = 1
         command = ["nice", "mpirun", "-c", str(thread), runentprise, "--auto-add"]
