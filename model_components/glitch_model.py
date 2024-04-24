@@ -33,7 +33,7 @@ def setup_argparse(parser):
     parser.add_argument('--glitch-td-range', '--gltd-range', type=float, default=None, help="Fractional change in GLTD")
     parser.add_argument('--gltd-prior-linear','--td-linear', action='store_true',help="Use linear prior on gltd")
     parser.add_argument('--glitch-f0d-positive', '--glf0d-positive', action='store_true', help="Allow only positive GLF0D")
-    parser.add_argument('--glitch-td-split', type=float, default=[1.8, 2.8], nargs='+', help="Where to split the td prior for multi exponentials")
+    parser.add_argument('--glitch-td-split', type=float, default=[2.0, 2.3], nargs='+', help="Where to split the td prior for multi exponentials")
     parser.add_argument('--glitch-alt-f0', action='store_true', help="Use alternative parameterisation of glitches fitting for instantanious change in F0 rather than GLF0")
     parser.add_argument('--glitch-alt-f0t', type=int, default=[200]*100, nargs='+', help="Replace GLF1 with change of spin frequency 'T' days after the glitches respectively")
     parser.add_argument('--alt-f0t-gltd', action='store_true', help="Replace GLF1 with change of spin frequency 'GLTD' days after the glitch for all glitches")
@@ -272,7 +272,7 @@ def setup_model(args, psr, parfile):
                 elif gl in args.glitch_double_recovery:
                     if args.glitch_td_range is None:
                         gltd_range = sorted([args.glitch_td_min, args.glitch_td_split[0]])
-                        gltd2_range = sorted([args.glitch_td_split[0], args.glitch_td_split[1]])
+                        gltd2_range = sorted([args.glitch_td_split[0], args.glitch_td_max]) # Bugs fixed?
                         if args.gltd_prior_linear:
                             td = parameter.LinearExp(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
                             td_2 = parameter.LinearExp(gltd2_range[0], gltd2_range[1], to_par=to_par)("GLTD2_{}".format(gl))
@@ -310,7 +310,7 @@ def setup_model(args, psr, parfile):
                     td_3 = parameter.Constant(1)
                 else:
                     if args.glitch_td_range is None:
-                        gltd_range = sorted([args.glitch_td_min, args.glitch_td_split[0]])
+                        gltd_range = sorted([args.glitch_td_min, args.glitch_td_max]) # Bugs Fixed?
                         if args.gltd_prior_linear:
                             td = parameter.LinearExp(gltd_range[0], gltd_range[1], to_par=to_par)("GLTD_{}".format(gl))
                         else:
