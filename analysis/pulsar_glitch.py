@@ -1180,21 +1180,25 @@ class Pulsar:
                             self.csigglf0d3[i] = np.abs(float(e[5])-float(e[7]))/2.
                             results["16 GLF0D3"], results["50 GLF0D3"], results["84 GLF0D3"], results["sig GLF0D3"] = self.c16glf0d3[i], self.c50glf0d3[i], self.c84glf0d3[i], self.csigglf0d3[i]
                         elif e[0].startswith("Q_"):
+                            self.q[i] = float(e[value_idx])
                             self.qstd[i] = float(e[3])
                             results[glkey] = self.q[i]
                             results[glkey+" std"] = self.qstd[i]
                             continue
                         elif e[0].startswith("Q1_"):
+                            self.q1[i] = float(e[value_idx])
                             self.q1std[i] = float(e[3])
                             results[glkey] = self.q1[i]
                             results[glkey+" std"] = self.q1std[i]
                             continue
                         elif e[0].startswith("Q2_"):
+                            self.q2[i] = float(e[value_idx])
                             self.q2std[i] = float(e[3])
                             results[glkey] = self.q2[i]
                             results[glkey+" std"] = self.q2std[i]
                             continue
                         elif e[0].startswith("Q3_"):
+                            self.q3[i] = float(e[value_idx])
                             self.q3std[i] = float(e[3])
                             results[glkey] = self.q3[i]
                             results[glkey+" std"] = self.q3std[i]
@@ -1396,6 +1400,12 @@ class Pulsar:
                     self.gli_slt[str(i+1)]["50 GLTD"] = self.c50gltd[i]
                     self.gli_slt[str(i+1)]["84 GLTD"] = self.c84gltd[i]
                     self.gli_slt[str(i+1)]["sig GLTD"] = self.csiggltd[i]
+                    q1 = glf0d/glf0ins
+                    self.gli_slt[str(i+1)]["Q1"] = q1.n
+                    self.gli_slt[str(i+1)]["Q1 std"] = q1.s
+                    q = q1 + q2 + q3
+                    self.gli_slt[str(i+1)]["Q"] = q.n
+                    self.gli_slt[str(i+1)]["Q std"] = q.s
                 if self.mglf0d2[i] != 0:
                     glf0d2 = std_error(self.mglf0d2[i], self.mglf0d2std[i])
                     gltd2 = std_error(self.mgltd2[i], self.mgltd2std[i])
@@ -1414,6 +1424,12 @@ class Pulsar:
                     self.gli_slt[str(i+1)]["50 GLTD2"] = self.c50gltd2[i]
                     self.gli_slt[str(i+1)]["84 GLTD2"] = self.c84gltd2[i]
                     self.gli_slt[str(i+1)]["sig GLTD2"] = self.csiggltd2[i]
+                    q2 = glf0d2/glf0ins
+                    self.gli_slt[str(i+1)]["Q2"] = q2.n
+                    self.gli_slt[str(i+1)]["Q2 std"] = q2.s
+                    q = q1 + q2 + q3
+                    self.gli_slt[str(i+1)]["Q"] = q.n
+                    self.gli_slt[str(i+1)]["Q std"] = q.s
                 if self.mglf0d3[i] != 0:
                     glf0d3 = std_error(self.mglf0d3[i], self.mglf0d3std[i])
                     gltd3 = std_error(self.mgltd3[i], self.mgltd3std[i])
@@ -1432,18 +1448,9 @@ class Pulsar:
                     self.gli_slt[str(i+1)]["50 GLTD3"] = self.c50gltd3[i]
                     self.gli_slt[str(i+1)]["84 GLTD3"] = self.c84gltd3[i]
                     self.gli_slt[str(i+1)]["sig GLTD3"] = self.csiggltd3[i]
-                if self.mglf0d[i] != 0:
-                    q1 = glf0d/glf0ins
-                    self.gli_slt[str(i+1)]["Q1"] = q1.n
-                    self.gli_slt[str(i+1)]["Q1 std"] = q1.s
-                    if self.mglf0d2[i] != 0:
-                        q2 = glf0d2/glf0ins
-                        self.gli_slt[str(i+1)]["Q2"] = q2.n
-                        self.gli_slt[str(i+1)]["Q2 std"] = q2.s
-                        if self.mglf0d3[i] != 0:
-                            q3 = glf0d3/glf0ins
-                            self.gli_slt[str(i+1)]["Q3"] = q3.n
-                            self.gli_slt[str(i+1)]["Q3 std"] = q3.s
+                    q3 = glf0d3/glf0ins
+                    self.gli_slt[str(i+1)]["Q3"] = q3.n
+                    self.gli_slt[str(i+1)]["Q3 std"] = q3.s
                     q = q1 + q2 + q3
                     self.gli_slt[str(i+1)]["Q"] = q.n
                     self.gli_slt[str(i+1)]["Q std"] = q.s
