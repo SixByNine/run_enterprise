@@ -43,7 +43,8 @@ def run_modelfit(args,psr,par, pta, parfile):
     iparam = 0
     ### convert parameters
     for param in pta.params:
-        if not param.to_par is None:
+        # Test if the param has the to_par method
+        if hasattr(param, 'to_par') and callable(param.to_par):
             name, scaled_samples[:,iparam] = param.to_par(param.name, samples[:,iparam])
         else:
             name = param.name
