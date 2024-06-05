@@ -17,15 +17,16 @@ def setup_argparse(parser):
 def activated(args):
     return args.zeus
 
-def run_solve(args,pta,outdir):
+def run_solve(args,psrmodel,outdir):
     filename = os.path.join(outdir, "state")
+    pta = psrmodel.get_pta()
     x0 = np.hstack([p.sample() for p in pta.params])
     if args.sample:
         nwalkers = args.nwalkers
         if nwalkers < 2*len(x0):
             nwalkers = 2*len(x0)
-
-        tpool = Pool(args.nthread, initializer=init, initargs=[pta])
+        psrmodel.pack_for_thread()
+        tpool = Pool(args.nthread, initializer=init, initargs=[psrmodel])
 
         sampler = zeus.EnsembleSampler(nwalkers,len(x0),log_prob,pool=tpool)
         p0=np.zeros((nwalkers,len(x0)))
@@ -63,10 +64,10 @@ def get_posteriors(args,info):
     return samples, log_prob_samples,None, [log_prior_samples]
 
 
-def init(_pta):
+def init(psrmodel):
     global pta
-    pta = copy.copy(_pta)
-    #print("Init Thread")
+    pta = psrmodel.get_pta()
+    print("Init Thread")
 
 
 def log_prob(p):

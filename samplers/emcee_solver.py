@@ -1,10 +1,7 @@
 import numpy as np
 import os
-import copy
 import emcee
 from multiprocessing import Pool
-
-
 
 name="EmceeSolver"
 argdec="Configure for mcmc with EMCEE"
@@ -16,8 +13,9 @@ def setup_argparse(parser):
 def activated(args):
     return args.emcee
 
-def run_solve(args,pta,outdir):
+def run_solve(args,psrmodel,outdir):
     filename = os.path.join(outdir, "chain.h5")
+    pta = psrmodel.get_pta()
     if args.sample:
         x0 = np.hstack([p.sample() for p in pta.params])
         os.makedirs(outdir,exist_ok=True)
@@ -32,7 +30,8 @@ def run_solve(args,pta,outdir):
             scls = np.std(vv, axis=0)
             offs = np.mean(vv, axis=0)
             np.savetxt(os.path.join(outdir, "scloff"), np.array([scls, offs]).T)
-        tpool = Pool(args.nthread, initializer=init, initargs=[pta, offs, scls])
+        psrmodel.pack_for_thread()
+        tpool = Pool(args.nthread, initializer=init, initargs=[psrmodel, offs, scls])
         backend = emcee.backends.HDFBackend(filename)
         if args.cont:
             print("CONTINUE EXISTING CHAIN!")
@@ -48,7 +47,9 @@ def run_solve(args,pta,outdir):
             p0[i] /= scls
 
         N = int(args.nsample)
+
         print("Launch EMCEE\n\n")
+
 
         if args.cont:
             p0=None
@@ -88,14 +89,15 @@ def get_posteriors(args,info):
     return samples, log_prob_samples,None, [log_prior_samples]
 
 
-def init(_pta,_offs,_scls):
+def init(psrmodel,_offs,_scls):
     global pta
     global offs
     global scls
+    print("Init Thread")
     offs=_offs.copy()
     scls=_scls.copy()
-    pta = copy.copy(_pta)
-    #print("Init Thread")
+    pta = psrmodel.get_pta()
+
 
 
 def log_prob(p):

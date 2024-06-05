@@ -28,7 +28,7 @@ def activated(args):
     return args.multinest
 
 
-def run_solve(args, _pta, outdir):
+def run_solve(args,psrmodel,outdir):
     global invTs
     global pta
 
@@ -39,7 +39,7 @@ def run_solve(args, _pta, outdir):
         main_process = rank==0
 
     invTs = []
-    pta = _pta
+    pta = psrmodel.get_pta()
     ndim=len(pta.params)
 
     for p in pta.params:

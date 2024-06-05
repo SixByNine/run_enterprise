@@ -21,6 +21,8 @@ from modelfit import run_modelfit
 import scipy.linalg as linalg
 import itertools
 
+from psr_model import PsrModel
+
 
 def run_cholfit(args):
     par = args.par
@@ -38,7 +40,10 @@ def run_cholfit(args):
     ### make model
     model = make_model(args,psr,parfile)
 
-    pars, pmax, ul, ll, means, medians, stds, ul68, ll68 = run_modelfit(args, psr, par, model, parfile)
+    psr_model = PsrModel(model, tim, par, psr)
+
+    print("Run Model Fitting!")
+    pars, pmax, ul, ll, means, medians, stds, ul68, ll68 = run_modelfit(args, psr_model, parfile)
 
     model_components.chol_red_model.make_t2_model(psr, args, dict(zip(pars, pmax)))
 

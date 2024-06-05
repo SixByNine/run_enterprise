@@ -118,12 +118,12 @@ def make_plots(args, psr, samples, loglike, weights, pars, derived,derived_names
         pars = np.concatenate((pars,derived_names_x))
         samples = np.concatenate((samples,derived),axis=1)
 
-    i_ef = np.array([i for i, v in enumerate(pars) if 'TNEF' in v], dtype=np.int)
-    i_eq = np.array([i for i, v in enumerate(pars) if 'TNEQ' in v], dtype=np.int)
+    i_ef = np.array([i for i, v in enumerate(pars) if 'TNEF' in v], dtype=int)
+    i_eq = np.array([i for i, v in enumerate(pars) if 'TNEQ' in v], dtype=int)
 
-    m_ef = np.zeros(len(pars), dtype=np.bool)
+    m_ef = np.zeros(len(pars), dtype=bool)
     m_ef[i_ef] = True
-    m_eq = np.zeros(len(pars), dtype=np.bool)
+    m_eq = np.zeros(len(pars), dtype=bool)
     m_eq[i_eq] = True
 
     n_w = np.logical_not(np.logical_or(m_ef, m_eq))

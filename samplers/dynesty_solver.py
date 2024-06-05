@@ -21,18 +21,10 @@ def setup_argparse(parser):
 def activated(args):
     return args.dynesty
 
-
-def run_solve(args, _pta, outdir):
-    global invTs
-    global pta
-    invTs = []
-    pta = _pta
-
-    for p in pta.params:
-        invTs.append(p.invT)
-
+def run_solve(args,psrmodel,outdir):
     os.makedirs(outdir, exist_ok=True)
     filename = os.path.join(outdir, "dynesty_results.pkl")
+    pta = psrmodel.get_pta()
 
     nlive = args.nlive
     print("Nlive: {} ndim: {}".format(nlive, len(pta.params)))
@@ -42,7 +34,8 @@ def run_solve(args, _pta, outdir):
 
     args.burn = 0  ## force no burn in for nested sampling
     if args.sample:
-        with Pool(args.nthread) as tpool:
+        psrmodel.pack_for_thread()
+        with Pool(args.nthread, initializer=init, initargs=[psrmodel]) as tpool:
             print("Run Dynesty")
             sampler = dynesty.NestedSampler(get_lnlikelihood, prior_transform, ndim=len(pta.params), nlive=nlive,
                                             pool=tpool, queue_size=args.nthread, sample=args.dynesty_sampler, bound=args.dynesty_bound,
@@ -66,7 +59,15 @@ def get_posteriors(args, results):
 
     return results.samples, results.logz, weights, results
 
+def init(psrmodel):
+    global invTs
+    global pta
+    print("Init Thread...")
+    invTs = []
+    pta = psrmodel.get_pta()
 
+    for p in pta.params:
+        invTs.append(p.invT)
 def prior_transform(u):
     global invTs
     """

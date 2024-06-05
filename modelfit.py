@@ -7,7 +7,9 @@ import derived_parameters
 
 
 
-def run_modelfit(args,psr,par, pta, parfile):
+def run_modelfit(args, psrmodel, parfile):
+    psr = psrmodel.psr
+    pta = psrmodel.get_pta()
     if args.outdir == None:
         outdir = 'chains/' + psr.name + "/"
     else:
@@ -28,7 +30,7 @@ def run_modelfit(args,psr,par, pta, parfile):
 
     for sampler in samplers.all:
         if sampler.activated(args):
-            sampler_info = sampler.run_solve(args,pta,outdir)
+            sampler_info = sampler.run_solve(args,psrmodel,outdir)
             break
 
     if sampler_info is None:
@@ -51,6 +53,8 @@ def run_modelfit(args,psr,par, pta, parfile):
         parnames.append(name)
         iparam+=1
     parnames=np.array(parnames)
+
+    par = psrmodel.par
     ### Compute any derived parameters
     derived, derived_names = derived_parameters.compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weights,parnames)
 

@@ -23,7 +23,8 @@ def activated(args):
     return args.ptmcmc
 
 
-def run_solve(args, pta, outdir):
+def run_solve(args,psrmodel,outdir):
+    pta = psrmodel.get_pta()
     main_process = True
     nprocs = 1
     if _have_mpi:

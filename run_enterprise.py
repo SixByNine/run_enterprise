@@ -15,12 +15,13 @@ import argparse
 
 from enterprise.pulsar import Pulsar
 from enterprise.signals import gp_signals
-from enterprise.signals import signal_base
 import qr_timing_model
 
 import output_plots
 
 from modelfit import run_modelfit
+
+from psr_model import PsrModel
 
 
 def run_enterprise(args):
@@ -48,10 +49,11 @@ def run_enterprise(args):
     print("Building model...")
     model = make_model(args,psr,parfile)
 
-    pta = signal_base.PTA(model(psr))
+
+    psr_model = PsrModel(model, tim, par, psr)
 
     print("Run Model Fitting!")
-    run_modelfit(args, psr, par, pta, parfile)
+    run_modelfit(args, psr_model, parfile)
 
 
 
