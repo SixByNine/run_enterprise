@@ -32,6 +32,11 @@ try:
 except ImportError:
     print("Cannot import pymultinest")
 
+try:
+    from . import nuts_solver
+    all.append(nuts_solver)
+except ImportError:
+    pass
 
 
 def std_args(parser):

@@ -59,7 +59,17 @@ def cornerplot(samples, labels, weights=None, truths=None, truth_color='blue',sm
             smooth=0.02
         if weights is None:
             weights = np.ones_like(samples[:, 0])
-        res = {'samples': samples, 'weights': weights, 'logwt': np.log(weights), 'logz': [0]}
+        # Trying to be compatible with a wide range of dynesty versions...
+        class Results:
+            def __init__(self, res):
+                self.res = res
+            def __getitem__(self, item):
+                return self.res[item]
+            def importance_weights(self):
+                return self.res['weights']
+
+        res = Results({'samples': samples, 'weights': weights, 'logwt': np.log(weights), 'logz': [0]})
+
         fig, ax = plotting.cornerplot(res, truths=truths, labels=labels, truth_color=truth_color,smooth=smooth)
         for aa in ax:
             for a in aa:

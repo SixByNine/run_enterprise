@@ -11,6 +11,7 @@ argdec = "Configure for nested sampling with DyNesty"
 
 def setup_argparse(parser):
     parser.add_argument('--dynesty', action='store_true', help='Use dynesty sampler')
+    parser.add_argument('--dynesty-dynamic', action='store_true', help='Use dynamic nested sampling')
     parser.add_argument('--dynesty-plots', action='store_true', help="make dynesty run plots")
     parser.add_argument('--dynesty-bound-eff', type=float, default=10.0, help="Efficiency to start bounding")
     parser.add_argument('--dynesty-bound',default="multi", help="Bounding method")
@@ -37,10 +38,21 @@ def run_solve(args,psrmodel,outdir):
         psrmodel.pack_for_thread()
         with Pool(args.nthread, initializer=init, initargs=[psrmodel]) as tpool:
             print("Run Dynesty")
-            sampler = dynesty.NestedSampler(get_lnlikelihood, prior_transform, ndim=len(pta.params), nlive=nlive,
-                                            pool=tpool, queue_size=args.nthread, sample=args.dynesty_sampler, bound=args.dynesty_bound,
-                                            first_update={'min_ncall': 1000, 'min_eff': args.dynesty_bound_eff},bootstrap=args.dynesty_bootstrap)
-            sampler.run_nested(maxiter=args.nsample)
+            if args.dynesty_dynamic:
+                sampler = dynesty.DynamicNestedSampler(get_lnlikelihood, prior_transform, ndim=len(pta.params), pool=tpool,
+                                                       queue_size=args.nthread, sample=args.dynesty_sampler, bound=args.dynesty_bound,
+                                                       first_update={'min_ncall': 1000, 'min_eff': args.dynesty_bound_eff}, bootstrap=args.dynesty_bootstrap)
+                sampler.run_nested()
+                while (sampler.results.samples.shape[0] < args.nsample):
+                    print(f"Not enough samples... continue ({sampler.results.samples.shape[0]}/{args.nsample})")
+                    sampler.add_batch(nlive=args.nlive*2)
+
+            else:
+                sampler = dynesty.NestedSampler(get_lnlikelihood, prior_transform, ndim=len(pta.params), nlive=nlive,
+                                                pool=tpool, queue_size=args.nthread, sample=args.dynesty_sampler, bound=args.dynesty_bound,
+                                                first_update={'min_ncall': 1000, 'min_eff': args.dynesty_bound_eff},bootstrap=args.dynesty_bootstrap)
+                sampler.run_nested()
+
             print(sampler.results.summary())
             with open(filename, "wb") as f:
                 pickle.dump(sampler.results, f)
