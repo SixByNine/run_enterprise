@@ -46,7 +46,10 @@ def run_solve(args,psrmodel,outdir):
             p0[i] -= offs
             p0[i] /= scls
 
-        N = int(args.nsample)
+        if args.nsample is None:
+            N = 1000
+        else:
+            N = int(args.nsample)
 
         print("Launch EMCEE\n\n")
 

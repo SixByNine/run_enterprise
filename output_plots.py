@@ -32,7 +32,7 @@ def setup_argparse(parser):
     parser.add_argument('--plotname', default=None, help="Set plot output file name stem")
     parser.add_argument('--smooth',type=float,default=None,help="Factor for smoothing of corner plots (default=don't smooth)")
     parser.add_argument('--skip-plots', action='store_true', help="Skip all plotting (for debugging I guess)")
-    parser.add_argument('--plotlibrary',default="corner",help="Which plot library to use for cornerplots (chainconsumer, dynesty, corner)")
+    parser.add_argument('--plotlibrary', '--plot-library',default="corner",help="Which plot library to use for cornerplots (chainconsumer, dynesty, corner)")
 
 def cornerplot(samples, labels, weights=None, truths=None, truth_color='blue',smooth=None,plotlibrary="dynesty"):
 

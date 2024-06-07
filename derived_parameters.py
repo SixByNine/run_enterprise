@@ -146,6 +146,16 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
         if "L3" in parnames:
             derived_names.append("F2")
 
+    if args.red_at is not None:
+        # we fit for amplitude at a different frequency so we need to rescale TNRedAmp back to 1/yr
+        logAred_T = scaled_samples[:, parnames=="TNRedAmp"][:, 0].copy()
+
+        derived.append(logAred_T)
+        derived_names.append(f"TNRedAmp_T{args.red_at}")
+        gamma = scaled_samples[:, parnames=="TNRedGam"][:, 0]
+
+        scaled_samples[:, parnames=="TNRedAmp"] = np.reshape(logAred_T - 0.5*gamma*np.log10(args.red_at),(-1,1))
+
     ## Check if plot_Ared_at_T is in the args
     if 'plot_Ared_at_T' in vars(args):
         if not args.plot_Ared_at_T is None:

@@ -61,7 +61,12 @@ def run_solve(args,psrmodel,outdir):
 
         sampler = ptmcmc.PTSampler(ndim, pta.get_lnlikelihood, pta.get_lnprior, cov=cov, outDir=outdir,
                                    resume=args.cont)
-        sampler.sample(x0, int(args.nsample),burn=int(min(10000, 0.1 * args.nsample)))
+
+        if args.nsample is None:
+            N = 1000000
+        else:
+            N = int(args.nsample)
+        sampler.sample(x0, N,burn=int(min(10000, 0.1 * N)))
 
 
     else:

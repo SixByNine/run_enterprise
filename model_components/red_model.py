@@ -18,6 +18,7 @@ def setup_argparse(parser):
                         help='Disable Power Law Red Noise search')
     parser.add_argument('--Ared-max', '-A', type=float, default=-12, help='Max log10A_Red')
     parser.add_argument('--Ared-min', type=float, default=-18, help='Min log10A_Red')
+    parser.add_argument('--red-at', type=float, default=None, help='log10A measured at this timescale (in years)')
     parser.add_argument('--red-gamma-max', type=float, default=10, help='Max gamma red')
     parser.add_argument('--red-gamma-min', type=float, default=0, help='Min gamma red')
     parser.add_argument('--red-prior-log', action='store_true',
@@ -43,7 +44,8 @@ def setup_argparse(parser):
     parser.add_argument('--A2red-max', type=float, default=-12, help='Max log10A_Red for double pl')
     parser.add_argument('--A2red-min', type=float, default=-18, help='Min log10A_Red for double pl')
 
-
+    parser.add_argument('--red-nlog-below-tspan', type=int, default=0, help='Number of log-spaced red noise components below tspan')
+    parser.add_argument('--red-nlog-factor', type=float, default=2.0, help='Factor for log-spaced red noise components below tspan')
 def setup_model(args, psr, parfile):
     if args.red:
         # We scale Tspan if we are using tspan-mult
@@ -56,6 +58,12 @@ def setup_model(args, psr, parfile):
         # Add the nC and flow parameters to the par file
         parfile.append("TNRedC {}\n".format(nC))
         parfile.append("TNRedFLow {}\n".format(np.log10(1.0 / args.tspan_mult)))
+
+        if args.red_at is None:
+            red_log_sqrt_at = parameter.Constant(0)
+        else:
+            red_log_sqrt_at = parameter.Constant(0.5*np.log10(args.red_at))
+            parfile.append("# red_at={}\n".format(args.red_at))
 
         # red noise (powerlaw with nC frequencies)
         if args.red_prior_log:
@@ -102,15 +110,16 @@ def setup_model(args, psr, parfile):
                 pl = double_powerlaw_qp(log10_A1=log10_A, gamma=gamma,
                                         log10_A2=log10_A2, delta_gamma=delta_gamma,
                                         log_qp_ratio=log_qp_ratio, p=qp_period, sig=sig, lam=lam,
-                                 fmin=df)
+                                 fmin=df,log_at=red_log_sqrt_at)
             else:
                 pl = powerlaw_qp(log10_A=log10_A, gamma=gamma, log_qp_ratio=log_qp_ratio, p=qp_period, sig=sig, lam=lam,
-                                 fmin=df)
+                                 fmin=df,log_at=red_log_sqrt_at)
         else:
             if args.double_powerlaw:
-                pl = utils.double_powerlaw(log10_A=log10_A, gamma=gamma, log10_A2 = log10_A2, delta_gamma=delta_gamma)
+                pl = double_powerlaw(log10_A=log10_A, gamma=gamma, log10_A2 = log10_A2, delta_gamma=delta_gamma,
+                                     log_at=red_log_sqrt_at)
             else:
-                pl = utils.powerlaw(log10_A=log10_A, gamma=gamma)
+                pl = powerlaw(log10_A=log10_A, gamma=gamma,log_at=red_log_sqrt_at)
 
         modes = None
         fmodes = None
@@ -126,13 +135,26 @@ def setup_model(args, psr, parfile):
                 sys.exit(1)
             nC = len(modes)
 
-        rn = gp_signals.FourierBasisGP(spectrum=pl, components=nC, Tspan=Tspan, modes=modes)
+
+        if args.red_nlog_below_tspan > 0:
+            freq0 = 1.0 / Tspan
+            low_modes = sorted(freq0 * args.red_nlog_factor**-np.arange(1, args.red_nlog_below_tspan + 1)) # log spaced below Tspan
+            hi_modes = freq0 * np.arange(1,nC+1)
+            modes = np.concatenate((low_modes,hi_modes))
+            print(f"Modes: {len(low_modes)} {len(hi_modes)}")
+            print(modes)
+            rn_log = gp_signals.FourierBasisGP(spectrum=pl, components=None, Tspan=Tspan, modes=modes)
+            rn = rn_log
+        else:
+            rn = gp_signals.FourierBasisGP(spectrum=pl, components=nC, Tspan=Tspan, modes=modes)
 
         if not fmodes is None:
             for i, f in enumerate(fmodes):
                 A = parameter.Uniform(-50, 50, to_par=to_par)("fsinA{}".format(i))
                 B = parameter.Uniform(-50, 50, to_par=to_par)("fcosB{}".format(i))
                 rn += deterministic_signals.Deterministic(sinusoid(A=A, B=B, om=2 * np.pi * f))
+
+
 
         return rn
     else:
@@ -172,14 +194,24 @@ from .chol_red_model import qp_term_cutoff
 
 
 @function
-def powerlaw_qp(f, log10_A, gamma, log_qp_ratio, p, sig, lam, fmin, components=2):
+def powerlaw(f, log10_A, gamma, components=2, log_at=1):
+    log10_A_1yr = log10_A - gamma * log_at
     df = np.diff(np.concatenate((np.array([0]), f[::components])))
     df2 = np.repeat(df, components)
-    red = (10 ** log10_A) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma - 3) * f ** (-gamma) * df2
+    return (10 ** log10_A_1yr) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma - 3) * f ** (-gamma) * df2
+
+@function
+def powerlaw_qp(f, log10_A, gamma, log_qp_ratio, p, sig, lam, fmin, components=2,log_at=1):
+    df = np.diff(np.concatenate((np.array([0]), f[::components])))
+    df2 = np.repeat(df, components)
+
+    log10_A_1yr = log10_A - gamma * log_at
+
+    red = (10 ** log10_A_1yr) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma - 3) * f ** (-gamma) * df2
 
     f0 = 1.0 / p
     logPqp = log_qp_ratio + np.log10(
-        (10 ** log10_A) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma - 3) * (f0 * 365.25 * const.fyr) ** (
+        (10 ** log10_A_1yr) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma - 3) * (f0 * 365.25 * const.fyr) ** (
             -gamma) * df2)
     qp = qp_term_cutoff(f / const.fyr, logPqp, f0, sig, lam, fmin)
 
@@ -187,32 +219,39 @@ def powerlaw_qp(f, log10_A, gamma, log_qp_ratio, p, sig, lam, fmin, components=2
 
 
 @function
-def double_powerlaw(f, log10_A1, gamma, log10_A2, delta_gamma, components=2):
+def double_powerlaw(f, log10_A1, gamma, log10_A2, delta_gamma, components=2, log_at=1):
     gamma1=gamma
     gamma2=gamma-delta_gamma
+
+    log10_A1_1yr = log10_A1  - gamma1 * log_at
+    log10_A2_1yr = log10_A2  - gamma2 * log_at
     df = np.diff(np.concatenate((np.array([0]), f[::components])))
     df2 = np.repeat(df, components)
-    red1 = (10 ** log10_A1) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma1 - 3) * f ** (-gamma1) * df2
-    red2 = (10 ** log10_A2) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma2 - 3) * f ** (-gamma2) * df2
+    red1 = (10 ** log10_A1_1yr) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma1 - 3) * f ** (-gamma1) * df2
+    red2 = (10 ** log10_A2_1yr) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma2 - 3) * f ** (-gamma2) * df2
     return red1 + red2
 
 
 @function
-def double_powerlaw_qp(f, log10_A1, gamma, log10_A2, delta_gamma, log_qp_ratio, p, sig, lam, fmin, components=2):
+def double_powerlaw_qp(f, log10_A1, gamma, log10_A2, delta_gamma, log_qp_ratio, p, sig, lam, fmin, components=2,log_at=1):
     gamma1=gamma
     gamma2=gamma-delta_gamma
+
+    log10_A1_1yr = log10_A1 - gamma1 * log_at
+    log10_A2_1yr = log10_A2 - gamma2 * log_at
+
     df = np.diff(np.concatenate((np.array([0]), f[::components])))
     df2 = np.repeat(df, components)
-    red1 = (10 ** log10_A1) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma1 - 3) * f ** (-gamma1) * df2
-    red2 = (10 ** log10_A2) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma2 - 3) * f ** (-gamma2) * df2
+    red1 = (10 ** log10_A1_1yr) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma1 - 3) * f ** (-gamma1) * df2
+    red2 = (10 ** log10_A2_1yr) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma2 - 3) * f ** (-gamma2) * df2
     red = red1 + red2
 
     f0 = 1.0 / p
     logPqp = log_qp_ratio + np.log10(
-        (10 ** log10_A1) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma1 - 3) * (f0 * 365.25 * const.fyr) ** (
+        (10 ** log10_A1_1yr) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma1 - 3) * (f0 * 365.25 * const.fyr) ** (
             -gamma1) * df2) + \
              np.log10(
-                 (10 ** log10_A2) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma2 - 3) * (f0 * 365.25 * const.fyr) ** (
+                 (10 ** log10_A2_1yr) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma2 - 3) * (f0 * 365.25 * const.fyr) ** (
                      -gamma2) * df2)
     qp = qp_term_cutoff(f / const.fyr, logPqp, f0, sig, lam, fmin)
     return red + qp

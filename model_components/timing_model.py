@@ -108,14 +108,14 @@ def setup_model(args, psr, parfile):
     if args.f2 > 0 and "F2" in psr.fitpars:
         print("ERROR: Can't fit for F2 in MCMC and least-squares!")
         sys.exit(1)
-
+    position_meta = None
     if args.pm or args.px or args.pos:
         psr_coord = coord.SkyCoord(psr_ra, psr_dec, unit=(units.hourangle, units.degree))
         psr.coord = psr_coord
         if not issorted:
             print("ERROR: Toas must be sorted or wierd things happen with paralax and proper motion")
             sys.exit(1)
-        precompute_position_gradients(psr)
+        position_meta = precompute_position_gradients(psr)
 
     components = []
 
@@ -153,7 +153,7 @@ def setup_model(args, psr, parfile):
         pmra = parameter.Uniform(-pmrange + orig_pmra, pmrange + orig_pmra, to_par=to_par)
         pmdec = parameter.Uniform(-pmrange + orig_pmdec, pmrange + orig_pmdec, to_par=to_par)
         pm = deterministic_signals.Deterministic(
-            fit_pm(posepoch=posepoch, pmra=pmra, pmdec=pmdec, orig_pmra=orig_pmra, orig_pmdec=orig_pmdec), name='pm')
+            fit_pm(posepoch=posepoch, pmra=pmra, pmdec=pmdec, orig_pmra=orig_pmra, orig_pmdec=orig_pmdec,position_meta=position_meta), name='pm')
         components.append(pm)
 
     if args.pos:
@@ -162,20 +162,20 @@ def setup_model(args, psr, parfile):
         ## might want to scale range by cos dec or something...
         ra_off = parameter.Uniform(-posrange, posrange,to_par=to_par)
         dec_off= parameter.Uniform(-posrange, posrange,to_par=to_par)
-        pos_fit = deterministic_signals.Deterministic(fit_pos(ra_off=ra_off,dec_off=dec_off),name="position")
+        pos_fit = deterministic_signals.Deterministic(fit_pos(ra_off=ra_off,dec_off=dec_off,position_meta=position_meta),name="position")
         components.append(pos_fit)
 
 
     if args.px:
         pxp = parameter.Uniform(0, args.px_range, to_par=to_par)
-        px = deterministic_signals.Deterministic(fit_px(px=pxp), name='px')
+        px = deterministic_signals.Deterministic(fit_px(px=pxp,position_meta=position_meta), name='px')
         components.append(px)
 
     if args.pm_angle:
         pmrange = args.pm_range
         pmamp = parameter.Uniform(0, pmrange, to_par=to_par)
         pmangle = parameter.Uniform(0, 2 * np.pi, to_par=to_par)
-        pm = deterministic_signals.Deterministic(fit_pm_angle(posepoch=posepoch, amp=pmamp, angle=pmangle), name='pm')
+        pm = deterministic_signals.Deterministic(fit_pm_angle(posepoch=posepoch, amp=pmamp, angle=pmangle,position_meta=position_meta), name='pm')
         components.append(pm)
 
     if not args.wrap is None:
@@ -255,10 +255,10 @@ def fit_f2(toas, pepoch, f0, valf2):
 
 
 @signal_base.function
-def fit_pm_angle(toas, pos, earthssb, posepoch, amp, angle, orig_pmra=0, orig_pmdec=0):
+def fit_pm_angle(toas, pos, earthssb, posepoch, amp, angle, orig_pmra=0, orig_pmdec=0,position_meta=None):
     pmra = amp * np.cos(angle)
     pmdec = amp * np.sin(angle)
-    return fit_pm(toas, pos, earthssb, posepoch, pmra, pmdec, orig_pmra, orig_pmdec)
+    return fit_pm(toas, pos, earthssb, posepoch, pmra, pmdec, orig_pmra, orig_pmdec,position_meta=position_meta)
 
 @signal_base.function
 def fit_wrap(toas, epoch, f0, turns):
@@ -268,9 +268,9 @@ def fit_wrap(toas, epoch, f0, turns):
     return res
 
 @signal_base.function
-def fit_px(toas, px):
+def fit_px(toas, px,position_meta):
     # This is just the linearised parallax function from tempo2...
-    global d_px
+    rad_per_day2mas_per_year, psrra, psrdec, d_ra, d_dec, d_px = position_meta
     return px * d_px
 
 
@@ -280,12 +280,7 @@ def precompute_position_gradients(psr):
     This is all just the linear fit from tempo2, but we allow it to be done in the MCMC.
     A more complicated model could be implemented if needed.
     """
-    global rad_per_day2mas_per_year
-    global psrra
-    global psrdec
-    global d_ra
-    global d_dec
-    global d_px
+
 
     pos=psr.pos
     earthssb=psr.earthssb
@@ -320,14 +315,12 @@ def precompute_position_gradients(psr):
 
     rcos1 = np.sum(pos * rca, axis=1)
     d_px = 0.5 * pxconv * (rr - rcos1 * rcos1) / AULTSC
+    return (rad_per_day2mas_per_year,psrra,psrdec,d_ra,d_dec,d_px)
 
 @signal_base.function
-def fit_pm(toas, posepoch, pmra, pmdec, orig_pmra=0, orig_pmdec=0):
+def fit_pm(toas, posepoch, pmra, pmdec, orig_pmra=0, orig_pmdec=0, position_meta=None):
     # This is just the linearised proper motion function from tempo2...
-    global rad_per_day2mas_per_year
-    global psrdec
-    global d_ra
-    global d_dec
+    rad_per_day2mas_per_year, psrra, psrdec, d_ra, d_dec, d_px = position_meta
 
     # This will be pmra in rad/day
     v_pmra = (pmra - orig_pmra) / rad_per_day2mas_per_year / np.cos(psrdec)
@@ -339,9 +332,9 @@ def fit_pm(toas, posepoch, pmra, pmdec, orig_pmra=0, orig_pmdec=0):
 
 
 @signal_base.function
-def fit_pos(toas, ra_off, dec_off):
-    global d_ra # input ra
-    global d_dec # input dec
+def fit_pos(toas, ra_off, dec_off, position_meta=None):
+    rad_per_day2mas_per_year, psrra, psrdec, d_ra, d_dec, d_px = position_meta
+
     # This is just the linearised position fit from tempo2...
     # ra_off and dec_off are in arcseconds d_ra/d_dec are in radians
     return (d_ra*ra_off + d_dec*dec_off)/206264.806247

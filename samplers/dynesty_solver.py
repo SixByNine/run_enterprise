@@ -41,11 +41,13 @@ def run_solve(args,psrmodel,outdir):
             if args.dynesty_dynamic:
                 sampler = dynesty.DynamicNestedSampler(get_lnlikelihood, prior_transform, ndim=len(pta.params), pool=tpool,
                                                        queue_size=args.nthread, sample=args.dynesty_sampler, bound=args.dynesty_bound,
-                                                       first_update={'min_ncall': 1000, 'min_eff': args.dynesty_bound_eff}, bootstrap=args.dynesty_bootstrap)
-                sampler.run_nested()
-                while (sampler.results.samples.shape[0] < args.nsample):
-                    print(f"Not enough samples... continue ({sampler.results.samples.shape[0]}/{args.nsample})")
-                    sampler.add_batch(nlive=args.nlive*2)
+                                                       first_update={'min_ncall': 1000, 'min_eff': args.dynesty_bound_eff},
+                                                       bootstrap=args.dynesty_bootstrap)
+                sampler.run_nested(nlive_init=args.nlive,nlive_batch=args.nlive//2,dlogz_init=0.1)
+                if args.nsample is not None:
+                    while (sampler.results.samples.shape[0] < args.nsample):
+                        print(f"Not enough samples... continue ({sampler.results.samples.shape[0]}/{args.nsample})")
+                        sampler.add_batch(nlive=args.nlive)
 
             else:
                 sampler = dynesty.NestedSampler(get_lnlikelihood, prior_transform, ndim=len(pta.params), nlive=nlive,
