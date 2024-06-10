@@ -59,6 +59,8 @@ def setup_model(args, psr, parfile):
         parfile.append("TNRedC {}\n".format(nC))
         parfile.append("TNRedFLow {}\n".format(np.log10(1.0 / args.tspan_mult)))
 
+
+
         if args.red_at is None:
             red_log_sqrt_at = parameter.Constant(0)
         else:
@@ -143,8 +145,9 @@ def setup_model(args, psr, parfile):
             modes = np.concatenate((low_modes,hi_modes))
             print(f"Modes: {len(low_modes)} {len(hi_modes)}")
             print(modes)
-            rn_log = gp_signals.FourierBasisGP(spectrum=pl, components=None, Tspan=Tspan, modes=modes)
-            rn = rn_log
+            rn = gp_signals.FourierBasisGP(spectrum=pl, components=None, Tspan=Tspan, modes=modes)
+            parfile.append(f"TNRedFLog {args.red_nlog_below_tspan}\n")
+            parfile.append(f"TNRedFLog_factor {args.red_nlog_factor}\n")
         else:
             rn = gp_signals.FourierBasisGP(spectrum=pl, components=nC, Tspan=Tspan, modes=modes)
 

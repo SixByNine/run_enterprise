@@ -43,7 +43,6 @@ def setup_argparse(parser):
     parser.add_argument('--auto-add', action='store_true', help="Automatic add all existing glitches recoveries in the par file")
 
 def setup_model(args, psr, parfile):
-    global glitches
     glitches = {}
     for line in parfile:
         e = line.strip().split()
@@ -360,9 +359,9 @@ def setup_model(args, psr, parfile):
             priors.glf0d3_range[gi] = glf0d3_range
             priors.gltd3_range[gi] = np.power(10, gltd3_range)
             priors.taug[gi] = taug
-            print_prior_ranges(gl)
+            print_prior_ranges(glitches, gl)
 
-            glexp = model_glitch_residual(f0=parameter.Constant(f0), glep=glep,
+            glexp = model_glitch_residual(glitches=glitches, f0=parameter.Constant(f0), glep=glep,
                                           glf0=glf0, glf1=glf1, glf0d=f0d, log10_td=td,
                                           glitch_id=parameter.Constant(gl), glf2=glf2,
                                           glf0d2 = f0d_2, log10_td2=td_2, glf0d3 = f0d_3, log10_td3=td_3, 
@@ -381,8 +380,7 @@ def setup_model(args, psr, parfile):
         return None
 
 
-def print_prior_ranges(gl=None):
-    global glitches
+def print_prior_ranges(glitches, gl=None):
     if isinstance(gl, int) and 0 < gl <= len(glitches):
         gi = gl -1
         print("Prior information for glitch {}:".format(gl))
@@ -401,7 +399,7 @@ def print_prior_ranges(gl=None):
         print("")
     else:
         for gi, gl in enumerate(glitches):
-            print_prior_ranges(gl)
+            print_prior_ranges(glitches,gl)
 
 
 def to_par(self, p, chain):
@@ -442,8 +440,7 @@ def model_glitch(toas, f0, glep, glf0=0, glf1=0, glf2=0, glf0d=0, gltd=1, glf0d2
 
 
 @signal_base.function
-def model_glitch_residual(toas, f0, glep, glf0=0, glf1=0, glf2=0, glf0d=0, log10_td=0, glitch_id=1, glf0d2=0, log10_td2=0, glf0d3=0, log10_td3=0, glf0_alt=None, glf0_at_t=None, glf0t=None, f0d_log=False):
-    global glitches
+def model_glitch_residual(toas, glitches, f0, glep, glf0=0, glf1=0, glf2=0, glf0d=0, log10_td=0, glitch_id=1, glf0d2=0, log10_td2=0, glf0d3=0, log10_td3=0, glf0_alt=None, glf0_at_t=None, glf0t=None, f0d_log=False):
     if f0d_log: # We are sampling f0d in log space
         glf0d = 10**glf0d
     ## add conversion for alternative glitch parameters

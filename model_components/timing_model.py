@@ -188,9 +188,9 @@ def setup_model(args, psr, parfile):
         keys = np.loadtxt(args.tm_fit_file,usecols=(0),dtype=str)
         fitrange = np.loadtxt(args.tm_fit_file,usecols=(1))
         tm_params=dict()
-        psr.tmparams_orig = dict()
+        tmparams_orig = dict()
         for p,v in zip(psr.t2pulsar.pars(which='set'), psr.t2pulsar.vals(which='set')):
-            psr.tmparams_orig[p]=v
+            tmparams_orig[p]=v
         for i,k in enumerate(keys):
             if k in psr.fitpars:
                 print("ERROR: Can't fit for {} in both MCMC and least-squares".format(k))
@@ -199,13 +199,13 @@ def setup_model(args, psr, parfile):
             hi=fitrange[i]
             print("Adding {} to fit {} -> {}".format(k,lo,hi))
             tm_params[k] = parameter.Uniform(lo, hi, to_par=to_par_tm)
-        orig_params = psr.tmparams_orig
+        orig_params = tmparams_orig
 
         if args.fake_tm:
             setup_fake_design_matrix(psr, keys=keys)
-            tm = deterministic_signals.Deterministic(fake_tempo2_timing_model(keys=keys, **tm_params))
+            tm = deterministic_signals.Deterministic(fake_tempo2_timing_model(keys=keys,tmparams_orig=tmparams_orig, **tm_params))
         else:
-            tm = deterministic_signals.Deterministic(tempo2_timing_model(keys=keys, **tm_params))
+            tm = deterministic_signals.Deterministic(tempo2_timing_model(keys=keys,tmparams_orig=tmparams_orig, **tm_params))
         components.append(tm)
 
     if len(components) > 0:

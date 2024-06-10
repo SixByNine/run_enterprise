@@ -90,7 +90,7 @@ def setup_psr(psr):
     spherical_solar_wind = 1.0e6 * AU_DIST * AU_DIST / SPEED_LIGHT / DM_CONST_SI * \
                            np.arccos(ctheta) / r / np.sqrt(1.0 - ctheta * ctheta) / freqf / freqf
 
-    psr.spherical_solar_wind = spherical_solar_wind[psr.isort]
+    spherical_solar_wind = spherical_solar_wind[psr.isort]
 
     psr.ctheta = ctheta[psr.isort]
 
@@ -151,15 +151,16 @@ def setup_psr(psr):
         real_conjunction_toas_mjds[i] = close_t[np.argmin(close_ctheta)] 
 
 
-    psr.sphconj_mjd = real_conjunction_toas_mjds.astype(np.float64)
+    sphconj_mjd = real_conjunction_toas_mjds.astype(np.float64)
 
+    return spherical_solar_wind, sphconj_mjd
 
 
 def setup_model(args, psr, parfile):
     sw_model=None
     if args.solar_wind:
 
-        setup_psr(psr)
+        spherical_solar_wind, sphconj_mjd = setup_psr(psr)
 
         sw_sigma = parameter.Uniform(args.sw_sigma_min, args.sw_sigma_max, to_par=to_par)("SW_sigma")
 
@@ -167,10 +168,10 @@ def setup_model(args, psr, parfile):
         # Add the SW_sigma parameter to the par file
         parfile.append("NE_SW_IFUNC 0 1\n")
 
-        for conj_toa in psr.sphconj_mjd:
+        for conj_toa in sphconj_mjd:
             parfile.append("_NE_SW {:.2f}\n".format(conj_toa))
 
-        sw_model = solar_wind_basis_GP(priors=sw_priors(sw_sigma=sw_sigma))
+        sw_model = solar_wind_basis_GP(priors=sw_priors(sw_sigma=sw_sigma),spherical_solar_wind=spherical_solar_wind, sphconj_mjd=sphconj_mjd)
 
 
     return sw_model
@@ -188,12 +189,12 @@ def sw_priors(t, sw_sigma=1):
     return np.ones_like(t) * sw_sigma**2
 
 
-def solar_wind_basis_GP(priors, selection=Selection(selections.no_selection), name=''):
+def solar_wind_basis_GP(priors, spherical_solar_wind, sphconj_mjd, selection=Selection(selections.no_selection), name=''):
 
     # equivalent of utils.createfourierdesignmatrix_{red,dm}
     # RN: basis = utils.createfourierdesignmatrix_red(nmodes=components, Tspan=Tspan, modes=modes, pshift=pshift, pseed=pseed)
     # DM: basis = utils.createfourierdesignmatrix_dm(nmodes=components, Tspan=Tspan,fref=1400.0)
-    basis = solar_wind_basis()
+    basis = solar_wind_basis(spherical_solar_wind=spherical_solar_wind, sphconj_mjd=sphconj_mjd)
     BaseClass = gp_signals.BasisGP(priors, basis, selection=selection, name=name)
 
     class solar_wind_basis_class(BaseClass):

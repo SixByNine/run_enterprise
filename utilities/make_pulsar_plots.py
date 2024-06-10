@@ -51,6 +51,10 @@ inpar=[]
 
 TNRedAmp=None
 TNRedGam=None
+TNRedLog=0
+TNRedLog_factor=2.0
+TNRedC=0
+
 
 with open(par) as f:
     for line in f:
@@ -60,6 +64,12 @@ with open(par) as f:
                 TNRedAmp=float(e[1])
             if e[0] == "TNRedGam":
                 TNRedGam = float(e[1])
+            if e[0] == "TNRedFLog":
+                TNRedLog = int(e[1])
+            if e[0] == "TNRedC":
+                TNRedC = int(e[1])
+            if e[0] == "TNRedFLog_factor":
+                TNRedLog_factor = float(e[1])
         else:
             inpar.append(line)
         line = line.strip()
@@ -120,20 +130,22 @@ y=np.zeros_like(t)
 cosidx=lab[1]=='param_red_cos'
 sinidx=lab[1]=='param_red_sin'
 
-maxwav=400
-nt=0
-for i in range(len(cosidx)):
-    if cosidx[i]:
-        nt+=1
-    if nt > maxwav:
-        cosidx[i]=False
 
-nt=0
-for i in range(len(sinidx)):
-    if sinidx[i]:
-        nt+=1
-    if nt > maxwav:
-        sinidx[i]=False
+#
+# maxwav=100000
+# nt=0
+# for i in range(len(cosidx)):
+#     if cosidx[i]:
+#         nt+=1
+#     if nt > maxwav:
+#         cosidx[i]=False
+#
+# nt=0
+# for i in range(len(sinidx)):
+#     if sinidx[i]:
+#         nt+=1
+#     if nt > maxwav:
+#         sinidx[i]=False
         
         
 nwav = np.sum(sinidx)
@@ -173,7 +185,7 @@ with open("white.par","w") as f:
     f.writelines(inpar)
     f.write("WAVE_OM {}\n".format(omega))
     f.write("WAVEEPOCH {}\n".format(epoch))
-    for i in range(min(256,nwav)):
+    for i in range(min(256,nwav-TNRedLog)): # Currently fitwaves can't handle the log-spaced waves
         f.write("WAVE{}  {}  {}\n".format(i+1,-beta_mod[i],-beta_mod[i+nwav]))
 
 
@@ -185,9 +197,23 @@ freqs=[]
 pwrs=np.power(beta_mod[:nwav],2) + np.power(beta_mod[nwav:],2)
 pwrs2=np.zeros_like(pwrs)
 
+hi_modes = omega * np.arange(1,nwav+1-TNRedLog) # linear spaced above Tspan
 
-for i in range(nwav):
-    omegai = omega*(i+1.0)
+if TNRedLog > 0:
+    low_modes = omega * TNRedLog_factor**-np.arange(1, TNRedLog + 1) # log spaced below Tspan
+    modes = np.concatenate((hi_modes,low_modes))
+    low_dfs = -np.diff(np.concatenate([low_modes,[0]])) / 2.0 / np.pi / 86400.0  # df in per second
+    hi_dfs = np.diff(np.concatenate([low_modes[-1:], hi_modes])) / 2.0 / np.pi / 86400.0  # df in per second
+    dfs = np.concatenate([hi_dfs, low_dfs])
+
+else:
+    modes = hi_modes
+    dfs = np.diff(np.concatenate([[0], modes])) / 2.0 / np.pi / 86400.0  # df in per second
+
+
+for i, omegai in enumerate(modes):
+    print(i,i+nwav,nwav,omegai)
+    #omegai = omega*(i+1.0)
     M[i]        = np.sin(omegai * (t-epoch))
     M[i+nwav]   = np.cos(omegai * (t-epoch))
 
@@ -210,9 +236,9 @@ if use_P_in_cvm:
     print("Use PSD directly in place of tempo2 cvm")
     cvm_mod = np.zeros_like(cvm_mod)
 
-for i in range(nwav):
-    omegai = omega * (i + 1.0) / 86400.0  # Want omega in per second not per day
-    df = (omega / 2.0 / np.pi) / 86400.0  # df in per second as well.
+for i, om in enumerate(modes):
+    omegai = om / 86400.0  # Want omega in per second not per day
+    df = dfs[i] #(omega / 2.0 / np.pi) / 86400.0  # df in per second as well.
     P = P0 * (freqs[i]) ** -TNRedGam  # freqs[] is in per year, so no need to divide
 
     pwrs2[i] = P*df
@@ -241,9 +267,9 @@ if do_cov_method:
 
     print(TNRedAmp, TNRedGam,P0)
     print("Make Cov Matricies")
-    for i in range(nwav):
-        omegai = omega*(i+1.0)/86400.0 # Want omega in per second not per day
-        df=(omega/2.0/np.pi)/86400.0 # df in per second as well.
+    for i, om in enumerate(modes):
+        omegai = om / 86400.0  # Want omega in per second not per day
+        df = dfs[i]  # (omega / 2.0 / np.pi) / 86400.0  # df in per second as well.
         P = P0 * (freqs[i])**-TNRedGam # freqs[] is in per year, so no need to divide
 
         C_D_D += P*np.cos(omegai*dt_D_D)*df
@@ -268,7 +294,6 @@ print("Do linear algebra")
 freqs=np.array(freqs)
 
 
-maxP=2*np.pi/omegai
                          
                          
 #print(cvm.shape,cvm_mod.shape)
@@ -633,7 +658,7 @@ for ge in glep:
     plt.axvline(ge,linestyle="--",color='purple',alpha=0.7)
 
 plt.xlabel("MJD")
-plt.ylabel("$\\Delta{\\nu}$ ($\mathrm{\mu}$Hz)")
+plt.ylabel("$\\Delta{\\nu}$ ($\\mathrm{\\mu}$Hz)")
 ax.yaxis.set_label_position("right")
 ax.yaxis.set_tick_params(labelleft=False,labelright=True,right=True,left=False, direction='in')
 ax3 = ax.twiny()
