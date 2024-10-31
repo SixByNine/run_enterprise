@@ -3,25 +3,23 @@
 from __future__ import division, print_function
 import matplotlib
 
-#matplotlib.use('Agg')
+matplotlib.use('Agg')
 import numpy as np
 
-import model_components
-import samplers
-
+import run_enterprise.model_components as model_components
+import run_enterprise.samplers as samplers
+import run_enterprise.output_plots as output_plots
+from run_enterprise.modelfit import run_modelfit
+from run_enterprise.psr_model import PsrModel
 
 import argparse
 
 from enterprise.pulsar import Pulsar # At some point remove this dependency
 
-import output_plots
-
-from modelfit import run_modelfit
 
 import scipy.linalg as linalg
 import itertools
 
-from psr_model import PsrModel
 
 
 def run_cholfit(args):

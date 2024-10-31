@@ -17,7 +17,7 @@ except:
     pass
 
 
-from model_components import priors
+from run_enterprise.model_components import priors
 
 def setup_argparse(parser):
     parser.add_argument('--white-corner', action='store_true', help='Make the efac/equad corner plots')
@@ -46,7 +46,7 @@ def cornerplot(samples, labels, weights=None, truths=None, truth_color='blue',sm
         fig = corner.corner(samples,weights=weights, truths=truths,truth_color=truth_color,labels=labels, plot_datapoints=False,smooth=smooth)
     elif plotlibrary=="chainconsumer":
         cc = chainconsumer.ChainConsumer()
-        parameters = [p.replace("_", "\_") for p in labels]
+        parameters = [p.replace("_", r"\_") for p in labels]
 
         cc.add_chain(samples, parameters=parameters, weights=weights)
         cc.configure(diagonal_tick_labels=False, tick_font_size=6, label_font_size=6, max_ticks=6,

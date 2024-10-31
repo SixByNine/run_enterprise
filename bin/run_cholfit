@@ -1,0 +1,31 @@
+#!/usr/bin/env python
+
+import argparse
+
+import run_enterprise.model_components as model_components
+import run_enterprise.samplers as samplers
+import run_enterprise.output_plots as output_plots
+
+if __name__ == "__main__":
+    parser=argparse.ArgumentParser(description="Run 'enterprise' on a single pulsar")
+    parser.add_argument('par')
+    parser.add_argument('tim')
+    parser.add_argument('--outdir', '-o', type=str, help="Output directory for chains etc")
+
+    for model_comp in model_components.all:
+        grp = parser.add_argument_group(model_comp.name, model_comp.argdec)
+        model_comp.setup_argparse(grp)
+
+
+    grp = parser.add_argument_group("Sampling options")
+    samplers.std_args(grp)
+    for sampler in samplers.all:
+        grp = parser.add_argument_group(sampler.name, sampler.argdec)
+        sampler.setup_argparse(grp)
+
+    grp = parser.add_argument_group("Output options")
+    output_plots.setup_argparse(grp)
+
+    args=parser.parse_args()
+
+    run_enterprise(args)
