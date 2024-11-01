@@ -4,3 +4,5 @@ samplers/__pycache__/
 samplers/__pycache__/*
 .idea
 *.pyc
+build
+run_enterprise.egg-info

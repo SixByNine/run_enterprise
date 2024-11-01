@@ -1,9 +1,9 @@
 import sys
 import numpy as np
 
-import samplers
-import output_plots
-import derived_parameters
+import run_enterprise.samplers as samplers
+import run_enterprise.output_plots as output_plots
+import run_enterprise.derived_parameters as derived_parameters
 
 
 

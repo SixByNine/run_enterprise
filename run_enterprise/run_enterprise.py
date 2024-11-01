@@ -7,21 +7,19 @@ import matplotlib
 matplotlib.use('Agg')
 import numpy as np
 
-import model_components
-import samplers
-
+import run_enterprise.model_components as model_components
+import run_enterprise.samplers as samplers
+import run_enterprise.qr_timing_model as qr_timing_model
+import run_enterprise.output_plots as output_plots
+from run_enterprise.modelfit import run_modelfit
+from run_enterprise.psr_model import PsrModel
 
 import argparse
 
 from enterprise.pulsar import Pulsar
 from enterprise.signals import gp_signals
-import qr_timing_model
 
-import output_plots
 
-from modelfit import run_modelfit
-
-from psr_model import PsrModel
 
 
 def run_enterprise(args):
