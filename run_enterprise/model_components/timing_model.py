@@ -12,7 +12,7 @@ from . import xparameter as parameter
 import numpy.polynomial as polynomial
 
 from collections import OrderedDict
-import libstempo
+
 
 
 name = "BasicTimingModel"

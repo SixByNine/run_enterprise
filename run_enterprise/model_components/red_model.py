@@ -46,6 +46,8 @@ def setup_argparse(parser):
 
     parser.add_argument('--red-nlog-below-tspan', type=int, default=0, help='Number of log-spaced red noise components below tspan')
     parser.add_argument('--red-nlog-factor', type=float, default=2.0, help='Factor for log-spaced red noise components below tspan')
+
+    parser.add_argument('--min-red-sin-scale', type=float, default=None, help='Limit red noise to reach a minimum to avoid numerical issues')
 def setup_model(args, psr, parfile):
     if args.red:
         # We scale Tspan if we are using tspan-mult
@@ -59,7 +61,12 @@ def setup_model(args, psr, parfile):
         parfile.append("TNRedC {}\n".format(nC))
         parfile.append("TNRedFLow {}\n".format(np.log10(1.0 / args.tspan_mult)))
 
-
+        if args.min_red_sin_scale is not None:
+            Aflat = np.sqrt((args.min_red_sin_scale**2 * 12.0 * np.pi ** 2  * Tspan )* const.fyr ** 3)
+            log10Aflat = parameter.Constant(np.log10(Aflat))
+            print(f"Min red noise scale: {args.min_red_sin_scale} -> {np.log10(Aflat)}")
+        else:
+            log10Aflat = parameter.Constant(-100)
 
         if args.red_at is None:
             red_log_sqrt_at = parameter.Constant(0)
@@ -112,16 +119,16 @@ def setup_model(args, psr, parfile):
                 pl = double_powerlaw_qp(log10_A1=log10_A, gamma=gamma,
                                         log10_A2=log10_A2, delta_gamma=delta_gamma,
                                         log_qp_ratio=log_qp_ratio, p=qp_period, sig=sig, lam=lam,
-                                 fmin=df,log_at=red_log_sqrt_at)
+                                 fmin=df,log_at=red_log_sqrt_at, log10_Aflat=log10Aflat)
             else:
                 pl = powerlaw_qp(log10_A=log10_A, gamma=gamma, log_qp_ratio=log_qp_ratio, p=qp_period, sig=sig, lam=lam,
-                                 fmin=df,log_at=red_log_sqrt_at)
+                                 fmin=df,log_at=red_log_sqrt_at, log10_Aflat=log10Aflat)
         else:
             if args.double_powerlaw:
                 pl = double_powerlaw(log10_A=log10_A, gamma=gamma, log10_A2 = log10_A2, delta_gamma=delta_gamma,
-                                     log_at=red_log_sqrt_at)
+                                     log_at=red_log_sqrt_at, log10_Aflat=log10Aflat)
             else:
-                pl = powerlaw(log10_A=log10_A, gamma=gamma,log_at=red_log_sqrt_at)
+                pl = powerlaw(log10_A=log10_A, gamma=gamma,log_at=red_log_sqrt_at, log10_Aflat=log10Aflat)
 
         modes = None
         fmodes = None
@@ -197,20 +204,24 @@ from .chol_red_model import qp_term_cutoff
 
 
 @function
-def powerlaw(f, log10_A, gamma, components=2, log_at=1):
+def powerlaw(f, log10_A, gamma, components=2, log_at=0, log10_Aflat=-100):
     log10_A_1yr = log10_A - gamma * log_at
     df = np.diff(np.concatenate((np.array([0]), f[::components])))
     df2 = np.repeat(df, components)
-    return (10 ** log10_A_1yr) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma - 3) * f ** (-gamma) * df2
+
+    flat = ((10**log10_Aflat) ** 2) / 12.0 / np.pi ** 2 * const.fyr ** (-3) * df2
+    red= ((10 ** log10_A_1yr) ** 2) / 12.0 / np.pi ** 2 * const.fyr ** (gamma - 3) * f ** (-gamma) * df2
+    return red+flat
 
 @function
-def powerlaw_qp(f, log10_A, gamma, log_qp_ratio, p, sig, lam, fmin, components=2,log_at=1):
+def powerlaw_qp(f, log10_A, gamma, log_qp_ratio, p, sig, lam, fmin, components=2,log_at=0,log10_Aflat=-100):
     df = np.diff(np.concatenate((np.array([0]), f[::components])))
     df2 = np.repeat(df, components)
 
     log10_A_1yr = log10_A - gamma * log_at
 
     red = (10 ** log10_A_1yr) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma - 3) * f ** (-gamma) * df2
+    flat = ((10**log10_Aflat) ** 2) / 12.0 / np.pi ** 2 * const.fyr ** (-3) * df2
 
     f0 = 1.0 / p
     logPqp = log_qp_ratio + np.log10(
@@ -218,25 +229,28 @@ def powerlaw_qp(f, log10_A, gamma, log_qp_ratio, p, sig, lam, fmin, components=2
             -gamma) * df2)
     qp = qp_term_cutoff(f / const.fyr, logPqp, f0, sig, lam, fmin)
 
-    return red + qp
+    return red + qp + flat
 
 
 @function
-def double_powerlaw(f, log10_A1, gamma, log10_A2, delta_gamma, components=2, log_at=1):
+def double_powerlaw(f, log10_A1, gamma, log10_A2, delta_gamma, components=2, log_at=0,log10_Aflat=-100):
     gamma1=gamma
     gamma2=gamma-delta_gamma
 
     log10_A1_1yr = log10_A1  - gamma1 * log_at
     log10_A2_1yr = log10_A2  - gamma2 * log_at
+
     df = np.diff(np.concatenate((np.array([0]), f[::components])))
     df2 = np.repeat(df, components)
+    flat = ((10**log10_Aflat) ** 2) / 12.0 / np.pi ** 2 * const.fyr ** (-3) * df2
+
     red1 = (10 ** log10_A1_1yr) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma1 - 3) * f ** (-gamma1) * df2
     red2 = (10 ** log10_A2_1yr) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma2 - 3) * f ** (-gamma2) * df2
-    return red1 + red2
+    return red1 + red2 + flat
 
 
 @function
-def double_powerlaw_qp(f, log10_A1, gamma, log10_A2, delta_gamma, log_qp_ratio, p, sig, lam, fmin, components=2,log_at=1):
+def double_powerlaw_qp(f, log10_A1, gamma, log10_A2, delta_gamma, log_qp_ratio, p, sig, lam, fmin, components=2,log_at=0,log10_Aflat=-100):
     gamma1=gamma
     gamma2=gamma-delta_gamma
 
@@ -248,6 +262,7 @@ def double_powerlaw_qp(f, log10_A1, gamma, log10_A2, delta_gamma, log_qp_ratio, 
     red1 = (10 ** log10_A1_1yr) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma1 - 3) * f ** (-gamma1) * df2
     red2 = (10 ** log10_A2_1yr) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma2 - 3) * f ** (-gamma2) * df2
     red = red1 + red2
+    flat = ((10**log10_Aflat) ** 2) / 12.0 / np.pi ** 2 * const.fyr ** (-3) * df2
 
     f0 = 1.0 / p
     logPqp = log_qp_ratio + np.log10(
@@ -257,7 +272,7 @@ def double_powerlaw_qp(f, log10_A1, gamma, log10_A2, delta_gamma, log_qp_ratio, 
                  (10 ** log10_A2_1yr) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma2 - 3) * (f0 * 365.25 * const.fyr) ** (
                      -gamma2) * df2)
     qp = qp_term_cutoff(f / const.fyr, logPqp, f0, sig, lam, fmin)
-    return red + qp
+    return red + qp + flat
 
 
 @function

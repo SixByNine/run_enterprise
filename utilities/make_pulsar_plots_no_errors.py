@@ -23,7 +23,7 @@ def doit(par,tim,par2, plots=True, write=True):
     subprocess.call(["tempo2","-output","exportres","-f",par,tim,"-writeres",'-npsr','1','-nobs','50000'])
     #subprocess.run(["ls","-l"])
 
-    lab = np.loadtxt("param.labels",dtype=np.str).T
+    lab = np.loadtxt("param.labels",dtype=str).T
     beta = np.loadtxt("param.vals")
     cvm  = np.loadtxt("cov.matrix")
     meta = np.loadtxt("tnred.meta",usecols=(1))
