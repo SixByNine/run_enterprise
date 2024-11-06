@@ -5,6 +5,7 @@ import argparse
 import run_enterprise.model_components as model_components
 import run_enterprise.samplers as samplers
 import run_enterprise.output_plots as output_plots
+from run_enterprise import run
 
 if __name__ == "__main__":
     parser=argparse.ArgumentParser(description="Run 'enterprise' on a single pulsar")
@@ -28,4 +29,4 @@ if __name__ == "__main__":
 
     args=parser.parse_args()
 
-    run_enterprise(args)
+    run(args)
