@@ -55,6 +55,7 @@ TNRedLog=0
 TNRedLog_factor=2.0
 TNRedC=0
 
+F2=0
 
 with open(par) as f:
     for line in f:
