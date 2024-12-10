@@ -97,3 +97,7 @@ GLTD=50, GLTD2=200, GLTD3=800
 - T: 3 recoveries
 
 - G: extra tiny glitches
+
+- n: do not fit for GLF2
+
+- y: fit for GLF2
