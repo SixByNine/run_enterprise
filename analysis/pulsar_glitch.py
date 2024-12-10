@@ -793,12 +793,13 @@ class Pulsar:
         self.splitpar = self.tidy_par(self.splitpar)
         return self.splitpar
 
-    def MCMC_fit(self, par=None, tim=None, glitchnum=1, solver="multinest", recoveries=0, GLF2=False, f0dlog=False, tdlin=False, alt=True, sigma=[100, 100, 100, 100], gleprange=2, gltdrange=[1, 3], gltdsplit=[2.0, 2.3], glf0drange=0.8, glf0range=0.8, glf1range=0.8, glf2range=10, red=[-16, -8], tspan=1.1, thread=16, N=8000, nwalkers=128, nlive=500, redc=60, run=True, ce=False, rootdir="/nvme1/yliu/yangliu/"):
+    def MCMC_fit(self, par=None, tim=None, glitchnum=1, solver="multinest", recoveries=0, GLF2=False, f0dlog=False, tdlin=False, alt=True, sigma=[100, 100, 100, 100], gleprange=2, gltdrange=[1, 3], gltdsplit=[2.0, 2.3], glf0drange=0.8, glf0range=0.8, glf1range=0.8, glf2range=10, red=[-16, -8], tspan=1.1, thread=16, N=8000, nwalkers=128, nlive=500, redc=60, run=True, ce=False, rootdir="/cluster/home/liuyang/Software/run_enterprise/"):
         '''Call enterprise to do MCMC fit for model selection for par and tim on glitch glitchnum.
            Use options to specify the prior ranges and enterprise settings.
            The directory for enterpresie folder is rootdir'''
         if not os.path.exists(os.path.join(rootdir,"run_enterprise/run_enterprise.py")):
-            rootdir = "/nvme1/yliu/yangliu/"
+            rootdir = "/cluster/home/liuyang/Software/run_enterprise/"
+            #rootdir = "/nvme1/yliu/yangliu/"
         runentprise = os.path.join(rootdir,"run_enterprise/run_enterprise.py")
         if par is None:
             par = self.splitpar
