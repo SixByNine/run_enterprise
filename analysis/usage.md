@@ -1,4 +1,30 @@
-# Commands:
+# Short commands with defualt settings in pulsar_glitch package:
+
+- Do model selection to evaluate models and find the best model for each glitch
+`python /nvme1/yliu/yangliu/run_enterprise/analysis/model_selection.py -p bst_psrn.par -t chp_psrn.tim -u taug -g g --sigma 100 100 100 100 -r 0 1 2`
+
+- Combine the best model for all target glitches and run stride fit
+`python /nvme1/yliu/yangliu/run_enterprise/analysis/stride_plots.py -p bst_psrn.par -t chp_psrn.tim -u taug -g g -r r`
+
+- Check results in tempo2
+`tempo2 -gr plk -f fnl_psrn.par chp_psrn_all.tim`
+
+- Write notes and comments for pulsar in documentation  
+`vim psrn_comments.txt`
+
+- Generate a summary (or a short one without the posteriors plots) latex file for pulsar
+`python /nvme1/yliu/yangliu/run_enterprise/analysis/make_glitch_summary.py psrn`
+`(python /nvme1/yliu/yangliu/run_enterprise/analysis/concise_glitch_summary.py psrn)`
+
+- Complie the latex file to generate PDF file
+`pdflatex -draftmode psrn_sum.tex && pdflatex psrn_sum.tex`
+
+- Complie the short summary file to generate PDF file
+`cd ..`
+`pdflatex -draftmode psrn_sum.tex && pdflatex psrn_sum.tex`
+
+
+## Full commands
 
 1. Enterprise fitting:
 
@@ -33,6 +59,7 @@
 6. Convert latex to pdf:
 
 `pdflatex -draftmode psrn_sum.tex && pdflatex psrn_sum.tex`
+
 
 ## Others
 
