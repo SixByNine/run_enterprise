@@ -50,9 +50,9 @@ parser.add_argument('--dir', '--root-dir', type=str, default='/nvme1/yliu/yangli
 args = parser.parse_args()
     
 # Set Pulsar class sfpsr, load info, generate truth file
-if args.glf2 is "n":
+if args.glf2 == "n":
     g2 = [False]
-elif args.glf2 is "y":
+elif args.glf2 == "y":
     g2 = [True]
 else:
     g2 = [False, True]
