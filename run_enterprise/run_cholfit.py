@@ -41,8 +41,8 @@ def run_cholfit(args):
     psr_model = PsrModel(model, tim, par, psr)
 
     print("Run Model Fitting!")
-    pars, pmax, ul, ll, means, medians, stds, ul68, ll68 = run_modelfit(args, psr_model, parfile)
-
+    stats, raw = run_modelfit(args, psr_model, parfile)
+    pars, pmax, ul, ll, means, medians, stds, ul68, ll68 = stats
     model_components.chol_red_model.make_t2_model(psr, args, dict(zip(pars, pmax)))
 
 

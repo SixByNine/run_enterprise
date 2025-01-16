@@ -39,6 +39,7 @@ def run_modelfit(args, psrmodel, parfile):
 
     ### Get the posterior 'chain' (or samples)
     samples, log_prob, weights, xtra = sampler.get_posteriors(args,sampler_info)
+    raw_results=(samples, log_prob, weights)
     scaled_samples = np.copy(samples)
 
     parnames = []
@@ -64,4 +65,4 @@ def run_modelfit(args, psrmodel, parfile):
     ### Make plots
     output_plots.make_plots(args,psr,scaled_samples,log_prob,weights, parnames,derived,derived_names,raw_results=sampler_info)
 
-    return results
+    return results, raw_results

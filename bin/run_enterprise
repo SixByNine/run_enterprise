@@ -5,6 +5,8 @@ import argparse
 import run_enterprise.model_components as model_components
 import run_enterprise.samplers as samplers
 import run_enterprise.output_plots as output_plots
+import run_enterprise.time_domain_realisations as td_realisations
+
 from run_enterprise import run
 
 if __name__ == "__main__":
@@ -26,7 +28,8 @@ if __name__ == "__main__":
 
     grp = parser.add_argument_group("Output options")
     output_plots.setup_argparse(grp)
-
+    grp = parser.add_argument_group("Time domain realisations options")
+    td_realisations.setup_argparse(grp)
     args=parser.parse_args()
 
     run(args)

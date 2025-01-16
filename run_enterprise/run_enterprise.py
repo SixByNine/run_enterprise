@@ -11,6 +11,7 @@ import run_enterprise.model_components as model_components
 import run_enterprise.samplers as samplers
 import run_enterprise.qr_timing_model as qr_timing_model
 import run_enterprise.output_plots as output_plots
+import run_enterprise.time_domain_realisations as time_domain_realisations
 from run_enterprise.modelfit import run_modelfit
 from run_enterprise.psr_model import PsrModel
 
@@ -51,8 +52,9 @@ def run_enterprise(args):
     psr_model = PsrModel(model, tim, par, psr)
 
     print("Run Model Fitting!")
-    run_modelfit(args, psr_model, parfile)
-
+    results, raw_results = run_modelfit(args, psr_model, parfile)
+    if args.time_realisations > 0:
+        time_domain_realisations.create_td_realisations(args,psr_model,raw_results)
 
 
 def make_model(args,psr,parfile):
@@ -70,26 +72,3 @@ def make_model(args,psr,parfile):
 
 
 
-if __name__ == "__main__":
-    parser=argparse.ArgumentParser(description="Run 'enterprise' on a single pulsar")
-    parser.add_argument('par')
-    parser.add_argument('tim')
-    parser.add_argument('--outdir', '-o', type=str, help="Output directory for chains etc")
-
-    for model_comp in model_components.all:
-        grp = parser.add_argument_group(model_comp.name, model_comp.argdec)
-        model_comp.setup_argparse(grp)
-
-
-    grp = parser.add_argument_group("Sampling options")
-    samplers.std_args(grp)
-    for sampler in samplers.all:
-        grp = parser.add_argument_group(sampler.name, sampler.argdec)
-        sampler.setup_argparse(grp)
-
-    grp = parser.add_argument_group("Output options")
-    output_plots.setup_argparse(grp)
-
-    args=parser.parse_args()
-
-    run_enterprise(args)
