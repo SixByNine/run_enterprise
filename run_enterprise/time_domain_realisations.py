@@ -197,8 +197,8 @@ def plot_time_domain(ax, delays, psr, label=None,
 
 def create_td_realisations(args,psr_model, raw_results):
     samples, _, weights = raw_results
-    psr = psr_model.psr
     pta = psr_model.get_pta()
+    psr = psr_model.psr
 
     if args.plotname is None:
         plotname=psr.name
