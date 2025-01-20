@@ -22,7 +22,8 @@ def setup_argparse(parser):
     parser.add_argument('--dm-tspan-mult', type=float, default=1, help='Multiplier for tspan for dm')
     parser.add_argument('--dm1', type=float, default=None, help="fit for DM1")
     parser.add_argument('--dm2', type=float, default=None, help="fit for DM2")
-
+    parser.add_argument('--dm-nlog-below-tspan', type=int, default=0, help='Number of log-spaced dm components below tspan')
+    parser.add_argument('--dm-nlog-factor', type=float, default=2.0, help='Factor for log-spaced dm components below tspan') 
 
 
 def setup_model(args, psr, parfile):
@@ -51,7 +52,20 @@ def setup_model(args, psr, parfile):
             log10_Adm = parameter.LinearExp(A_min, A_max, to_par=to_par)('DM_A')
         gamma_dm = parameter.Uniform(args.dm_gamma_min,args.dm_gamma_max,to_par=to_par)('DM_gamma')
         pldm = powerlaw_nogw(log10_A=log10_Adm, gamma=gamma_dm)
-        dm = FourierBasisGP_DM(spectrum=pldm, components=nC, Tspan=Tspan)
+
+
+        if args.dm_nlog_below_tspan > 0:
+            freq0 = 1.0 / Tspan
+            low_modes = sorted(freq0 * args.dm_nlog_factor**-np.arange(1, args.dm_nlog_below_tspan + 1)) # log spaced below Tspan
+            hi_modes = freq0 * np.arange(1,nC+1)
+            modes = np.concatenate((low_modes,hi_modes))
+            print(f"Modes: {len(low_modes)} {len(hi_modes)}")
+            print(modes)
+            dm = FourierBasisGP_DM(spectrum=pldm, components=None, Tspan=Tspan, modes=modes)
+            parfile.append(f"TNDMFLog {args.dm_nlog_below_tspan}\n")
+            parfile.append(f"TNDMFLog_factor {args.dm_nlog_factor}\n")
+        else:
+            dm = FourierBasisGP_DM(spectrum=pldm, components=nC, Tspan=Tspan)
 
 
     if (not args.dm1 is None) or (not args.dm2 is None):
@@ -92,11 +106,11 @@ def powerlaw_nogw(f, log10_A=-16, gamma=5):
 
 def FourierBasisGP_DM(spectrum, components=20,
                       selection=Selection(selections.no_selection),
-                      Tspan=None, name=''):
+                      Tspan=None, name='', modes=None):
     """Convenience function to return a BasisGP class with a
     fourier basis."""
 
-    basis = utils.createfourierdesignmatrix_dm(nmodes=components, Tspan=Tspan,fref=1400.0)
+    basis = utils.createfourierdesignmatrix_dm(nmodes=components, Tspan=Tspan, fref=1400.0, modes=modes)
     BaseClass = gp_signals.BasisGP(spectrum, basis, selection=selection, name=name)
 
     class FourierBasisGP_DM(BaseClass):

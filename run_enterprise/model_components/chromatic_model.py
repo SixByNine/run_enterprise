@@ -5,6 +5,7 @@ import enterprise.constants as const
 from enterprise.signals.selections import Selection
 from enterprise.signals import selections
 from enterprise.signals import deterministic_signals
+from enterprise.signals.parameter import function
 
 name="Chromatic (non-dm) Variations"
 argdec="Parameters for fitting non-dm chromatic variations"
@@ -22,6 +23,8 @@ def setup_argparse(parser):
     parser.add_argument('--chrom-prior-log', action='store_true',
                         help='Use uniform prior in log space for chromatic noise amplitude')
     parser.add_argument('--chrom-tspan-mult', type=float, default=1, help='Multiplier for tspan for chromatic noise')
+    parser.add_argument('--chrom-nlog-below-tspan', type=int, default=0, help='Number of log-spaced chrom components below tspan')
+    parser.add_argument('--chrom-nlog-factor', type=float, default=2.0, help='Factor for log-spaced chrom components below tspan') 
     parser.add_argument('--chrom-yr',action='store_true',help='Add annual chromatic sinusoid')
     parser.add_argument('--chrom-yr-amp-min',type=float,default=-20,help='min amp for annual chromatic sinusoid')
     parser.add_argument('--chrom-yr-amp-max',type=float,default=-5,help='max amp for annual chromatic sinusoid')
@@ -70,7 +73,21 @@ def setup_model(args, psr, parfile):
 
         gamma_chrom = parameter.Uniform(args.chrom_gamma_min,args.chrom_gamma_max, to_par=to_par)('Chrom_gamma')
         plchrom = utils.powerlaw(log10_A=log10_Achrom, gamma=gamma_chrom)
-        chrom = FourierBasisGP_Chrom(spectrum=plchrom, components=nC, Tspan=Tspan, index=chrom_index)
+
+        if args.chrom_nlog_below_tspan > 0:
+            freq0 = 1.0 / Tspan
+            low_modes = sorted(freq0 * args.chrom_nlog_factor**-np.arange(1, args.chrom_nlog_below_tspan + 1)) # log spaced below Tspan
+            hi_modes = freq0 * np.arange(1,nC+1)
+            modes = np.concatenate((low_modes,hi_modes))
+            print(f"Modes: {len(low_modes)} {len(hi_modes)}")
+            print(modes)
+            chrom = FourierBasisGP_Chrom(spectrum=plchrom, components=None, modes=modes, Tspan=Tspan, index=chrom_index)
+
+            parfile.append(f"TNChromFLog {args.chrom_nlog_below_tspan}\n")
+            parfile.append(f"TNChromFLog_factor {args.chrom_nlog_factor}\n")
+        else:
+            chrom = FourierBasisGP_Chrom(spectrum=plchrom, components=nC, Tspan=Tspan, index=chrom_index)
+
         components.append(chrom)
 
     if args.chrom_yr:
@@ -119,11 +136,11 @@ def setup_model(args, psr, parfile):
 
 def FourierBasisGP_Chrom(spectrum, components=20,
                       selection=Selection(selections.no_selection),
-                      Tspan=None, name='', index=4):
+                      Tspan=None, name='', modes=None, index=4):
     """Convenience function to return a BasisGP class with a
     fourier basis."""
 
-    basis = gp_bases.createfourierdesignmatrix_chromatic(nmodes=components, Tspan=Tspan,idx=index)
+    basis = createfourierdesignmatrix_chromatic(nmodes=components, Tspan=Tspan,idx=index,modes=modes)
     BaseClass = gp_signals.BasisGP(spectrum, basis, selection=selection, name=name)
 
     class FourierBasisGP_DM(BaseClass):
@@ -133,6 +150,36 @@ def FourierBasisGP_Chrom(spectrum, components=20,
 
     return FourierBasisGP_DM
 
+
+# Note that this is copied from enterprise.signals.gp_bases because that lacks the ability to set modes. When enterprise is uipdated 
+# this should be removed and the enterprise version used.
+@function
+def createfourierdesignmatrix_chromatic(toas, freqs, nmodes=30, Tspan=None, logf=False, fmin=None, fmax=None, idx=4,modes=None):
+
+    """
+    Construct Scattering-variation fourier design matrix.
+
+    :param toas: vector of time series in seconds
+    :param freqs: radio frequencies of observations [MHz]
+    :param nmodes: number of fourier coefficients to use
+    :param freq: option to output frequencies
+    :param Tspan: option to some other Tspan
+    :param logf: use log frequency spacing
+    :param fmin: lower sampling frequency
+    :param fmax: upper sampling frequency
+    :param idx: Index of chromatic effects
+
+    :return: F: Chromatic-variation fourier design matrix
+    :return: f: Sampling frequencies
+    """
+
+    # get base fourier design matrix and frequencies
+    F, Ffreqs = gp_bases.createfourierdesignmatrix_red(toas, nmodes=nmodes, Tspan=Tspan, logf=logf, fmin=fmin, fmax=fmax,modes=modes)
+
+    # compute the DM-variation vectors
+    Dm = (1400 / freqs) ** idx
+
+    return F * Dm[:, None], Ffreqs
 
 
 

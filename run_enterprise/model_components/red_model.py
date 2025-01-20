@@ -25,7 +25,7 @@ def setup_argparse(parser):
                         help='Use uniform prior in log space for red noise amplitude')
     parser.add_argument('--red-ncoeff', type=int, default=60, help='Number of red noise coefficients (nC)')
     parser.add_argument('--red-minf', type=float, default=None, help='Low frequency cut-off')
-    parser.add_argument('--tspan-mult', type=float, default=2, help='Multiplier for tspan')
+    parser.add_argument('--tspan-mult', type=float, default=1, help='Multiplier for tspan')
     parser.add_argument('--qp', action='store_true', help='Use QP nudot model')
     # parser.add_argument('--qp-f0-min', type=float, default=None)
     # parser.add_argument('--qp-f0-max', type=float, default=None)

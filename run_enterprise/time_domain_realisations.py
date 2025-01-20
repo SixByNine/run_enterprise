@@ -5,8 +5,7 @@ import matplotlib.pyplot as plt
 
 
 def setup_argparse(parser):
-    parser.add_argument('--time-realisations', default=0, help='Make plots of time domain realisations', type=int)
-
+    parser.add_argument('--time-realisations','--td', default=0, help='Make plots of time domain realisations', type=int)
 
 
 def get_b(d, TNT, phiinv):
@@ -207,7 +206,7 @@ def create_td_realisations(args,psr_model, raw_results):
     print(f"Making {args.time_realisations} time-domain realisations...")
 
     pta_signals = set([s.signal_id for s in pta._signalcollections[0]._signals])
-    signal = list(set(('red_noise','dm_noise','chrom_noise')).intersection(pta_signals))
+    signal = sorted(list(set(('red_noise','dm_noise','chrom_noise')).intersection(pta_signals)))
     print("Making realisations for signals: ", signal, "out of ", pta_signals)
     types=[]
     for s in signal:
