@@ -78,7 +78,7 @@ def setup_model(args, psr, parfile):
                 if e[0] == "DM1":
                     orig_dm1 = float(e[1])
                 if e[0] == "DM2":
-                    orig_dm1 = float(e[1])
+                    orig_dm2 = float(e[1])
                 elif e[0] == "DMEPOCH":
                     DMEPOCH = float(e[1])
         if args.dm1 is None:
@@ -89,7 +89,7 @@ def setup_model(args, psr, parfile):
             dm2=parameter.Constant(0)
         else:
             dm2 = parameter.Uniform(orig_dm2-args.dm2, orig_dm2+args.dm2,to_par=to_par)("DM2")
-        dm_poly = deterministic_signals.Deterministic(fit_dm_poly(dmepoch=parameter.Constant(DMEPOCH),dm1=dm1,dm2=dm2))
+        dm_poly = deterministic_signals.Deterministic(fit_dm_poly(dmepoch=parameter.Constant(DMEPOCH),dm1=dm1,dm2=dm2),name="dm_poly")
 
         if dm is None:
             dm=dm_poly

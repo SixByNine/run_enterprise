@@ -219,16 +219,74 @@ def create_td_realisations(args,psr_model, raw_results):
     
     delays = get_tdelay_from_chains(pta, psr, samples, pta.param_names, signames=signal, plttypes=types, weights=weights, separe_signals=True, nsamples=args.time_realisations)
 
+    clean_delays=np.copy(delays)
+
     print(f"Made {delays.shape[0]}x{delays.shape[1]} timeseries of length {delays.shape[2]}")
     for i, (s,t) in enumerate(zip(signal,types)):
+        
+        if s == 'red_noise':
+            poly = 0
+            if 'F2' in psr.fitpars:
+                poly=3
+            elif 'F1' in psr.fitpars:
+                poly=2
+            elif 'F0' in psr.fitpars:
+                poly=1
+            if 'F2' in pta.param_names or f"{psr.name}_F2" in pta.param_names:
+                poly=max(poly,3)
+            if 'F1' in pta.param_names or f"{psr.name}_F1" in pta.param_names:
+                poly=max(poly,2)
+            if 'F0' in pta.param_names or f"{psr.name}_F0" in pta.param_names:
+                poly=max(poly,1)
+
+        if s=='dm_noise':
+            poly=-1
+            if 'DM3' in psr.fitpars:
+                poly=3
+            elif 'DM2' in psr.fitpars:
+                poly=2
+            elif 'DM1' in psr.fitpars:
+                poly=1
+            elif 'DM' in psr.fitpars:
+                poly=0
+            if 'DM2' in pta.param_names or f"{psr.name}_DM2" in pta.param_names:
+                poly=max(poly,2)
+            if 'DM1' in pta.param_names or f"{psr.name}_DM1" in pta.param_names:
+                poly=max(poly,1)
+            if 'DM' in pta.param_names or f"{psr.name}_DM" in pta.param_names:
+                poly=max(poly,0)
+
+        if s=='chrom_noise':
+            poly=-1
+            if 'CM3' in psr.fitpars:
+                poly=3
+            elif 'CM2' in psr.fitpars:
+                poly=2
+            elif 'CM1' in psr.fitpars:
+                poly=1
+            elif 'CM' in psr.fitpars:
+                poly=0
+            if 'CM2' in pta.param_names or f"{psr.name}_CM2" in pta.param_names:
+                poly=max(poly,2)
+            if 'CM1' in pta.param_names or f"{psr.name}_CM1" in pta.param_names:
+                poly=max(poly,1)
+            if 'CM' in pta.param_names or f"{psr.name}_CM" in pta.param_names:
+                poly=max(poly,0)
+        if poly >=0:
+            print(f"Removing polynomial of order {poly} from {s} realisation plot")
+            x = psr.toas/86400 - np.mean(psr.toas/86400)
+            for j in np.arange(delays.shape[1]):
+                clean_delays[i,j] -= np.polyval(np.polyfit(x, delays[i,j], poly), x)
+
+
         # get new axis object
         print(f"Make {plotname}_realisations_{s}.pdf")
         fig, ax = plt.subplots(1, 1, figsize=(12, 6))
         ax.set_title(f"{psr.name} - {s}")
-        plot_time_domain(ax,delays[i],psr,plot_real=True,color_real='gray',ch_idx_real=np.arange(min(128,args.time_realisations)),remove_quadratic=True,plttype=t)
+        plot_time_domain(ax,clean_delays[i],psr,plot_real=True,color_real='gray',ch_idx_real=np.arange(min(128,args.time_realisations)),remove_quadratic=False,plttype=t)
         fig.savefig(f"{plotname}_realisations_{s}.pdf")
         plt.close(fig)
     
     print(f"Save {plotname}_realisations.npz")
 
-    np.savez(f"{plotname}_realisations.npz", delays=delays,t=psr.toas/86400,signal=signal,types=types)
+    np.savez(f"{plotname}_realisations.npz", delays=delays,clean_delays=clean_delays,t=psr.toas/86400,signal=signal,types=types)

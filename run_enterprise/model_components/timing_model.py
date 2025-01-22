@@ -185,8 +185,8 @@ def setup_model(args, psr, parfile):
             components.append(cmp)
 
     if not(args.tm_fit_file is None):
-        keys = np.loadtxt(args.tm_fit_file,usecols=(0),dtype=str)
-        fitrange = np.loadtxt(args.tm_fit_file,usecols=(1))
+        keys = np.loadtxt(args.tm_fit_file,usecols=(0),dtype=str,ndmin=1)
+        fitrange = np.loadtxt(args.tm_fit_file,usecols=(1),ndmin=1)
         tm_params=dict()
         tmparams_orig = dict()
         for p,v in zip(psr.t2pulsar.pars(which='set'), psr.t2pulsar.vals(which='set')):

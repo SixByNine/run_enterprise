@@ -25,6 +25,8 @@ def setup_argparse(parser):
     parser.add_argument('--chrom-tspan-mult', type=float, default=1, help='Multiplier for tspan for chromatic noise')
     parser.add_argument('--chrom-nlog-below-tspan', type=int, default=0, help='Number of log-spaced chrom components below tspan')
     parser.add_argument('--chrom-nlog-factor', type=float, default=2.0, help='Factor for log-spaced chrom components below tspan') 
+    parser.add_argument('--chrom-fit-cm0','--cm0', type=float, default=None, help='Fit for mean chromatic noise (CM)') 
+    parser.add_argument('--chrom-fit-cm1','--cm1', type=float, default=None, help='Fit for linear chromatic noise (CM1)') 
     parser.add_argument('--chrom-yr',action='store_true',help='Add annual chromatic sinusoid')
     parser.add_argument('--chrom-yr-amp-min',type=float,default=-20,help='min amp for annual chromatic sinusoid')
     parser.add_argument('--chrom-yr-amp-max',type=float,default=-5,help='max amp for annual chromatic sinusoid')
@@ -44,17 +46,7 @@ def setup_argparse(parser):
 
 def setup_model(args, psr, parfile):
     components = []
-    if args.chrom:
-        if args.chrom_ncoeff is None:
-            nC = args.red_ncoeff
-        else:
-            nC = args.chrom_ncoeff
-
-        Tspan = psr.toas.max() - psr.toas.min()
-        Tspan *= args.chrom_tspan_mult
-        nC = int(nC*args.chrom_tspan_mult)
-
-        parfile.append("TNChromC {}\n".format(nC))
+    if args.chrom or args.chrom_fit_cm0 or args.chrom_fit_cm1:
         if args.chrom_index_max is not None:
             if args.chrom_index_min is None:
                 args.chrom_index_min = 0
@@ -62,33 +54,68 @@ def setup_model(args, psr, parfile):
         else:
             parfile.append("TNChromIdx {}\n".format(args.chrom_index))
             chrom_index=parameter.Constant(args.chrom_index)
+        if args.chrom_fit_cm0 or args.chrom_fit_cm1:
+            DMEPOCH=55000
+            orig_cm1=0
+            orig_cm0=0
+            for line in parfile:
+                e = line.strip().split()
+                if len(e) > 1:
+                    if e[0] == "CM":
+                        orig_cm0 = float(e[1])
+                    if e[0] == "CM1":
+                        orig_cm1 = float(e[1])
+                    elif e[0] == "DMEPOCH":
+                        DMEPOCH = float(e[1])
+            cm1 = parameter.Constant(0)
+            cm0 = parameter.Constant(0)
+            if args.chrom_fit_cm0:
+                cm0 = parameter.Uniform(-args.chrom_fit_cm0+orig_cm0,args.chrom_fit_cm0+orig_cm0,to_par=to_par)("CM")
+            if args.chrom_fit_cm1:
+                cm1 = parameter.Uniform(-args.chrom_fit_cm1+orig_cm1,args.chrom_fit_cm1+orig_cm1,to_par=to_par)("CM1")
+            
+            components.append(deterministic_signals.Deterministic(fit_chrom_poly(cm=cm0,cm1=cm1,idx=chrom_index,dmepoch=parameter.Constant(DMEPOCH)),name="chrom_poly"))
 
-        A_min = args.Achrom_min
-        A_max = args.Achrom_max
+        
+        if args.chrom:
+            if args.chrom_ncoeff is None:
+                nC = args.red_ncoeff
+            else:
+                nC = args.chrom_ncoeff
 
-        if args.chrom_prior_log:
-            log10_Achrom = parameter.Uniform(A_min, A_max, to_par=to_par)('Chrom_A')
-        else:
-            log10_Achrom = parameter.LinearExp(A_min, A_max, to_par=to_par)('Chrom_A')
+            Tspan = psr.toas.max() - psr.toas.min()
+            Tspan *= args.chrom_tspan_mult
+            nC = int(nC*args.chrom_tspan_mult)
 
-        gamma_chrom = parameter.Uniform(args.chrom_gamma_min,args.chrom_gamma_max, to_par=to_par)('Chrom_gamma')
-        plchrom = utils.powerlaw(log10_A=log10_Achrom, gamma=gamma_chrom)
+            parfile.append("TNChromC {}\n".format(nC))
+            
 
-        if args.chrom_nlog_below_tspan > 0:
-            freq0 = 1.0 / Tspan
-            low_modes = sorted(freq0 * args.chrom_nlog_factor**-np.arange(1, args.chrom_nlog_below_tspan + 1)) # log spaced below Tspan
-            hi_modes = freq0 * np.arange(1,nC+1)
-            modes = np.concatenate((low_modes,hi_modes))
-            print(f"Modes: {len(low_modes)} {len(hi_modes)}")
-            print(modes)
-            chrom = FourierBasisGP_Chrom(spectrum=plchrom, components=None, modes=modes, Tspan=Tspan, index=chrom_index)
+            A_min = args.Achrom_min
+            A_max = args.Achrom_max
 
-            parfile.append(f"TNChromFLog {args.chrom_nlog_below_tspan}\n")
-            parfile.append(f"TNChromFLog_factor {args.chrom_nlog_factor}\n")
-        else:
-            chrom = FourierBasisGP_Chrom(spectrum=plchrom, components=nC, Tspan=Tspan, index=chrom_index)
+            if args.chrom_prior_log:
+                log10_Achrom = parameter.Uniform(A_min, A_max, to_par=to_par)('Chrom_A')
+            else:
+                log10_Achrom = parameter.LinearExp(A_min, A_max, to_par=to_par)('Chrom_A')
 
-        components.append(chrom)
+            gamma_chrom = parameter.Uniform(args.chrom_gamma_min,args.chrom_gamma_max, to_par=to_par)('Chrom_gamma')
+            plchrom = utils.powerlaw(log10_A=log10_Achrom, gamma=gamma_chrom)
+
+            if args.chrom_nlog_below_tspan > 0:
+                freq0 = 1.0 / Tspan
+                low_modes = sorted(freq0 * args.chrom_nlog_factor**-np.arange(1, args.chrom_nlog_below_tspan + 1)) # log spaced below Tspan
+                hi_modes = freq0 * np.arange(1,nC+1)
+                modes = np.concatenate((low_modes,hi_modes))
+                print(f"Modes: {len(low_modes)} {len(hi_modes)}")
+                print(modes)
+                chrom = FourierBasisGP_Chrom(spectrum=plchrom, components=None, modes=modes, Tspan=Tspan, index=chrom_index)
+
+                parfile.append(f"TNChromFLog {args.chrom_nlog_below_tspan}\n")
+                parfile.append(f"TNChromFLog_factor {args.chrom_nlog_factor}\n")
+            else:
+                chrom = FourierBasisGP_Chrom(spectrum=plchrom, components=nC, Tspan=Tspan, index=chrom_index)
+
+            components.append(chrom)
 
     if args.chrom_yr:
         # Yearly chromatic.
@@ -123,7 +150,7 @@ def setup_model(args, psr, parfile):
         idx_bump = parameter.Uniform(args.chrom_bump_index_min[ibump],
                                      args.chrom_bump_index_max[ibump],to_par=to_par)(f"CHROM_BUMP_IDX_{ibump+1}")
         wf = chrom_gaussian_bump(log10_Amp=amp_bump, t0=t0_bump,sigma=sig_bump,idx=idx_bump,sign_param=sign_param)
-        components.append(deterministic_signals.Deterministic(wf))
+        components.append(deterministic_signals.Deterministic(wf, name=f"chrom_bump_{ibump+1}"))
 
 
     if len(components) > 0:
@@ -210,7 +237,12 @@ def chrom_yearly_sinusoid(toas, freqs, log10_Amp, phase, idx):
     wf = 10**log10_Amp * np.sin(2 * np.pi * const.fyr * toas + phase)
     return wf * (1400 / freqs) ** idx
 
-
+@signal_base.function
+def fit_chrom_poly(toas, freqs, dmepoch, cm, cm1,idx):
+    x_yr = (toas/86400.0 - dmepoch)/365.25
+    delta_cm = cm + x_yr*cm1
+    t = delta_cm * (1400 / freqs) ** idx
+    return t
 
 def to_par(self,p,chain):
     if "Chrom_A" in p:
@@ -231,6 +263,10 @@ def to_par(self,p,chain):
         if "SIG_" in p:
             p=f"GAUSSIG_{i}"
         return p, chain
+    elif "CM" in p:
+        return "CM", chain
+    elif "CM1" in p:
+        return "CM1", chain
     else:
         return None
 
