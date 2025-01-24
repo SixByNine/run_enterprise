@@ -12,6 +12,38 @@ from scipy import linalg
 import sys
 import subprocess
 
+def polymodel(x,f0,meta):
+    res=np.zeros_like(x)
+    print(meta)
+
+    for i in range(len(meta)):
+        k=meta[i,0]
+        if k==0:
+            res += meta[i,1]*x*86400.0/f0
+        if k==1:
+            res += meta[i,1]*0.5*x*x
+        if k==2:
+            res += (meta[i,1]/6.0)*x*x*x/1.0e9
+    return res
+
+
+def polymodel_nu(x,f0,meta):
+    res=np.zeros_like(x)
+    print(meta)
+
+    d2s=86400.0
+    s2d=1.0/86400.0
+    for i in range(len(meta)):
+        k=meta[i,0]
+        if k==0:
+            res += meta[i,1]*86400.0/f0
+        if k==1:
+            res += meta[i,1]*x
+        if k==2:
+            res += (meta[i,1]/2.0)*x*x/1.0e9
+    return f0*res*s2d
+
+
 par=sys.argv[1]
 tim=sys.argv[2]
 par2=sys.argv[3]
@@ -30,6 +62,11 @@ lab = np.loadtxt("param.labels",dtype=str).T
 beta = np.loadtxt("param.vals")
 cvm  = np.loadtxt("cov.matrix")
 meta = np.loadtxt("tnred.meta",usecols=(1,))
+try:
+    subtract_meta = np.loadtxt("tnred_subtract.meta",usecols=(1,2,3))
+except FileNotFoundError:
+    subtract_meta=np.zeros((1,3))
+
 F0=0
 start =46500
 finish=58200
@@ -303,9 +340,9 @@ ddM = ddM.T
 M2 = M2.T
 dM = dM.T
 
-y=M.dot(beta_mod)
+y=M.dot(beta_mod) - polymodel(t-pepoch,F0,subtract_meta)
 
-y_dat = M2.dot(beta_mod)
+y_dat = M2.dot(beta_mod) - polymodel(dat_t-pepoch,F0,subtract_meta)
 
 if do_cov_method:
     ALT_y = C_S_D.dot(Cn_D_D_inv.dot(ry))
@@ -454,7 +491,7 @@ print("Negative dCo: ",np.sum(np.diag(dCo)<0))
 if np.sum(np.diag(ddCo)<0)>0 or np.sum(np.diag(dCo)<0)>0 or np.sum(np.diag(Co)<0)>0:
     print("ERROR: there are some negative variances!")
 
-yf = dM.dot(beta_mod)
+yf = dM.dot(beta_mod) - polymodel_nu(t-pepoch,F0,subtract_meta)
 ef= np.sqrt(np.diag(dCo))
 
 #yf2 = yf + (0.5*F2*tt*tt + tt*F1 + F0)
