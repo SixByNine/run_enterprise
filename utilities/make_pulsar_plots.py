@@ -521,6 +521,11 @@ with open("white_ifunc.par","w") as f:
 
 
 
+with open("resid.asc","w") as f:
+    for i in range(len(yd)):
+        f.write("{} {} {} {} {}\n".format(dat_t[i],ry[i],ry2[i],y_dat[i],dat_e[i]))
+
+
 with open("nudot.asc","w") as f:
     for i in range(len(yd)):
         f.write("{} {} {} {} {}\n".format(t[i],yd[i],yd_model[i],yd2[i],ed[i]))
