@@ -43,6 +43,19 @@ def polymodel_nu(x,f0,meta):
             res += (meta[i,1]/2.0)*x*x/1.0e9
     return f0*res*s2d
 
+def nudot_transition(toas, f0, delta_nudot, epoch, transition_time):
+    t = toas - epoch * 86400.0
+    t2 = toas - (epoch + transition_time) * 86400.0
+    w=transition_time*86400.0
+    m = np.logical_and(t >= 0,t<w)
+    m2 = t2 >= 0
+    out = np.zeros_like(toas)
+    out[m] = (delta_nudot * t[m]**3)/6/w 
+    c =  delta_nudot * w**2 / 6
+    out[m2] = delta_nudot*(t2[m2]**2)/2 + delta_nudot*w*t2[m2]/2 + c
+    return -out / f0
+
+
 
 par=sys.argv[1]
 tim=sys.argv[2]
@@ -81,7 +94,13 @@ gltd=np.zeros(100)
 
 glf0d2=np.zeros(100)
 gltd2=np.zeros(100)
+
+nudot_tran_epoch=np.zeros(100)
+nudot_tran_amp=np.zeros(100)
+nudot_tran_time=np.zeros(100)
+
 max_glitch=0
+max_nudot_tran=0
 PB=0
 
 inpar=[]
@@ -137,6 +156,16 @@ with open(par) as f:
         if e[0].startswith("GLF1_"):
             i=int(e[0][5:])
             glf1[i-1] = float(e[1])
+        if e[0].startswith("NUDOT_EPOCH_"):
+            i=int(e[0][12:])
+            nudot_tran_epoch[i-1] = float(e[1])
+            max_nudot_tran = max(i,max_nudot_tran)
+        if e[0].startswith("NUDOT_AMP_"):
+            i=int(e[0][10:])
+            nudot_tran_amp[i-1] = float(e[1])
+        if e[0].startswith("NUDOT_TIME_"):
+            i=int(e[0][11:])
+            nudot_tran_time[i-1] = float(e[1])
         if e[0] == "F0":
             F0=float(e[1])
         if e[0] == "PB":
@@ -153,6 +182,8 @@ with open(par) as f:
             pepoch=float(e[1])
             
 glep=glep[:max_glitch]
+nudot_tran_epoch=nudot_tran_epoch[:max_nudot_tran]
+
 omega=meta[0]
 epoch=meta[1]
 
@@ -477,8 +508,17 @@ for ge in glep:
     if gltd2[i] > 0:
         print("2xExponential")
         yd_model[t>ge] -= 1e15 * glf0d2[i] * np.exp(-(t[t>ge]-glep[i])/gltd2[i]) / (gltd2[i]*86400.0)
-
     i+=1
+
+for i,nep in enumerate(nudot_tran_epoch):
+    print(f"Nudot transition {nep} {nudot_tran_amp[i]} {nudot_tran_time[i]}")
+    nep2 = nep + nudot_tran_time[i]
+    dt=(t-nep)
+    m=(t>nep) & (t < nep2)
+    yd_model[m] += 1e15 * (dt[m]/nudot_tran_time[i]) * nudot_tran_amp[i]
+    yd_model[t >= nep2] += 1e15 * nudot_tran_amp[i]
+
+
 
 yd2 = yd + yd_model
 
@@ -507,7 +547,14 @@ for ge in glep:
     if gltd2[i] > 0:
         yf2[t>ge] += glf0d2[i] * np.exp(-(t[t>ge]-glep[i])/gltd2[i])
     i+=1
-
+for i,nep in enumerate(nudot_tran_epoch):
+    nep2 = nep + nudot_tran_time[i]
+    x=(t-nep)*86400.0
+    x2=(t-nep2)*86400.0
+    w=nudot_tran_time[i]*86400.0
+    m=(t>nep) & (t < nep2)
+    yf2[m] += nudot_tran_amp[i] * x[m]**2 / 2/w
+    yf2[t >= nep2] += nudot_tran_amp[i] * x2[t >= nep2] + nudot_tran_amp[i]*w/2
 
 
 ry += np.mean(y_dat-ry)
