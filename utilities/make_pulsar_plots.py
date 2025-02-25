@@ -522,7 +522,7 @@ with open("white_ifunc.par","w") as f:
 
 
 with open("resid.asc","w") as f:
-    for i in range(len(yd)):
+    for i in range(len(dat_t)):
         f.write("{} {} {} {} {}\n".format(dat_t[i],ry[i],ry2[i],y_dat[i],dat_e[i]))
 
 
