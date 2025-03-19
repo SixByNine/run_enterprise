@@ -5,6 +5,20 @@ import matplotlib
 import matplotlib.pyplot as plt
 import argparse
 
+def polymodel(x,f0,meta):
+    res=np.zeros_like(x)
+    print(meta)
+
+    for i in range(len(meta)):
+        k=meta[i,0]
+        if k==0:
+            res += meta[i,1]*x*86400.0/f0
+        if k==1:
+            res += meta[i,1]*0.5*x*x
+        if k==2:
+            res += (meta[i,1]/6.0)*x*x*x/1.0e9
+    return res
+
 parser=argparse.ArgumentParser(description="Run 'enterprise' on a single pulsar")
 parser.add_argument('-n','--wavmax',type=int,default=100000)
 parser.add_argument('-D','--dm',action='store_true')
@@ -21,11 +35,13 @@ parser.add_argument('--dmmodel',type=str)
 
 args=parser.parse_args()
 
-lab = np.loadtxt("param.labels",dtype=np.str,usecols=(0,1,2)).T
-lab_k = np.loadtxt("param.labels",dtype=np.int,usecols=(2))
+lab = np.loadtxt("param.labels",dtype=str,usecols=(0,1,2)).T
+lab_k = np.loadtxt("param.labels",dtype=int,usecols=(2))
 
 beta = np.loadtxt("param.vals")
 cvm  = np.loadtxt("cov.matrix")
+
+
 
 
 if args.dm:
@@ -41,6 +57,10 @@ else:
     cosidx=lab[1]=='param_red_cos'
     sinidx=lab[1]=='param_red_sin'
     meta = np.loadtxt("tnred.meta",usecols=(1))
+    try:
+        subtract_meta = np.loadtxt("tnred_subtract.meta",usecols=(1,2,3))
+    except FileNotFoundError:
+        subtract_meta=np.zeros((1,3))
 
 omega=meta[0]
 epoch=meta[1]
@@ -111,7 +131,8 @@ if args.dm:
 
 
 else:
-    y = M.dot(beta_mod)
+    y=M.dot(beta_mod) - polymodel(t-args.pepoch,args.f0,subtract_meta)
+
     cvm_y = M.dot(cvm_mod).dot(M.T)
     e=np.sqrt(np.diag(cvm_y))
 
@@ -152,7 +173,7 @@ else:
         with open("cm.ifunc","w") as outf:
             outf.write("SIFUNC 2 0\n")
             for i in range(len(t)):
-                outf.write("IFUNC{} {} {}\n".format(i+1,t[i],-y[i]))
+                outf.write("IFUNC{} {} {} 0\n".format(i+1,t[i],-y[i]))
     else:
         with open("cm.asc","w") as outf:
             for i in range(len(t)):

@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-from __future__ import print_function
 # Import the libraries we need.
 import numpy as np
 import matplotlib
+import argparse
 
 matplotlib.use('Agg')
 
@@ -55,11 +55,19 @@ def nudot_transition(toas, f0, delta_nudot, epoch, transition_time):
     out[m2] = delta_nudot*(t2[m2]**2)/2 + delta_nudot*w*t2[m2]/2 + c
     return -out / f0
 
+parser=argparse.ArgumentParser(description="Make plots from tempo2 outputs")
+parser.add_argument('par',type=str)
+parser.add_argument('tim',type=str)
+parser.add_argument('par2',type=str,required=False,default=None)
+parser.add_argument('--noplots',metavar="plots",action='store_false')
+parser.add_argument('--noerr',action='store_true')
+args=parser.parse_args()
 
-
-par=sys.argv[1]
-tim=sys.argv[2]
-par2=sys.argv[3]
+par=args.par
+tim=args.tim
+par2=args.par2
+if par2 is None:
+    par2=par
 
 do_cov_method=False
 use_P_in_cvm=False
@@ -375,6 +383,9 @@ y=M.dot(beta_mod) - polymodel(t-pepoch,F0,subtract_meta)
 
 y_dat = M2.dot(beta_mod) - polymodel(dat_t-pepoch,F0,subtract_meta)
 
+yd = ddM.dot(beta_mod)*1e15
+
+
 if do_cov_method:
     ALT_y = C_S_D.dot(Cn_D_D_inv.dot(ry))
     ALT_y_C = C_S_S - C_S_D.dot(Cn_D_D_inv).dot(C_D_S)
@@ -457,42 +468,48 @@ Cof = M.dot(cvm_mod).dot(M2.T)
 #        #print(origCf[0][0],np.power(a/d,2)*origCf[0][0],np.power(b/d,2) * p_m)
 #print(a)
 
-Cf+= np.diag(W)
+
+if args.noerr:
+    ey=np.zeros_like(y)
+else:
+    Cf+= np.diag(W)
 
 
-Lf = linalg.cholesky(Cf)
-Lf_inv = linalg.inv(Lf)
+    Lf = linalg.cholesky(Cf)
+    Lf_inv = linalg.inv(Lf)
+    Cf_inv = linalg.inv(Cf)
+    #Co = Coo - np.dot(np.power(a/d,2)*Cof,np.dot(Cf_inv,np.power(a/d,2)*Cof.T))
+    #Co = Coo - np.dot(Cof,np.dot(Cf_inv,Cof.T))
 
-Cf_inv = linalg.inv(Cf)
-#Co = Coo - np.dot(np.power(a/d,2)*Cof,np.dot(Cf_inv,np.power(a/d,2)*Cof.T))
-#Co = Coo - np.dot(Cof,np.dot(Cf_inv,Cof.T))
-
-A=Cof.dot(Lf_inv)
-Co = Coo - np.dot(A,A.T)
-
-
-
-
-
-print("Negative Co: ",np.sum(np.diag(Co)<0))
-#print("a^2/d^2 = ",np.power(a/d,2))
-
-
-#Co *= np.power(b/d,2)
-ey = np.sqrt(np.diag(Co))
+    A=Cof.dot(Lf_inv)
+    Co = Coo - np.dot(A,A.T)
 
 
 
-ddCoo    =ddM.dot(cvm_mod).dot(ddM.T)                         
-ddCof    = ddM.dot(cvm_mod).dot(M2.T)
 
 
-A=ddCof.dot(Lf_inv)
-ddCo = ddCoo - np.dot(A,A.T)
-print("Negative ddCo: ",np.sum(np.diag(ddCo)<0))
+    print("Negative Co: ",np.sum(np.diag(Co)<0))
+    #print("a^2/d^2 = ",np.power(a/d,2))
 
-yd = ddM.dot(beta_mod)*1e15
-ed=np.sqrt(np.diag(ddCo))*1e15
+
+    #Co *= np.power(b/d,2)
+    ey = np.sqrt(np.diag(Co))
+
+
+
+if args.noerr:
+    ed=np.zeros_like(y)
+else:
+    ddCoo    =ddM.dot(cvm_mod).dot(ddM.T)                         
+    ddCof    = ddM.dot(cvm_mod).dot(M2.T)
+
+
+    A=ddCof.dot(Lf_inv)
+    ddCo = ddCoo - np.dot(A,A.T)
+    print("Negative ddCo: ",np.sum(np.diag(ddCo)<0))
+
+
+    ed=np.sqrt(np.diag(ddCo))*1e15
 
 tt=(t-pepoch)*86400.0
 yd_model=np.zeros_like(yd)
@@ -522,17 +539,21 @@ for i,nep in enumerate(nudot_tran_epoch):
 
 yd2 = yd + yd_model
 
-dCoo    = dM.dot(cvm_mod).dot(dM.T)                         
-dCof    = dM.dot(cvm_mod).dot(M2.T)        
-A=dCof.dot(Lf_inv)
-dCo = dCoo - np.dot(A,A.T)
-print("Negative dCo: ",np.sum(np.diag(dCo)<0))
+if args.noerr:
+    ef=np.zeros_like(y)
+else:
+    dCoo    = dM.dot(cvm_mod).dot(dM.T)                         
+    dCof    = dM.dot(cvm_mod).dot(M2.T)        
+    A=dCof.dot(Lf_inv)
+    dCo = dCoo - np.dot(A,A.T)
+    print("Negative dCo: ",np.sum(np.diag(dCo)<0))
 
-if np.sum(np.diag(ddCo)<0)>0 or np.sum(np.diag(dCo)<0)>0 or np.sum(np.diag(Co)<0)>0:
-    print("ERROR: there are some negative variances!")
-
+    if np.sum(np.diag(ddCo)<0)>0 or np.sum(np.diag(dCo)<0)>0 or np.sum(np.diag(Co)<0)>0:
+        print("ERROR: there are some negative variances!")
+    ef= np.sqrt(np.diag(dCo))
+    
 yf = dM.dot(beta_mod) - polymodel_nu(t-pepoch,F0,subtract_meta)
-ef= np.sqrt(np.diag(dCo))
+
 
 #yf2 = yf + (0.5*F2*tt*tt + tt*F1 + F0)
 yf2 = yf + (0.5*F2*tt*tt)
@@ -582,226 +603,226 @@ with open("deltanu.asc","w") as f:
         f.write("{} {}\n".format(t[i],yf2[i]))
 
 
+if args.plots:
 
 
+    fig = plt.figure(figsize=(12,12))
+    ax = fig.add_subplot(311)
 
-fig = plt.figure(figsize=(12,12))
-ax = fig.add_subplot(311)
+    plt.errorbar(dat_t,ry2,yerr=re2,color='k',marker='.',ls='None',ms=3.0,alpha=0.7)
 
-plt.errorbar(dat_t,ry2,yerr=re2,color='k',marker='.',ls='None',ms=3.0,alpha=0.7)
+    plt.title("PSR "+psrn)
+    plt.xlabel("MJD")
+    plt.ylabel("residual (s)")
 
-plt.title("PSR "+psrn)
-plt.xlabel("MJD")
-plt.ylabel("residual (s)")
+    for ge in glep:
+        plt.axvline(ge,linestyle="--",color='purple',alpha=0.7)
 
-for ge in glep:
-    plt.axvline(ge,linestyle="--",color='purple',alpha=0.7)
+    ax2 = ax.twinx()
+    ax2.set_ybound(np.array(ax.get_ybound())*F0)
+    ax2.set_ylabel("Residual (turns)")
 
-ax2 = ax.twinx()
-ax2.set_ybound(np.array(ax.get_ybound())*F0)
-ax2.set_ylabel("Residual (turns)")
 
+    ax = fig.add_subplot(312)
+    plt.plot(t,y,color='green')
+    plt.errorbar(dat_t,ry,yerr=dat_e,color='k',marker='.',ls='None',ms=3.0,alpha=0.7)
 
-ax = fig.add_subplot(312)
-plt.plot(t,y,color='green')
-plt.errorbar(dat_t,ry,yerr=dat_e,color='k',marker='.',ls='None',ms=3.0,alpha=0.7)
+    if do_cov_method:
+        plt.plot(t,ALT_y,color='red')
+        plt.fill_between(t,ALT_y-ALT_y_err,ALT_y+ALT_y_err,color='red',alpha=0.5)
 
-if do_cov_method:
-    plt.plot(t,ALT_y,color='red')
-    plt.fill_between(t,ALT_y-ALT_y_err,ALT_y+ALT_y_err,color='red',alpha=0.5)
 
+    plt.fill_between(t,y-ey,y+ey,color='green',alpha=0.5)
+    #plt.title("PSR "+psrn)
+    plt.xlabel("MJD")
+    plt.ylabel("residual (s)")
 
-plt.fill_between(t,y-ey,y+ey,color='green',alpha=0.5)
-#plt.title("PSR "+psrn)
-plt.xlabel("MJD")
-plt.ylabel("residual (s)")
+    for ge in glep:
+        plt.axvline(ge,linestyle="--",color='purple',alpha=0.7)
 
-for ge in glep:
-    plt.axvline(ge,linestyle="--",color='purple',alpha=0.7)
+    ax2 = ax.twinx()
+    ax2.set_ybound(np.array(ax.get_ybound())*F0)
+    ax2.set_ylabel("Residual (turns)")
 
-ax2 = ax.twinx()
-ax2.set_ybound(np.array(ax.get_ybound())*F0)
-ax2.set_ylabel("Residual (turns)")
+    ax = fig.add_subplot(313)
+    plt.plot(t,y-y,color='green')
+    plt.errorbar(dat_t,ry-y_dat,yerr=dat_e,color='k',marker='.',ls='None',ms=3.0,alpha=0.7)
 
-ax = fig.add_subplot(313)
-plt.plot(t,y-y,color='green')
-plt.errorbar(dat_t,ry-y_dat,yerr=dat_e,color='k',marker='.',ls='None',ms=3.0,alpha=0.7)
+    plt.fill_between(t,-ey,+ey,color='green',alpha=0.5)
+    if do_cov_method:
+        plt.fill_between(t, -ALT_y_err, ALT_y_err, color='red', alpha=0.5)
 
-plt.fill_between(t,-ey,+ey,color='green',alpha=0.5)
-if do_cov_method:
-    plt.fill_between(t, -ALT_y_err, ALT_y_err, color='red', alpha=0.5)
+    #plt.title("PSR "+psrn)
+    plt.xlabel("MJD")
+    plt.ylabel("Residual - Model (s)")
 
-#plt.title("PSR "+psrn)
-plt.xlabel("MJD")
-plt.ylabel("Residual - Model (s)")
+    for ge in glep:
+        plt.axvline(ge,linestyle="--",color='purple',alpha=0.7)
+    ax2 = ax.twinx()
+    ax2.set_ybound(np.array(ax.get_ybound())*F0)
+    ax2.set_ylabel("Residual - Model (turns)")
 
-for ge in glep:
-    plt.axvline(ge,linestyle="--",color='purple',alpha=0.7)
-ax2 = ax.twinx()
-ax2.set_ybound(np.array(ax.get_ybound())*F0)
-ax2.set_ylabel("Residual - Model (turns)")
 
+    plt.savefig("residuals_{}.pdf".format(psrn))
 
-plt.savefig("residuals_{}.pdf".format(psrn))
+    plt.figure(figsize=(16,9))
+    plt.plot(t,yd,color='blue')
+    plt.fill_between(t,yd-ed,yd+ed,color='blue',alpha=0.5)
+    if do_cov_method:
+        plt.plot(t,ALT_dd,color='brown')
+        plt.fill_between(t,ALT_dd-ALT_dd_err,ALT_dd+ALT_dd_err,color='brown',alpha=0.5)
+    for ge in glep:
+        plt.axvline(ge,linestyle="--",color='purple',alpha=0.7)
 
-plt.figure(figsize=(16,9))
-plt.plot(t,yd,color='blue')
-plt.fill_between(t,yd-ed,yd+ed,color='blue',alpha=0.5)
-if do_cov_method:
-    plt.plot(t,ALT_dd,color='brown')
-    plt.fill_between(t,ALT_dd-ALT_dd_err,ALT_dd+ALT_dd_err,color='brown',alpha=0.5)
-for ge in glep:
-    plt.axvline(ge,linestyle="--",color='purple',alpha=0.7)
+    plt.title("PSR "+psrn)
+    plt.xlabel("MJD")
+    plt.ylabel("$\\dot{\\nu}$ ($10^{-15}$ Hz$^2$)")
 
-plt.title("PSR "+psrn)
-plt.xlabel("MJD")
-plt.ylabel("$\\dot{\\nu}$ ($10^{-15}$ Hz$^2$)")
+    plt.savefig("nudot_{}.pdf".format(psrn))
 
-plt.savefig("nudot_{}.pdf".format(psrn))
 
 
 
+    fig = plt.figure(figsize=(16,9))
+    fig.suptitle("PSR "+psrn)
 
-fig = plt.figure(figsize=(16,9))
-fig.suptitle("PSR "+psrn)
+    ax = fig.add_subplot(321)
 
-ax = fig.add_subplot(321)
+    plt.errorbar(dat_t,ry2,yerr=re2,color='k',marker='.',ls='None',ms=3.0,alpha=0.7)
 
-plt.errorbar(dat_t,ry2,yerr=re2,color='k',marker='.',ls='None',ms=3.0,alpha=0.7)
+    #plt.xlabel("MJD")
+    plt.ylabel("residual (s)")
 
-#plt.xlabel("MJD")
-plt.ylabel("residual (s)")
+    for ge in glep:
+        plt.axvline(ge,linestyle="--",color='purple',alpha=0.7)
 
-for ge in glep:
-    plt.axvline(ge,linestyle="--",color='purple',alpha=0.7)
+        
+    ax3 = ax.twiny()
+    ax3.set_xbound((np.array(ax.get_xbound())-53005)/365.25+2004)
+    ax3.xaxis.tick_top()
+    ax3.set_xlabel("Year")
+    ax3.xaxis.set_tick_params(direction='inout',labeltop=True)
+    ax.xaxis.set_tick_params(labelbottom=False,direction='in')
 
-    
-ax3 = ax.twiny()
-ax3.set_xbound((np.array(ax.get_xbound())-53005)/365.25+2004)
-ax3.xaxis.tick_top()
-ax3.set_xlabel("Year")
-ax3.xaxis.set_tick_params(direction='inout',labeltop=True)
-ax.xaxis.set_tick_params(labelbottom=False,direction='in')
 
 
+    ax2 = ax.twinx()
+    ax2.set_ybound(np.array(ax.get_ybound())*F0)
+    ax2.set_ylabel("Residual (turns)")
 
-ax2 = ax.twinx()
-ax2.set_ybound(np.array(ax.get_ybound())*F0)
-ax2.set_ylabel("Residual (turns)")
 
 
+    ax = fig.add_subplot(323)
+    plt.plot(t,y,color='green')
+    plt.errorbar(dat_t,ry,yerr=dat_e,color='k',marker='.',ls='None',ms=3.0,alpha=0.7)
 
-ax = fig.add_subplot(323)
-plt.plot(t,y,color='green')
-plt.errorbar(dat_t,ry,yerr=dat_e,color='k',marker='.',ls='None',ms=3.0,alpha=0.7)
+    plt.fill_between(t,y-ey,y+ey,color='green',alpha=0.5)
+    #plt.title("PSR "+psrn)
+    #plt.xlabel("MJD")
+    plt.ylabel("residual (s)")
 
-plt.fill_between(t,y-ey,y+ey,color='green',alpha=0.5)
-#plt.title("PSR "+psrn)
-#plt.xlabel("MJD")
-plt.ylabel("residual (s)")
+    for ge in glep:
+        plt.axvline(ge,linestyle="--",color='purple',alpha=0.7)
 
-for ge in glep:
-    plt.axvline(ge,linestyle="--",color='purple',alpha=0.7)
+        
+    #ax3 = ax.twiny()
+    #ax3.set_xbound((np.array(ax.get_xbound())-53005)/365.25+2004)
+    #ax3.xaxis.tick_top()
+    #ax3.xaxis.set_tick_params(direction='in',labeltop=False)
+    ax.xaxis.set_tick_params(labelbottom=False,direction='in')
+        
+    ax2 = ax.twinx()
+    ax2.set_ybound(np.array(ax.get_ybound())*F0)
+    ax2.set_ylabel("Residual (turns)")
 
-    
-#ax3 = ax.twiny()
-#ax3.set_xbound((np.array(ax.get_xbound())-53005)/365.25+2004)
-#ax3.xaxis.tick_top()
-#ax3.xaxis.set_tick_params(direction='in',labeltop=False)
-ax.xaxis.set_tick_params(labelbottom=False,direction='in')
-    
-ax2 = ax.twinx()
-ax2.set_ybound(np.array(ax.get_ybound())*F0)
-ax2.set_ylabel("Residual (turns)")
 
+    ax = fig.add_subplot(325)
+    plt.plot(t,y-y,color='green')
+    plt.errorbar(dat_t,ry-y_dat,yerr=dat_e,color='k',marker='.',ls='None',ms=3.0,alpha=0.7)
 
-ax = fig.add_subplot(325)
-plt.plot(t,y-y,color='green')
-plt.errorbar(dat_t,ry-y_dat,yerr=dat_e,color='k',marker='.',ls='None',ms=3.0,alpha=0.7)
+    plt.fill_between(t,-ey,+ey,color='green',alpha=0.5)
+    #plt.title("PSR "+psrn)
+    plt.xlabel("MJD")
+    plt.ylabel("Residual - Model (s)")
 
-plt.fill_between(t,-ey,+ey,color='green',alpha=0.5)
-#plt.title("PSR "+psrn)
-plt.xlabel("MJD")
-plt.ylabel("Residual - Model (s)")
+    for ge in glep:
+        plt.axvline(ge,linestyle="--",color='purple',alpha=0.7)
 
-for ge in glep:
-    plt.axvline(ge,linestyle="--",color='purple',alpha=0.7)
+    #ax3 = ax.twiny()
+    #ax3.set_xbound((np.array(ax.get_xbound())-53005)/365.25+2004)
+    #ax3.xaxis.tick_top()
+    #ax3.xaxis.set_tick_params(direction='in',labeltop=False)
+    ax.xaxis.set_tick_params(labelbottom=True,direction='inout')    
+        
+    ax2 = ax.twinx()
+    ax2.set_ybound(np.array(ax.get_ybound())*F0)
+    ax2.set_ylabel("Residual - Model (turns)")
 
-#ax3 = ax.twiny()
-#ax3.set_xbound((np.array(ax.get_xbound())-53005)/365.25+2004)
-#ax3.xaxis.tick_top()
-#ax3.xaxis.set_tick_params(direction='in',labeltop=False)
-ax.xaxis.set_tick_params(labelbottom=True,direction='inout')    
-    
-ax2 = ax.twinx()
-ax2.set_ybound(np.array(ax.get_ybound())*F0)
-ax2.set_ylabel("Residual - Model (turns)")
 
 
 
 
+    ax = fig.add_subplot(322)
+    plt.plot(t,1e6*yf2,color='orange')
+    plt.fill_between(t,1e6*(yf2-ef),1e6*(yf2+ef),color='orange',alpha=0.5)
+    for ge in glep:
+        plt.axvline(ge,linestyle="--",color='purple',alpha=0.7)
 
-ax = fig.add_subplot(322)
-plt.plot(t,1e6*yf2,color='orange')
-plt.fill_between(t,1e6*(yf2-ef),1e6*(yf2+ef),color='orange',alpha=0.5)
-for ge in glep:
-    plt.axvline(ge,linestyle="--",color='purple',alpha=0.7)
+    plt.xlabel("MJD")
+    plt.ylabel("$\\Delta{\\nu}$ ($\\mathrm{\\mu}$Hz)")
+    ax.yaxis.set_label_position("right")
+    ax.yaxis.set_tick_params(labelleft=False,labelright=True,right=True,left=False, direction='in')
+    ax3 = ax.twiny()
+    ax3.set_xbound((np.array(ax.get_xbound())-53005)/365.25+2004)
+    ax3.xaxis.tick_top()
+    ax3.set_xlabel("Year")
 
-plt.xlabel("MJD")
-plt.ylabel("$\\Delta{\\nu}$ ($\\mathrm{\\mu}$Hz)")
-ax.yaxis.set_label_position("right")
-ax.yaxis.set_tick_params(labelleft=False,labelright=True,right=True,left=False, direction='in')
-ax3 = ax.twiny()
-ax3.set_xbound((np.array(ax.get_xbound())-53005)/365.25+2004)
-ax3.xaxis.tick_top()
-ax3.set_xlabel("Year")
 
+    ax = fig.add_subplot(324)
+    plt.plot(t,yd_model,color='lightblue',ls='--')
+    plt.plot(t,yd2,color='blue')
+    plt.fill_between(t,yd2-ed,yd2+ed,color='blue',alpha=0.5)
 
-ax = fig.add_subplot(324)
-plt.plot(t,yd_model,color='lightblue',ls='--')
-plt.plot(t,yd2,color='blue')
-plt.fill_between(t,yd2-ed,yd2+ed,color='blue',alpha=0.5)
+    for ge in glep:
+        plt.axvline(ge,linestyle="--",color='purple',alpha=0.7)
 
-for ge in glep:
-    plt.axvline(ge,linestyle="--",color='purple',alpha=0.7)
+    plt.xlabel("MJD")
+    plt.ylabel("$\\dot{\\nu}$ ($10^{-15}$ Hz$^2$)")
+    ax.yaxis.set_label_position("right")
+    ax.yaxis.set_tick_params(labelleft=False,labelright=True,right=True,left=False, direction='in')
 
-plt.xlabel("MJD")
-plt.ylabel("$\\dot{\\nu}$ ($10^{-15}$ Hz$^2$)")
-ax.yaxis.set_label_position("right")
-ax.yaxis.set_tick_params(labelleft=False,labelright=True,right=True,left=False, direction='in')
 
+    ax = fig.add_subplot(326)
+    plt.plot(t,yd,color='blue')
+    plt.fill_between(t,yd-ed,yd+ed,color='blue',alpha=0.5)
+    for ge in glep:
+        plt.axvline(ge,linestyle="--",color='purple',alpha=0.7)
 
-ax = fig.add_subplot(326)
-plt.plot(t,yd,color='blue')
-plt.fill_between(t,yd-ed,yd+ed,color='blue',alpha=0.5)
-for ge in glep:
-    plt.axvline(ge,linestyle="--",color='purple',alpha=0.7)
+    plt.xlabel("MJD")
+    plt.ylabel("$\\Delta\\dot{\\nu}$ ($10^{-15}$ Hz$^2$)")
+    ax.yaxis.set_label_position("right")
+    ax.yaxis.set_tick_params(labelleft=False,labelright=True,right=True,left=False, direction='in')
 
-plt.xlabel("MJD")
-plt.ylabel("$\\Delta\\dot{\\nu}$ ($10^{-15}$ Hz$^2$)")
-ax.yaxis.set_label_position("right")
-ax.yaxis.set_tick_params(labelleft=False,labelright=True,right=True,left=False, direction='in')
 
+    plt.subplots_adjust(hspace=0,wspace=0.15)
+    plt.figtext(x=0.47,y=0.94,s="$P$:{:.0f} ms".format(1000.0/F0),horizontalalignment='center')
+    plt.figtext(x=0.53,y=0.94,s="$\\dot{{P}}$:{:.0g}".format(-F1/F0/F0),horizontalalignment='center')
+    if PB > 0:
+        plt.figtext(x=0.59,y=0.94,s="$P_B$:{:.1g}".format(PB),horizontalalignment='center')
 
-plt.subplots_adjust(hspace=0,wspace=0.15)
-plt.figtext(x=0.47,y=0.94,s="$P$:{:.0f} ms".format(1000.0/F0),horizontalalignment='center')
-plt.figtext(x=0.53,y=0.94,s="$\\dot{{P}}$:{:.0g}".format(-F1/F0/F0),horizontalalignment='center')
-if PB > 0:
-    plt.figtext(x=0.59,y=0.94,s="$P_B$:{:.1g}".format(PB),horizontalalignment='center')
+    plt.savefig("combined_{}.pdf".format(psrn))
 
-plt.savefig("combined_{}.pdf".format(psrn))
 
+    plt.figure()
+    plt.figtext(x=0.47,y=0.94,s="$P$:{:.0f} ms".format(1000.0/F0),horizontalalignment='center')
+    plt.figtext(x=0.53,y=0.94,s="$\\dot{{P}}$:{:.0g}".format(-F1/F0/F0),horizontalalignment='center')
+    if PB > 0:
+        plt.figtext(x=0.59,y=0.94,s="$P_B$:{:.1g}".format(PB),horizontalalignment='center')
 
-plt.figure()
-plt.figtext(x=0.47,y=0.94,s="$P$:{:.0f} ms".format(1000.0/F0),horizontalalignment='center')
-plt.figtext(x=0.53,y=0.94,s="$\\dot{{P}}$:{:.0g}".format(-F1/F0/F0),horizontalalignment='center')
-if PB > 0:
-    plt.figtext(x=0.59,y=0.94,s="$P_B$:{:.1g}".format(PB),horizontalalignment='center')
-
-plt.loglog(freqs,pwrs)
-plt.loglog(freqs,pwrs2)
-plt.title("PSR "+psrn)
-plt.xlabel("Freq (yr^-1)")
-plt.xlabel("Power (???)")
-plt.savefig("pwrspec_{}.pdf".format(psrn))
+    plt.loglog(freqs,pwrs)
+    plt.loglog(freqs,pwrs2)
+    plt.title("PSR "+psrn)
+    plt.xlabel("Freq (yr^-1)")
+    plt.xlabel("Power (???)")
+    plt.savefig("pwrspec_{}.pdf".format(psrn))
 
