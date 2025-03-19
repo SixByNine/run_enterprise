@@ -27,6 +27,7 @@ def setup_argparse(parser):
     parser.add_argument('-sw', '--solar-wind', action='store_true', help='Turn on solar wind')
     parser.add_argument('--sw-sigma-max', type=float, default=10, help='Max solar wind')
     parser.add_argument('--sw-sigma-min', type=float, default=1e-3, help='Min solar wind')
+    parser.add_argument('--sw-log-ncomp', type=int,default=0, help='Number of log-spaced ifunc terms per half year')
 
 
 def fcos_full(x, phi, eclat):
@@ -168,10 +169,54 @@ def setup_model(args, psr, parfile):
         # Add the SW_sigma parameter to the par file
         parfile.append("NE_SW_IFUNC 0 1\n")
 
-        for conj_toa in sphconj_mjd:
-            parfile.append("_NE_SW {:.2f}\n".format(conj_toa))
+        if args.sw_log_ncomp > 0:
+            sw_ifunc_mjd=[]
+            log_offsets = np.logspace(0,np.log10(180),args.sw_log_ncomp)
+            toa_mjd = psr.toas/86400.0
+            for conj_mjd in sphconj_mjd:
+                # I'm sure this can be done without copy-pasting...
+                for i,offset in enumerate(log_offsets):
+                    epoch=conj_mjd + offset
+                    if i == 0:
+                        prev=conj_mjd
+                        next=conj_mjd + log_offsets[2]
+                    if i == len(log_offsets)-1:
+                        prev=conj_mjd + log_offsets[i-1]
+                        next=conj_mjd + 180
+                    else:
+                        prev=conj_mjd + log_offsets[i-1]
+                        next=conj_mjd + log_offsets[i+1]
 
-        sw_model = solar_wind_basis_GP(priors=sw_priors(sw_sigma=sw_sigma),spherical_solar_wind=spherical_solar_wind, sphconj_mjd=sphconj_mjd)
+                    # Get all the sub 1-GHz ToAs ... @todo: make this make sense.
+                    mask = (toa_mjd > prev) & (toa_mjd < next) & (psr.freqs < 1000.0)                    
+                    if np.sum(mask) > 0:
+                        sw_ifunc_mjd.append(epoch)
+                for i,offset in enumerate(log_offsets):
+                    epoch=conj_mjd - offset
+                    if i == 0:
+                        next=conj_mjd
+                        prev=conj_mjd - log_offsets[2]
+                    if i == len(log_offsets)-1:
+                        next=conj_mjd - log_offsets[i-1]
+                        prev=conj_mjd - 180
+                    else:
+                        next=conj_mjd - log_offsets[i-1]
+                        prev=conj_mjd - log_offsets[i+1]
+
+                    # Get all the sub 1-GHz ToAs ... @todo: make this make sense.
+                    mask = (toa_mjd > prev) & (toa_mjd < next) & (psr.freqs < 1000.0)                    
+                    if np.sum(mask) > 0:
+                        sw_ifunc_mjd.append(epoch)
+
+            sw_ifunc_mjd = np.array(sorted(sw_ifunc_mjd))
+        else:
+                sw_ifunc_mjd=sphconj_mjd
+
+        # Add them to the par file
+        for ifunc_epoch in sw_ifunc_mjd:
+            parfile.append("_NE_SW {:.2f}\n".format(ifunc_epoch))
+
+        sw_model = solar_wind_basis_GP(priors=sw_priors(sw_sigma=sw_sigma),spherical_solar_wind=spherical_solar_wind, sw_ifunc_mjds=sw_ifunc_mjd)
 
 
     return sw_model
@@ -189,12 +234,12 @@ def sw_priors(t, sw_sigma=1):
     return np.ones_like(t) * sw_sigma**2
 
 
-def solar_wind_basis_GP(priors, spherical_solar_wind, sphconj_mjd, selection=Selection(selections.no_selection), name=''):
+def solar_wind_basis_GP(priors, spherical_solar_wind, sw_ifunc_mjds, selection=Selection(selections.no_selection), name=''):
 
     # equivalent of utils.createfourierdesignmatrix_{red,dm}
     # RN: basis = utils.createfourierdesignmatrix_red(nmodes=components, Tspan=Tspan, modes=modes, pshift=pshift, pseed=pseed)
     # DM: basis = utils.createfourierdesignmatrix_dm(nmodes=components, Tspan=Tspan,fref=1400.0)
-    basis = solar_wind_basis(spherical_solar_wind=spherical_solar_wind, sphconj_mjd=sphconj_mjd)
+    basis = solar_wind_basis(spherical_solar_wind=spherical_solar_wind, sw_ifunc_mjds=sw_ifunc_mjds)
     BaseClass = gp_signals.BasisGP(priors, basis, selection=selection, name=name)
 
     class solar_wind_basis_class(BaseClass):
@@ -210,7 +255,7 @@ def ifunc(xi, i, x):
     return np.interp(x,xi,y)
 
 @signal_base.function
-def solar_wind_basis(toas, spherical_solar_wind, sphconj_mjd):
+def solar_wind_basis(toas, spherical_solar_wind, sw_ifunc_mjds):
 
     """
     :param toas: vector of time series in seconds
@@ -239,7 +284,7 @@ def solar_wind_basis(toas, spherical_solar_wind, sphconj_mjd):
     Solar conj happens at max spherical SW, or at cos(theta) (= ctheta) at minimum (i.e. == -1)
     """
 
-    nconj = len(sphconj_mjd)
+    nconj = len(sw_ifunc_mjds)
 
     sec_per_day = 24 * 3600
 
@@ -257,7 +302,7 @@ def solar_wind_basis(toas, spherical_solar_wind, sphconj_mjd):
 
     for i in range(nconj):
 
-        ifunc_comp[i] = ifunc(sphconj_mjd * sec_per_day, i, toas) * spherical_solar_wind
+        ifunc_comp[i] = ifunc(sw_ifunc_mjds * sec_per_day, i, toas) * spherical_solar_wind
 
     """
     Figure out the ifunc bit here and multiply to give final basis:
@@ -268,7 +313,7 @@ def solar_wind_basis(toas, spherical_solar_wind, sphconj_mjd):
 
     solar_wind_basis = solar_wind_basis.T
 
-    return solar_wind_basis, sphconj_mjd * sec_per_day
+    return solar_wind_basis, sw_ifunc_mjds * sec_per_day
 
 
 def to_par(self, p, chain):
