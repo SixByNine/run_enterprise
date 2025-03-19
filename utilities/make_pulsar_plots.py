@@ -58,9 +58,12 @@ def nudot_transition(toas, f0, delta_nudot, epoch, transition_time):
 parser=argparse.ArgumentParser(description="Make plots from tempo2 outputs")
 parser.add_argument('par',type=str)
 parser.add_argument('tim',type=str)
-parser.add_argument('par2',type=str,required=False,default=None)
-parser.add_argument('--noplots',metavar="plots",action='store_false')
+parser.add_argument('par2',type=str,nargs='?',default=None)
+parser.add_argument('--noplots',dest="plots",action='store_false')
 parser.add_argument('--noerr',action='store_true')
+parser.add_argument('-s','--start',type=float,default=None)
+parser.add_argument('-f','--finish',type=float,default=None)
+parser.add_argument('-N',type=int,default=1000)
 args=parser.parse_args()
 
 par=args.par
@@ -72,21 +75,6 @@ if par2 is None:
 do_cov_method=False
 use_P_in_cvm=False
 
-subprocess.call(["tempo2","-output","exportres","-f",par2,tim,"-nofit",'-npsr','1','-nobs','50000'])
-
-rx2,ry2,re2 = np.loadtxt("out.res",usecols=(0,5,6),unpack=True)
-
-subprocess.call(["tempo2","-output","exportres","-f",par,tim,"-writeres",'-npsr','1','-nobs','50000'])
-#subprocess.run(["ls","-l"])
-
-lab = np.loadtxt("param.labels",dtype=str).T
-beta = np.loadtxt("param.vals")
-cvm  = np.loadtxt("cov.matrix")
-meta = np.loadtxt("tnred.meta",usecols=(1,))
-try:
-    subtract_meta = np.loadtxt("tnred_subtract.meta",usecols=(1,2,3))
-except FileNotFoundError:
-    subtract_meta=np.zeros((1,3))
 
 F0=0
 start =46500
@@ -121,6 +109,8 @@ TNRedC=0
 
 F2=0
 
+parameters_to_zero=[]
+
 with open(par) as f:
     for line in f:
         if line.startswith("TNRed"):
@@ -148,22 +138,25 @@ with open(par) as f:
         if e[0].startswith("GLF0_"):
             i=int(e[0][5:])
             glf0[i-1] = float(e[1])
+            parameters_to_zero.append(e[0])
         if e[0].startswith("GLTD_"):
             i=int(e[0][5:])
             gltd[i-1] = float(e[1])
         if e[0].startswith("GLF0D_"):
             i=int(e[0][6:])
             glf0d[i-1] = float(e[1])
+            parameters_to_zero.append(e[0])
         if e[0].startswith("GLTD2_"):
             i=int(e[0][6:])
             gltd2[i-1] = float(e[1])
         if e[0].startswith("GLF0D2_"):
             i=int(e[0][7:])
             glf0d2[i-1] = float(e[1])
-
+            parameters_to_zero.append(e[0])
         if e[0].startswith("GLF1_"):
             i=int(e[0][5:])
             glf1[i-1] = float(e[1])
+            parameters_to_zero.append(e[0])
         if e[0].startswith("NUDOT_EPOCH_"):
             i=int(e[0][12:])
             nudot_tran_epoch[i-1] = float(e[1])
@@ -182,6 +175,7 @@ with open(par) as f:
             F1=float(e[1])
         if e[0] == "F2":
             F2=float(e[1])
+            parameters_to_zero.append(e[0])
         if e[0] == "START":
             start=float(e[1])
         if e[0] == "FINISH":
@@ -192,6 +186,31 @@ with open(par) as f:
 glep=glep[:max_glitch]
 nudot_tran_epoch=nudot_tran_epoch[:max_nudot_tran]
 
+
+cmd=["tempo2","-output","exportres","-f",par2,tim,"-writeres","-nofit",'-npsr','1','-nobs','50000']
+if args.par2 is None:
+    for p in parameters_to_zero:
+        cmd.append("-set")
+        cmd.append(p)
+        cmd.append("0.0")
+print(" ".join(cmd))
+subprocess.call(cmd)
+
+rx2,ry2,re2 = np.loadtxt("out.res",usecols=(0,5,6),unpack=True)
+
+subprocess.call(["tempo2","-output","exportres","-f",par,tim,"-writeres",'-npsr','1','-nobs','50000'])
+#subprocess.run(["ls","-l"])
+
+lab = np.loadtxt("param.labels",dtype=str).T
+beta = np.loadtxt("param.vals")
+cvm  = np.loadtxt("cov.matrix")
+meta = np.loadtxt("tnred.meta",usecols=(1,))
+try:
+    subtract_meta = np.loadtxt("tnred_subtract.meta",usecols=(1,2,3))
+except FileNotFoundError:
+    subtract_meta=np.zeros((1,3))
+
+
 omega=meta[0]
 epoch=meta[1]
 
@@ -200,6 +219,13 @@ rx,ry,re = np.loadtxt("out.res",usecols=(0,5,6),unpack=True)
 dat_t=rx
 dat_e=re
 NSAMPLES=1000
+
+if args.start is not None:
+    start=args.start
+if args.finish is not None:
+    finish=args.finish
+if args.N is not None:
+    NSAMPLES = args.N
 
 t=np.linspace(start-0.5,finish+0.5,NSAMPLES)
 y=np.zeros_like(t)
@@ -551,7 +577,7 @@ else:
     if np.sum(np.diag(ddCo)<0)>0 or np.sum(np.diag(dCo)<0)>0 or np.sum(np.diag(Co)<0)>0:
         print("ERROR: there are some negative variances!")
     ef= np.sqrt(np.diag(dCo))
-    
+
 yf = dM.dot(beta_mod) - polymodel_nu(t-pepoch,F0,subtract_meta)
 
 
