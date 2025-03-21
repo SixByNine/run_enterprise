@@ -286,6 +286,10 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
                     outf.write("{} ".format(p))
                 outf.write("\n")
 
+    loglike = np.copy(loglike)
+    if burn > 0:
+        loglike[:burn]=-np.inf # Avoid using burn-in samples
+
     outpar = par + ".post"
     resfname = par + ".results"
     with open(outpar, "w") as outf:
