@@ -206,7 +206,7 @@ def create_td_realisations(args,psr_model, raw_results):
     print(f"Making {args.time_realisations} time-domain realisations...")
 
     pta_signals = set([s.signal_id for s in pta._signalcollections[0]._signals])
-    signal = sorted(list(set(('red_noise','dm_noise','chrom_noise','solar_wind')).intersection(pta_signals)))
+    signal = sorted(list(set(('red_noise','dm_noise','chrom_noise','solar_wind','f2')).intersection(pta_signals)))
     print("Making realisations for signals: ", signal, "out of ", pta_signals)
     types=[]
     for s in signal:
@@ -218,6 +218,8 @@ def create_td_realisations(args,psr_model, raw_results):
             types.append('cm')
         elif s in ['solar_wind']:
             types.append('dm')
+        elif s in ['f2']:
+            types.append('achrom')
     
     delays = get_tdelay_from_chains(pta, psr, samples, pta.param_names, signames=signal, plttypes=types, weights=weights, separe_signals=True, nsamples=args.time_realisations)
 
@@ -234,13 +236,14 @@ def create_td_realisations(args,psr_model, raw_results):
                 poly=2
             elif 'F0' in psr.fitpars:
                 poly=1
-            if 'F2' in pta.param_names or f"{psr.name}_F2" in pta.param_names:
-                poly=max(poly,3)
+            # if 'F2' in pta.param_names or f"{psr.name}_F2" in pta.param_names:
+            #     poly=max(poly,3)
             if 'F1' in pta.param_names or f"{psr.name}_F1" in pta.param_names:
                 poly=max(poly,2)
             if 'F0' in pta.param_names or f"{psr.name}_F0" in pta.param_names:
                 poly=max(poly,1)
-
+        if s=="f2":
+            poly=2
         if s=='solar_wind:':
             poly=-1
         if s=='dm_noise':
