@@ -47,11 +47,11 @@ def setup_model(args, psr, parfile):
         if "secorr" in p:
             flag=p.split('_',1)[1]
             flag=flag[:-13]
-            return "TNSECORR -be %s"%(flag), np.power(10,chain)*1e6 # Convert log-seconds to microseconds
+            return "TNSECORR %s %s"%(selflag,flag), np.power(10,chain)*1e6 # Convert log-seconds to microseconds
         if "ecorr" in p:
             flag = p.split('_', 1)[1]
             flag = flag[:-12]
-            return "TNECORR -be %s" % (flag), np.power(10, chain) * 1e6  # Convert log-seconds to microseconds
+            return "TNECORR %s %s" % (selflag,flag), np.power(10, chain) * 1e6  # Convert log-seconds to microseconds
 
         else:
             return None

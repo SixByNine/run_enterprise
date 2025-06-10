@@ -29,6 +29,7 @@ def setup_argparse(parser):
     parser.add_argument('--dump-samples', default=0,type=int, help='Dump N samples of final scaled parameters')
     parser.add_argument('--dump-samples-npy', default=0,type=int, help='Dump N samples of final scaled parameters as a numpy file')
     parser.add_argument('--dump-chain', action='store_true', help='Dump chain after scaling to phyical parameters')
+    parser.add_argument('--dump-sample-parfiles',default=None,type=int, help='Dump N samples of final scaled parameters to parfiles')
     parser.add_argument('--plotname', default=None, help="Set plot output file name stem")
     parser.add_argument('--smooth',type=float,default=None,help="Factor for smoothing of corner plots (default=don't smooth)")
     parser.add_argument('--skip-plots', action='store_true', help="Skip all plotting (for debugging I guess)")
@@ -285,6 +286,48 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
                 for p in s:
                     outf.write("{} ".format(p))
                 outf.write("\n")
+
+    if args.dump_sample_parfiles is not None:
+        print("Dump sample parfiles...")
+        if weights is None:
+            equal_samples = samples[burn:, :len(pars)]
+        else:
+            equal_samples = dynesty.utils.resample_equal(samples[burn:, :len(pars)], weights)
+
+        idx = np.arange(len(equal_samples))
+        for i in np.random.choice(idx, args.dump_sample_parfiles, replace=False):
+            outfname = "{}.sample_{}".format(par, i)
+            with open(outfname, "w") as outf:
+                for line in parfile:
+                    e = line.split()
+                    if len(e) == 0: # skip empty lines
+                        continue
+                    if e[0] in pars or e[0] in derived_names \
+                            or (e[0]=="RAJ" and "dRAJ" in pars) \
+                            or (e[0]=="DECJ" and "dDECJ" in pars):
+                        outf.write("#"+line)
+                    else:
+                        outf.write(line)
+                for p,v in zip(pars,equal_samples[i,:len(pars)]):
+                    ## Still need a couple of special cases...
+                    if p=="dRAJ":
+                        p="RAJ"
+                        new_ra = psr.coord.ra + v*units.arcsecond
+                        v=new_ra.to_string(unit=units.hourangle,sep=":",precision=8)
+                    if p == "dDECJ":
+                        p = "DECJ"
+                        new_dec = psr.coord.dec + v*units.arcsecond
+                        v = new_dec.to_string(unit=units.degree, sep=":",precision=8)
+                    if p=="RAJ_rad":
+                        p="RAJ"
+                        v=coord.Angle(v*units.rad).to_string(unit=units.hourangle, sep=":",precision=8)
+                    if p=="DECJ_rad":
+                        p="DECJ"
+                        v=coord.Angle(v*units.rad).to_string(unit=units.degree, sep=":",precision=8)
+
+                    outf.write("%s %s\n" % (p, v))
+
+            print("Wrote sample parfile: {}".format(outfname))
 
     loglike = np.copy(loglike)
     if burn > 0:
