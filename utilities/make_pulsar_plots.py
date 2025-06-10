@@ -61,6 +61,7 @@ parser.add_argument('tim',type=str)
 parser.add_argument('par2',type=str,nargs='?',default=None)
 parser.add_argument('--noplots',dest="plots",action='store_false')
 parser.add_argument('--noerr',action='store_true')
+parser.add_argument('--perturb',action='store_true')
 parser.add_argument('-s','--start',type=float,default=None)
 parser.add_argument('-f','--finish',type=float,default=None)
 parser.add_argument('-N',type=int,default=1000)
@@ -204,6 +205,9 @@ subprocess.call(["tempo2","-output","exportres","-f",par,tim,"-writeres",'-npsr'
 lab = np.loadtxt("param.labels",dtype=str).T
 beta = np.loadtxt("param.vals")
 cvm  = np.loadtxt("cov.matrix")
+
+
+
 meta = np.loadtxt("tnred.meta",usecols=(1,))
 try:
     subtract_meta = np.loadtxt("tnred_subtract.meta",usecols=(1,2,3))
@@ -227,7 +231,7 @@ if args.finish is not None:
 if args.N is not None:
     NSAMPLES = args.N
 
-t=np.linspace(start-0.5,finish+0.5,NSAMPLES)
+t=np.linspace(start-30,finish+30,NSAMPLES)
 y=np.zeros_like(t)
 
 cosidx=lab[1]=='param_red_cos'
@@ -256,6 +260,13 @@ nwav = np.sum(sinidx)
 beta_mod = beta[np.logical_or(sinidx,cosidx)]
 cvm_mod = cvm[np.logical_or(sinidx,cosidx)][:,np.logical_or(sinidx,cosidx)]
 
+
+if args.perturb:
+    print("Perturbing the model")
+    #pert=np.random.normal(np.zeros_like(beta_mod), np.sqrt(np.diag(cvm_mod)))
+    pert=np.random.multivariate_normal(np.zeros_like(beta_mod), cvm_mod, size=1)[0]
+    beta_mod += pert
+
 cvm_mod_orig = np.copy(cvm_mod)
 
 W=np.power(dat_e,2)  # np.zeros_like(dat_e)+np.power(0.5e-3,2)#
@@ -274,6 +285,10 @@ cvm_mod=np.diag(np.diag(cvm_mod_unf))
 #cvm_mod = cvm_mod_unf
 
 Lcvm = linalg.cholesky(cvm_mod)
+
+
+
+
 
 s2d2 = 1.0/(86400.0*86400.0)
 s2d = 1.0/86400.0
