@@ -860,8 +860,10 @@ if args.plots:
     if PB > 0:
         plt.figtext(x=0.59,y=0.94,s="$P_B$:{:.1g}".format(PB),horizontalalignment='center')
 
-    plt.loglog(freqs,pwrs)
-    plt.loglog(freqs,pwrs2)
+
+    idx = np.argsort(freqs)
+    plt.loglog(freqs[idx],pwrs[idx])
+    plt.loglog(freqs[idx],pwrs2[idx])
     plt.title("PSR "+psrn)
     plt.xlabel("Freq (yr^-1)")
     plt.xlabel("Power (???)")
