@@ -683,7 +683,7 @@ with open("nudot.asc","w") as f:
 
 with open("deltanu.asc","w") as f:
     for i in range(len(yf2)):
-        f.write("{} {}\n".format(t[i],yf2[i]))
+        f.write("{} {} {}\n".format(t[i],yf2[i],y[i]))
 
 
 if args.plots:
