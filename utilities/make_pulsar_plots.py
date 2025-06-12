@@ -21,7 +21,7 @@ def polymodel(x,f0,meta):
         if k==0:
             res += meta[i,1]*x*86400.0/f0
         if k==1:
-            res += meta[i,1]*0.5*x*x
+            res += meta[i,1]*x*x/2
         if k==2:
             res += (meta[i,1]/6.0)*x*x*x/1.0e9
     return res
@@ -30,7 +30,6 @@ def polymodel(x,f0,meta):
 def polymodel_nu(x,f0,meta):
     res=np.zeros_like(x)
     print(meta)
-
     d2s=86400.0
     s2d=1.0/86400.0
     for i in range(len(meta)):
@@ -440,7 +439,7 @@ for i, om in enumerate(modes):
     if TNRedAmp2 is not None:
         P2 = P0_2 * (freqs[i]) ** -TNRedGam2
         pwrs3[i] = P2*df
-        if args.only_low_modes and pwrs2[i] < 0.1*pwrs3[i]:
+        if (om > omega) and (args.only_low_modes and pwrs2[i] < 0.1*pwrs3[i]):
             beta_mod[i] = 0.0
             beta_mod[i+nwav] = 0.0
 
