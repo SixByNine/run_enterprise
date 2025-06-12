@@ -41,7 +41,23 @@ def polymodel_nu(x,f0,meta):
             res += meta[i,1]*x
         if k==2:
             res += (meta[i,1]/2.0)*x*x/1.0e9
-    return f0*res*s2d
+    return -f0*res*s2d
+
+def polymodel_nudot(x,f0,meta):
+    res=np.zeros_like(x)
+    print(meta)
+
+    d2s=86400.0
+    s2d=1.0/86400.0
+    for i in range(len(meta)):
+        k=meta[i,0]
+        if k==0:
+            pass
+        if k==1:
+            res += meta[i,1]
+        if k==2:
+            res += (meta[i,1])*x/1.0e9
+    return -f0*res*s2d*s2d
 
 def nudot_transition(toas, f0, delta_nudot, epoch, transition_time):
     t = toas - epoch * 86400.0
@@ -451,8 +467,7 @@ y=M.dot(beta_mod) - polymodel(t-pepoch,F0,subtract_meta)
 
 y_dat = M2.dot(beta_mod) - polymodel(dat_t-pepoch,F0,subtract_meta)
 
-yd = ddM.dot(beta_mod)*1e15
-
+yd = (ddM.dot(beta_mod) - polymodel_nudot(t-pepoch,F0,subtract_meta))*1e15
 
 if do_cov_method:
     ALT_y = C_S_D.dot(Cn_D_D_inv.dot(ry))
