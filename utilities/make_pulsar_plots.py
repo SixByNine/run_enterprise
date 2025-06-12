@@ -62,6 +62,7 @@ parser.add_argument('par2',type=str,nargs='?',default=None)
 parser.add_argument('--noplots',dest="plots",action='store_false')
 parser.add_argument('--noerr',action='store_true')
 parser.add_argument('--perturb',action='store_true')
+parser.add_argument('--only-low-modes',action='store_true')
 parser.add_argument('-s','--start',type=float,default=None)
 parser.add_argument('-f','--finish',type=float,default=None)
 parser.add_argument('-N',type=int,default=1000)
@@ -107,6 +108,8 @@ TNRedGam=None
 TNRedLog=0
 TNRedLog_factor=2.0
 TNRedC=0
+TNRedGam2= None
+TNRedAmp2=None
 
 F2=0
 
@@ -120,6 +123,10 @@ with open(par) as f:
                 TNRedAmp=float(e[1])
             if e[0] == "TNRedGam":
                 TNRedGam = float(e[1])
+            if e[0] == "TNRedGam2":
+                TNRedGam2 = float(e[1])
+            if e[0] == "TNRedAmp2":
+                TNRedAmp2 = float(e[1])
             if e[0] == "TNRedFLog":
                 TNRedLog = int(e[1])
             if e[0] == "TNRedC":
@@ -314,6 +321,10 @@ print("set up matricies")
 freqs=[]
 pwrs=np.power(beta_mod[:nwav],2) + np.power(beta_mod[nwav:],2)
 pwrs2=np.zeros_like(pwrs)
+if TNRedAmp2 is not None:
+    pwrs3=np.zeros_like(pwrs)
+else:
+    pwrs3=None
 
 hi_modes = omega * np.arange(1,nwav+1-TNRedLog) # linear spaced above Tspan
 
@@ -327,6 +338,7 @@ if TNRedLog > 0:
 else:
     modes = hi_modes
     dfs = np.diff(np.concatenate([[0], modes])) / 2.0 / np.pi / 86400.0  # df in per second
+
 
 
 for i, omegai in enumerate(modes):
@@ -347,23 +359,7 @@ for i, omegai in enumerate(modes):
     M2[i+nwav]  = np.cos(omegai * (dat_t-epoch))
 
 
-fyr = 1/(365.25*86400.0)
-P0 = (10**(2*TNRedAmp) / (12*np.pi**2)) * fyr**-3
 
-if use_P_in_cvm:
-    print("Use PSD directly in place of tempo2 cvm")
-    cvm_mod = np.zeros_like(cvm_mod)
-
-for i, om in enumerate(modes):
-    omegai = om / 86400.0  # Want omega in per second not per day
-    df = dfs[i] #(omega / 2.0 / np.pi) / 86400.0  # df in per second as well.
-    P = P0 * (freqs[i]) ** -TNRedGam  # freqs[] is in per year, so no need to divide
-
-    pwrs2[i] = P*df
-
-    if use_P_in_cvm:
-        cvm_mod[i,i] = P*df
-        cvm_mod[i+nwav,i+nwav] = P*df
 
 if do_cov_method:
     dt_D_D = np.zeros((len(dat_t), len(dat_t)))
@@ -411,8 +407,39 @@ print("Do linear algebra")
 
 freqs=np.array(freqs)
 
+fyr = 1/(365.25*86400.0)
+P0 = (10**(2*TNRedAmp) / (12*np.pi**2)) * fyr**-3
+P0_2 = (10**(2*TNRedAmp2) / (12*np.pi**2)) * fyr**-3 if TNRedAmp2 is not None else None
 
-                         
+if use_P_in_cvm:
+    print("Use PSD directly in place of tempo2 cvm")
+    cvm_mod = np.zeros_like(cvm_mod)
+
+for i, om in enumerate(modes):
+    omegai = om / 86400.0  # Want omega in per second not per day
+    df = dfs[i] #(omega / 2.0 / np.pi) / 86400.0  # df in per second as well.
+    P = P0 * (freqs[i]) ** -TNRedGam  # freqs[] is in per year, so no need to divide
+    pwrs2[i] = P*df
+    print(TNRedAmp2,TNRedGam2)
+    if TNRedAmp2 is not None:
+        P2 = P0_2 * (freqs[i]) ** -TNRedGam2
+        pwrs3[i] = P2*df
+        if args.only_low_modes and pwrs2[i] < 0.1*pwrs3[i]:
+            beta_mod[i] = 0.0
+            beta_mod[i+nwav] = 0.0
+
+    
+
+    if use_P_in_cvm:
+        cvm_mod[i,i] = P*df
+        cvm_mod[i+nwav,i+nwav] = P*df
+        if TNRedAmp2 is not None:
+            cvm_mod[i,i] += P2*df
+            cvm_mod[i+nwav,i+nwav] += P2*df
+
+
+pwrs=np.power(beta_mod[:nwav],2) + np.power(beta_mod[nwav:],2)
+                       
                          
 #print(cvm.shape,cvm_mod.shape)
 M = M.T
@@ -864,8 +891,10 @@ if args.plots:
     idx = np.argsort(freqs)
     plt.loglog(freqs[idx],pwrs[idx])
     plt.loglog(freqs[idx],pwrs2[idx])
+    if pwrs3 is not None:
+        plt.loglog(freqs[idx],pwrs3[idx],ls='--')
     plt.title("PSR "+psrn)
     plt.xlabel("Freq (yr^-1)")
-    plt.xlabel("Power (???)")
+    plt.ylabel("Power")
     plt.savefig("pwrspec_{}.pdf".format(psrn))
 

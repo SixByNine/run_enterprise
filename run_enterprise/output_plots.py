@@ -295,8 +295,9 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
             equal_samples = dynesty.utils.resample_equal(samples[burn:, :len(pars)], weights)
 
         idx = np.arange(len(equal_samples))
+        count=0
         for i in np.random.choice(idx, args.dump_sample_parfiles, replace=False):
-            outfname = "{}.sample_{}".format(par, i)
+            outfname = f"{par}.{count:04d}.sample.par"
             with open(outfname, "w") as outf:
                 for line in parfile:
                     e = line.split()
@@ -326,7 +327,7 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
                         v=coord.Angle(v*units.rad).to_string(unit=units.degree, sep=":",precision=8)
 
                     outf.write("%s %s\n" % (p, v))
-
+            count += 1
             print("Wrote sample parfile: {}".format(outfname))
 
     loglike = np.copy(loglike)

@@ -149,12 +149,26 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
     if args.red_at is not None:
         # we fit for amplitude at a different frequency so we need to rescale TNRedAmp back to 1/yr
         logAred_T = scaled_samples[:, parnames=="TNRedAmp"][:, 0].copy()
-
         derived.append(logAred_T)
         derived_names.append(f"TNRedAmp_T{args.red_at}")
         gamma = scaled_samples[:, parnames=="TNRedGam"][:, 0]
-
         scaled_samples[:, parnames=="TNRedAmp"] = np.reshape(logAred_T - 0.5*gamma*np.log10(args.red_at),(-1,1))
+        if args.double_powerlaw:
+            logAred2_T = scaled_samples[:, parnames=="TNRedAmp2"][:, 0].copy()
+            derived.append(logAred2_T)
+            derived_names.append(f"TNRedAmp2_T{args.red_at}")
+            if "TNRedGam2" not in parnames:
+                delta_gamma = scaled_samples[:, parnames=="TNRedDeltaGam"][:, 0]
+                gamma2 = gamma-delta_gamma
+            else:
+                gamma2 = scaled_samples[:, parnames=="TNRedGam2"][:, 0]
+            scaled_samples[:, parnames=="TNRedAmp2"] = np.reshape(logAred2_T - 0.5*gamma2*np.log10(args.red_at),(-1,1))
+    if args.double_powerlaw and "TNRedGam2" not in parnames:
+            gamma = scaled_samples[:, parnames=="TNRedGam"][:, 0]
+            delta_gamma = scaled_samples[:, parnames=="TNRedDeltaGam"][:, 0]
+            gamma2 = gamma-delta_gamma
+            derived.append(gamma2)
+            derived_names.append("TNRedGam2")
 
     ## Check if plot_Ared_at_T is in the args
     if 'plot_Ared_at_T' in vars(args):

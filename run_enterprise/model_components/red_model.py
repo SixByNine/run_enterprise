@@ -11,7 +11,7 @@ import sys
 
 name = "RedNoise"
 argdec = "RedNoise Parameters. Note that the red noise model is default ENABLED"
-
+Tspan=0
 
 def setup_argparse(parser):
     parser.add_argument('--no-red-noise', dest='red', default=True, action='store_false',
@@ -39,7 +39,9 @@ def setup_argparse(parser):
     parser.add_argument('--plot-Ared-at-T', type=float, default=None, help="Plot derived Ared at freq 1/(T yr)")
 
     parser.add_argument('--double-powerlaw',action='store_true',help='Use double powerlaw model')
-    parser.add_argument('--double-powerlaw-delta-gamma','--delta-gamma',type=float,default=2.5)
+    parser.add_argument('--double-powerlaw-delta-gamma','--delta-gamma',type=float,default=None)
+    parser.add_argument('--red-gamma2-max', type=float, default=3, help='Max gamma2 red for double pl')
+    parser.add_argument('--red-gamma2-min', type=float, default=0, help='Min gamma2 red for double pl')
 
     parser.add_argument('--A2red-max', type=float, default=-12, help='Max log10A_Red for double pl')
     parser.add_argument('--A2red-min', type=float, default=-18, help='Min log10A_Red for double pl')
@@ -48,7 +50,11 @@ def setup_argparse(parser):
     parser.add_argument('--red-nlog-factor', type=float, default=2.0, help='Factor for log-spaced red noise components below tspan')
 
     parser.add_argument('--min-red-sin-scale', type=float, default=None, help='Limit red noise to reach a minimum to avoid numerical issues')
+
+    parser.add_argument('--red-fit-cutoff', action='store_true', default=False,
+                        help='Fit a cutoff frequency for the red noise model')
 def setup_model(args, psr, parfile):
+    global Tspan
     if args.red:
         # We scale Tspan if we are using tspan-mult
         nC = args.red_ncoeff
@@ -60,6 +66,13 @@ def setup_model(args, psr, parfile):
         # Add the nC and flow parameters to the par file
         parfile.append("TNRedC {}\n".format(nC))
         parfile.append("TNRedFLow {}\n".format(np.log10(1.0 / args.tspan_mult)))
+
+        if args.red_fit_cutoff:
+            freq_cutoff = parameter.Uniform(10/Tspan, nC/Tspan, to_par=to_par)("freq_cutoff")
+        else:
+            freq_cutoff = parameter.Constant(10*nC/Tspan) # 10 times the max frequency
+            parfile.append("TNRedC {}\n".format(nC))
+
 
         if args.min_red_sin_scale is not None:
             Aflat = np.sqrt((args.min_red_sin_scale**2 * 12.0 * np.pi ** 2  * Tspan )* const.fyr ** 3)
@@ -84,7 +97,12 @@ def setup_model(args, psr, parfile):
         log10_A2=None
         delta_gamma=None
         if args.double_powerlaw:
-            delta_gamma=parameter.Uniform(1, args.double_powerlaw_delta_gamma, to_par=to_par)
+            if args.double_powerlaw_delta_gamma is not None:
+                delta_gamma = parameter.Constant(args.double_powerlaw_delta_gamma, to_par=to_par)
+                gamma2=None
+            else:
+                gamma2= parameter.Uniform(args.red_gamma2_min, args.red_gamma2_max, to_par=to_par)
+                delta_gamma=None
             if args.red_prior_log:
                 log10_A2 = parameter.Uniform(args.A2red_min, args.A2red_max, to_par=to_par)
             else:
@@ -116,19 +134,19 @@ def setup_model(args, psr, parfile):
             df = 86400.0 / (np.amax(psr.toas) - np.amin(psr.toas))
             df = parameter.Constant(df)
             if args.double_powerlaw:
-                pl = double_powerlaw_qp(log10_A1=log10_A, gamma=gamma,
+                pl = double_powerlaw_qp(log10_A1=log10_A, gamma=gamma,freq_cutoff=freq_cutoff,
                                         log10_A2=log10_A2, delta_gamma=delta_gamma,
                                         log_qp_ratio=log_qp_ratio, p=qp_period, sig=sig, lam=lam,
-                                 fmin=df,log_at=red_log_sqrt_at, log10_Aflat=log10Aflat)
+                                 fmin=df,log_at=red_log_sqrt_at, log10_Aflat=log10Aflat,gamma2=gamma2)
             else:
-                pl = powerlaw_qp(log10_A=log10_A, gamma=gamma, log_qp_ratio=log_qp_ratio, p=qp_period, sig=sig, lam=lam,
+                pl = powerlaw_qp(log10_A=log10_A, gamma=gamma,freq_cutoff=freq_cutoff, log_qp_ratio=log_qp_ratio, p=qp_period, sig=sig, lam=lam,
                                  fmin=df,log_at=red_log_sqrt_at, log10_Aflat=log10Aflat)
         else:
             if args.double_powerlaw:
-                pl = double_powerlaw(log10_A=log10_A, gamma=gamma, log10_A2 = log10_A2, delta_gamma=delta_gamma,
-                                     log_at=red_log_sqrt_at, log10_Aflat=log10Aflat)
+                pl = double_powerlaw(log10_A1=log10_A, gamma=gamma, freq_cutoff=freq_cutoff,log10_A2 = log10_A2, delta_gamma=delta_gamma,
+                                     log_at=red_log_sqrt_at, log10_Aflat=log10Aflat,gamma2=gamma2)
             else:
-                pl = powerlaw(log10_A=log10_A, gamma=gamma,log_at=red_log_sqrt_at, log10_Aflat=log10Aflat)
+                pl = powerlaw(log10_A=log10_A, gamma=gamma,freq_cutoff=freq_cutoff,log_at=red_log_sqrt_at, log10_Aflat=log10Aflat)
 
         modes = None
         fmodes = None
@@ -176,6 +194,8 @@ def to_par(self, p, chain):
         return "TNRedAmp", chain
     if "red_noise_log10_A2" in p:
         return "TNRedAmp2", chain
+    if "red_noise_gamma2" in p:
+        return "TNRedGam2", chain
     if "red_noise_delta_gamma" in p:
         return "TNRedDeltaGam", chain
     if "red_noise_log10_A" in p:
@@ -196,6 +216,9 @@ def to_par(self, p, chain):
         return p, chain
     elif "fcos" in p:
         return p, chain
+    elif "freq_cutoff" in p:
+        df = 1/Tspan
+        return "TNRedC", np.floor(chain/df).astype(int)
     else:
         return None
 
@@ -204,17 +227,18 @@ from .chol_red_model import qp_term_cutoff
 
 
 @function
-def powerlaw(f, log10_A, gamma, components=2, log_at=0, log10_Aflat=-100):
+def powerlaw(f, log10_A, gamma,freq_cutoff, components=2, log_at=0, log10_Aflat=-100):
     log10_A_1yr = log10_A - gamma * log_at
     df = np.diff(np.concatenate((np.array([0]), f[::components])))
     df2 = np.repeat(df, components)
 
     flat = ((10**log10_Aflat) ** 2) / 12.0 / np.pi ** 2 * const.fyr ** (-3) * df2
     red= ((10 ** log10_A_1yr) ** 2) / 12.0 / np.pi ** 2 * const.fyr ** (gamma - 3) * f ** (-gamma) * df2
-    return red+flat
+    ret = flat+red
+    return apply_cutoff(f,ret, freq_cutoff)
 
 @function
-def powerlaw_qp(f, log10_A, gamma, log_qp_ratio, p, sig, lam, fmin, components=2,log_at=0,log10_Aflat=-100):
+def powerlaw_qp(f, log10_A, gamma,freq_cutoff, log_qp_ratio, p, sig, lam, fmin, components=2,log_at=0,log10_Aflat=-100):
     df = np.diff(np.concatenate((np.array([0]), f[::components])))
     df2 = np.repeat(df, components)
 
@@ -228,14 +252,15 @@ def powerlaw_qp(f, log10_A, gamma, log_qp_ratio, p, sig, lam, fmin, components=2
         (10 ** log10_A_1yr) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma - 3) * (f0 * 365.25 * const.fyr) ** (
             -gamma) * df2)
     qp = qp_term_cutoff(f / const.fyr, logPqp, f0, sig, lam, fmin)
-
-    return red + qp + flat
+    ret = red + qp + flat
+    return apply_cutoff(f,ret, freq_cutoff)
 
 
 @function
-def double_powerlaw(f, log10_A1, gamma, log10_A2, delta_gamma, components=2, log_at=0,log10_Aflat=-100):
+def double_powerlaw(f, log10_A1, gamma,freq_cutoff, log10_A2, delta_gamma, components=2, log_at=0,log10_Aflat=-100,gamma2=None):
     gamma1=gamma
-    gamma2=gamma-delta_gamma
+    if gamma2 is None:
+        gamma2 = gamma - delta_gamma
 
     log10_A1_1yr = log10_A1  - gamma1 * log_at
     log10_A2_1yr = log10_A2  - gamma2 * log_at
@@ -246,13 +271,15 @@ def double_powerlaw(f, log10_A1, gamma, log10_A2, delta_gamma, components=2, log
 
     red1 = (10 ** log10_A1_1yr) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma1 - 3) * f ** (-gamma1) * df2
     red2 = (10 ** log10_A2_1yr) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma2 - 3) * f ** (-gamma2) * df2
-    return red1 + red2 + flat
+    ret = red1 + red2 + flat
+    return apply_cutoff(f,ret, freq_cutoff)
 
 
 @function
-def double_powerlaw_qp(f, log10_A1, gamma, log10_A2, delta_gamma, log_qp_ratio, p, sig, lam, fmin, components=2,log_at=0,log10_Aflat=-100):
+def double_powerlaw_qp(f, log10_A1, gamma,freq_cutoff, log10_A2, delta_gamma, log_qp_ratio, p, sig, lam, fmin, components=2,log_at=0,log10_Aflat=-100,gamma2=None):
     gamma1=gamma
-    gamma2=gamma-delta_gamma
+    if gamma2 is None:
+        gamma2 = gamma - delta_gamma
 
     log10_A1_1yr = log10_A1 - gamma1 * log_at
     log10_A2_1yr = log10_A2 - gamma2 * log_at
@@ -272,9 +299,14 @@ def double_powerlaw_qp(f, log10_A1, gamma, log10_A2, delta_gamma, log_qp_ratio, 
                  (10 ** log10_A2_1yr) ** 2 / 12.0 / np.pi ** 2 * const.fyr ** (gamma2 - 3) * (f0 * 365.25 * const.fyr) ** (
                      -gamma2) * df2)
     qp = qp_term_cutoff(f / const.fyr, logPqp, f0, sig, lam, fmin)
-    return red + qp + flat
-
+    ret= red + qp + flat
+    
+    return apply_cutoff(f,ret, freq_cutoff)
 
 @function
 def sinusoid(toas, A, B, om):
     return B * np.sin(om * toas) + A * np.cos(om * toas)
+
+def apply_cutoff(f,ret, freq_cutoff):
+    ret[f>freq_cutoff] = 1e-40
+    return ret
