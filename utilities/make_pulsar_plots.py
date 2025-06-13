@@ -286,8 +286,14 @@ cvm_mod = cvm[np.logical_or(sinidx,cosidx)][:,np.logical_or(sinidx,cosidx)]
 if args.perturb:
     print("Perturbing the model")
     #pert=np.random.normal(np.zeros_like(beta_mod), np.sqrt(np.diag(cvm_mod)))
-    pert=np.random.multivariate_normal(np.zeros_like(beta_mod), cvm_mod, size=1)[0]
+    try:
+        pert=np.random.multivariate_normal(np.zeros_like(beta_mod), cvm_mod, size=1,check_valid='raise',tol=1e-6)[0]
+    except ValueError as e:
+        print(f"\n\n\n\n******\n{par} Error in multivariate normal sampling: {e}",file=sys.stderr)
+        print("******\n\n\n\n",file=sys.stderr)
+        pert=np.random.multivariate_normal(np.zeros_like(beta_mod), cvm_mod, size=1)[0]
     beta_mod += pert
+
 
 cvm_mod_orig = np.copy(cvm_mod)
 
@@ -469,8 +475,12 @@ dM = dM[keep_mask,:]
 ddM = ddM[keep_mask,:]
 orig_freqs= freqs.copy()
 freqs = freqs[keep_mask[:nwav]]
+
+
 orig_nwav = nwav
 nwav = len(beta_mod) // 2
+
+
 
 
 pwrs=np.power(beta_mod[:nwav],2) + np.power(beta_mod[nwav:],2)
