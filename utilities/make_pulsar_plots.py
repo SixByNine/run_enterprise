@@ -430,21 +430,28 @@ if use_P_in_cvm:
     print("Use PSD directly in place of tempo2 cvm")
     cvm_mod = np.zeros_like(cvm_mod)
 
+keep_mask = np.ones_like(beta_mod, dtype=bool)
 for i, om in enumerate(modes):
     omegai = om / 86400.0  # Want omega in per second not per day
     df = dfs[i] #(omega / 2.0 / np.pi) / 86400.0  # df in per second as well.
     P = P0 * (freqs[i]) ** -TNRedGam  # freqs[] is in per year, so no need to divide
     pwrs2[i] = P*df
-    print(TNRedAmp2,TNRedGam2)
     if TNRedAmp2 is not None:
         P2 = P0_2 * (freqs[i]) ** -TNRedGam2
         pwrs3[i] = P2*df
-        if (om > omega) and (args.only_low_modes and pwrs2[i] < 0.1*pwrs3[i]):
-            beta_mod[i] = 0.0
-            beta_mod[i+nwav] = 0.0
+        smallmode=pwrs2[i] < 0.1*pwrs3[i]
+        if (om > omega) and (args.only_low_modes and smallmode):
+            print(f"Mode deleted >> {i} {om} {omega} {smallmode}")
+            keep_mask[i] = False
+            keep_mask[i+nwav] = False
+           
 
-    
-
+for i, om in enumerate(modes):
+    omegai = om / 86400.0  # Want omega in per second not per day
+    df = dfs[i] #(omega / 2.0 / np.pi) / 86400.0  # df in per second as well.
+    P = P0 * (freqs[i]) ** -TNRedGam  # freqs[] is in per year, so no need to divide
+    if TNRedAmp2 is not None:
+        P2 = P0_2 * (freqs[i]) ** -TNRedGam2
     if use_P_in_cvm:
         cvm_mod[i,i] = P*df
         cvm_mod[i+nwav,i+nwav] = P*df
@@ -452,9 +459,22 @@ for i, om in enumerate(modes):
             cvm_mod[i,i] += P2*df
             cvm_mod[i+nwav,i+nwav] += P2*df
 
+beta_mod[~keep_mask] = 0.0
+
+beta_mod = beta_mod[keep_mask]
+cvm_mod = cvm_mod[np.ix_(keep_mask, keep_mask)]
+M = M[keep_mask,:]
+M2 = M2[keep_mask,:]
+dM = dM[keep_mask,:]
+ddM = ddM[keep_mask,:]
+orig_freqs= freqs.copy()
+freqs = freqs[keep_mask[:nwav]]
+orig_nwav = nwav
+nwav = len(beta_mod) // 2
+
 
 pwrs=np.power(beta_mod[:nwav],2) + np.power(beta_mod[nwav:],2)
-                       
+
                          
 #print(cvm.shape,cvm_mod.shape)
 M = M.T
@@ -904,9 +924,9 @@ if args.plots:
 
     idx = np.argsort(freqs)
     plt.loglog(freqs[idx],pwrs[idx])
-    plt.loglog(freqs[idx],pwrs2[idx])
+    plt.loglog(orig_freqs[idx],pwrs2[idx])
     if pwrs3 is not None:
-        plt.loglog(freqs[idx],pwrs3[idx],ls='--')
+        plt.loglog(orig_freqs[idx],pwrs3[idx],ls='--')
     plt.title("PSR "+psrn)
     plt.xlabel("Freq (yr^-1)")
     plt.ylabel("Power")
