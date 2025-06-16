@@ -242,6 +242,21 @@ epoch=meta[1]
 
 rx,ry,re = np.loadtxt("out.res",usecols=(0,5,6),unpack=True)
 
+try:
+    t2red,t2dm,t2chrom = np.loadtxt("out.res",usecols=(9,10,11),unpack=True)
+except ValueError:
+    print("No tempo2 red noise, dm or chromaticity parameters found in out.res")
+    t2red = np.zeros_like(rx)
+    t2dm = np.zeros_like(rx)
+    t2chrom = np.zeros_like(rx)
+
+ry -= t2dm
+ry -= t2chrom
+
+ry2-=t2dm
+ry2-=t2chrom
+
+
 dat_t=rx
 dat_e=re
 NSAMPLES=1000
@@ -259,40 +274,41 @@ y=np.zeros_like(t)
 cosidx=lab[1]=='param_red_cos'
 sinidx=lab[1]=='param_red_sin'
 
+dm_cos_idx = lab[1]=='param_red_dm_cos'
+dm_sin_idx = lab[1]=='param_red_dm_sin'
 
-#
-# maxwav=100000
-# nt=0
-# for i in range(len(cosidx)):
-#     if cosidx[i]:
-#         nt+=1
-#     if nt > maxwav:
-#         cosidx[i]=False
-#
-# nt=0
-# for i in range(len(sinidx)):
-#     if sinidx[i]:
-#         nt+=1
-#     if nt > maxwav:
-#         sinidx[i]=False
-        
+all_cos_idx = np.logical_or(cosidx,dm_cos_idx)
+all_sin_idx = np.logical_or(sinidx,dm_sin_idx)
         
 nwav = np.sum(sinidx)
+ndm_wav = np.sum(dm_sin_idx)
 
-beta_mod = beta[np.logical_or(sinidx,cosidx)]
-cvm_mod = cvm[np.logical_or(sinidx,cosidx)][:,np.logical_or(sinidx,cosidx)]
+
+
+
+beta_all_mod = beta[np.logical_or(all_sin_idx,all_cos_idx)]
+cvm_all_mod = cvm[np.logical_or(all_sin_idx,all_cos_idx)][:,np.logical_or(all_sin_idx,all_cos_idx)]
+
 
 
 if args.perturb:
     print("Perturbing the model")
     #pert=np.random.normal(np.zeros_like(beta_mod), np.sqrt(np.diag(cvm_mod)))
     try:
-        pert=np.random.multivariate_normal(np.zeros_like(beta_mod), cvm_mod, size=1,check_valid='raise',tol=1e-6)[0]
+        pert=np.random.multivariate_normal(np.zeros_like(beta_all_mod), cvm_all_mod, size=1,check_valid='raise',tol=1e-6)[0]
     except ValueError as e:
         print(f"\n\n\n\n******\n{par} Error in multivariate normal sampling: {e}",file=sys.stderr)
         print("******\n\n\n\n",file=sys.stderr)
-        pert=np.random.multivariate_normal(np.zeros_like(beta_mod), cvm_mod, size=1)[0]
-    beta_mod += pert
+        pert=np.random.multivariate_normal(np.zeros_like(beta_all_mod), cvm_all_mod, size=1)[0]
+    beta_all_mod += pert
+    beta[np.logical_or(all_sin_idx,all_cos_idx)] = beta_all_mod
+
+
+beta_mod = beta[np.logical_or(sinidx,cosidx)]
+cvm_mod = cvm[np.logical_or(sinidx,cosidx)][:,np.logical_or(sinidx,cosidx)]
+
+beta_dm_mod = beta[np.logical_or(dm_sin_idx,dm_cos_idx)]
+cvm_dm_mod = cvm[np.logical_or(dm_sin_idx,dm_cos_idx)][:,np.logical_or(dm_sin_idx,dm_cos_idx)]
 
 
 cvm_mod_orig = np.copy(cvm_mod)
@@ -363,7 +379,7 @@ else:
 
 
 for i, omegai in enumerate(modes):
-    print(i,i+nwav,nwav,omegai)
+    #print(i,i+nwav,nwav,omegai)
     #omegai = omega*(i+1.0)
     M[i]        = np.sin(omegai * (t-epoch))
     M[i+nwav]   = np.cos(omegai * (t-epoch))
@@ -934,6 +950,7 @@ if args.plots:
 
     idx = np.argsort(freqs)
     plt.loglog(freqs[idx],pwrs[idx])
+    idx = np.argsort(orig_freqs)
     plt.loglog(orig_freqs[idx],pwrs2[idx])
     if pwrs3 is not None:
         plt.loglog(orig_freqs[idx],pwrs3[idx],ls='--')
