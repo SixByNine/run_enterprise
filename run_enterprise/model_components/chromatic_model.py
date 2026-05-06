@@ -263,9 +263,9 @@ def to_par(self,p,chain):
         if "SIG_" in p:
             p=f"GAUSSIG_{i}"
         return p, chain
-    elif "CM" in p:
+    elif p=="CM":
         return "CM", chain
-    elif "CM1" in p:
+    elif p=="CM1":
         return "CM1", chain
     else:
         return None

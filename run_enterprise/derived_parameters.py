@@ -98,6 +98,12 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
             derived_names.append("TN_QpF0")
 
     if args.legendre:
+        orig_f2=0
+        for line in parfile:
+            e = line.strip().split()
+            if len(e) > 1:
+                if e[0] == "F2":
+                    orig_f2 = float(e[1])
         l1=l2=l3=0
         if "L1" in parnames:
             l1=scaled_samples[:,parnames=="L1"][:,0]
@@ -132,17 +138,17 @@ def compute_derived_parameters(args,psr,par,parfile,scaled_samples,log_prob,weig
         for s in range(nsamples):
             leg = polynomial.legendre.Legendre([0,l1[s],l2[s],l3[s]],domain=domain,window=[-1,1])
             poly = leg.convert(kind=polynomial.polynomial.Polynomial, domain=domain,window=domain)
-            df0[s] = poly.coef[1]*f0
-            df1[s] = 2*poly.coef[2]*f0
+            df0[s] = -poly.coef[1]*f0
+            df1[s] = -2*poly.coef[2]*f0
             if "L3" in parnames:
-                df2[s] = 6*poly.coef[3]*f0
+                df2[s] = -6*poly.coef[3]*f0+orig_f2
 
-        derived.append(df0)
-        derived.append(df1)
+        # derived.append(df0)
+        # derived.append(df1)
         if "L3" in parnames:
             derived.append(df2)
-        derived_names.append("dF0")
-        derived_names.append("dF1")
+        # derived_names.append("dF0")
+        # derived_names.append("dF1")
         if "L3" in parnames:
             derived_names.append("F2")
 

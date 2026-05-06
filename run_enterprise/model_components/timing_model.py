@@ -254,6 +254,7 @@ def fit_f2(toas, pepoch, f0, valf2):
     return -1e-27 * valf2 * x * x * x / 6.0 / f0
 
 
+
 @signal_base.function
 def fit_pm_angle(toas, pos, earthssb, posepoch, amp, angle, orig_pmra=0, orig_pmdec=0,position_meta=None):
     pmra = amp * np.cos(angle)

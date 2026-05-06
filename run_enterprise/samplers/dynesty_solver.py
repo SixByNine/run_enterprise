@@ -17,6 +17,9 @@ def setup_argparse(parser):
     parser.add_argument('--dynesty-bound',default="multi", help="Bounding method")
     parser.add_argument('--dynesty-sampler',default="auto", help="Sampling method")
     parser.add_argument('--dynesty-bootstrap',default=0,type=int,help="Bootstrap amount")
+    parser.add_argument('--dynesty-maxiter',default=None,type=int,help="Maximum number of iterations")
+    parser.add_argument('--dynesty-maxbatch',default=None,type=int,help="Maximum number of batches (dynamic nested sampling)")
+    parser.add_argument('--dynesty-maxiter-per-batch',default=None,type=int,help="Maximum number of iterations per batch (dynamic nested sampling)")
 
 
 def activated(args):
@@ -43,7 +46,7 @@ def run_solve(args,psrmodel,outdir):
                                                        queue_size=args.nthread, sample=args.dynesty_sampler, bound=args.dynesty_bound,
                                                        first_update={'min_ncall': 1000, 'min_eff': args.dynesty_bound_eff},
                                                        bootstrap=args.dynesty_bootstrap)
-                sampler.run_nested(nlive_init=args.nlive,nlive_batch=args.nlive//2,dlogz_init=0.1)
+                sampler.run_nested(nlive_init=args.nlive,nlive_batch=args.nlive//2,dlogz_init=0.1,maxiter=int(args.dynesty_maxiter), maxbatch=args.dynesty_maxbatch, maxiter_batch=args.dynesty_maxiter_per_batch)
                 if args.nsample is not None:
                     while (sampler.results.samples.shape[0] < args.nsample):
                         print(f"Not enough samples... continue ({sampler.results.samples.shape[0]}/{args.nsample})")
@@ -53,7 +56,7 @@ def run_solve(args,psrmodel,outdir):
                 sampler = dynesty.NestedSampler(get_lnlikelihood, prior_transform, ndim=len(pta.params), nlive=nlive,
                                                 pool=tpool, queue_size=args.nthread, sample=args.dynesty_sampler, bound=args.dynesty_bound,
                                                 first_update={'min_ncall': 1000, 'min_eff': args.dynesty_bound_eff},bootstrap=args.dynesty_bootstrap)
-                sampler.run_nested()
+                sampler.run_nested(maxiter=int(args.dynesty_maxiter))
 
             print(sampler.results.summary())
             with open(filename, "wb") as f:

@@ -141,61 +141,60 @@ def PSD_QP(freqs_days,fc_yr,logA,gamma,log_qp_ratio, log_f0, sig, lam,df):
     return red+qp
 
 
-def getC(times,logA,gamma,fc_yr,log_qp_ratio=None, log_f0=None, sig=None, lam=None):
+def build_covariance_interpolator(times, logA, gamma, fc_yr, log_qp_ratio=None, log_f0=None, sig=None, lam=None):
     days_per_yr = 365.25
     sec_per_year = 365.25 * 60. * 60. * 24.
     sec_per_day = 60. * 60. * 24.
-    # note: 'times' can be irregularly sampled; also negative
-    total_time = (np.amax(times)-np.amin(times)) # days
-    ndays_time = int(total_time+1)
-    #fc_days = 1./total_time
-    #fc_days = 0.01/days_per_year
-    fc_days = fc_yr/days_per_yr
-    # create regular sequence of times..
-    #.. to include 'times' after the iFFT
+    total_time = np.amax(times) - np.amin(times)
+    ndays_time = int(total_time + 1)
+    fc_days = fc_yr / days_per_yr
+
     npts_regtimes = 128
-    delta_regtimes = 1 #day
-    while npts_regtimes*delta_regtimes < (ndays_time+1)*2 or npts_regtimes*delta_regtimes < (2./fc_days):
+    delta_regtimes = 1
+    while npts_regtimes * delta_regtimes < (ndays_time + 1) * 2 or npts_regtimes * delta_regtimes < (2. / fc_days):
         npts_regtimes *= 2
 
-    # this creates an array of times to use in covFunc...
-    # ... regtimes =  [0,1,...,npts_regtimes-1]*delta_regtimes
-    # ... in days
-
-    # which then gives the FT frequencies...
-    # ... [0,1/npts_regtimes,...,(npts_regtimes/2)/npts_regtimes]]*(1/delta_regtimes)
-    # ... in days^-1
-
-    nu = np.fft.rfftfreq(npts_regtimes,delta_regtimes) #day^-1
-    # len(nu) == npts_regtimes/2+1
-    # delta_nu == 1./(npts_regtimes*delta_regtimes)
-    #delta_nu = (nu[-1] - nu[0])/nu.shape[0] #day^-1
-
-    # calculate power spectral density
+    nu = np.fft.rfftfreq(npts_regtimes, delta_regtimes)
     if log_qp_ratio is None:
-        psd_nu = PSD(nu, fc_yr, logA, gamma) # yr^3
+        psd_nu = PSD(nu, fc_yr, logA, gamma)
     else:
-        psd_nu = PSD_QP(nu, fc_yr, logA, gamma,log_qp_ratio, log_f0, sig, lam, nu[0])  # yr^3
+        psd_nu = PSD_QP(nu, fc_yr, logA, gamma, log_qp_ratio, log_f0, sig, lam, nu[0])
 
-    psd_nu[nu>0] /= 2 # MJK - One-sided to two-sided PSD.
-    # get the covariance function:
-    covFunc = np.fft.irfft(psd_nu*sec_per_year**3/(delta_regtimes*sec_per_day)) #sec^2
-    # len(covFunc) == (len(nu)-1)*2 == npts_regtimes
+    psd_nu[nu > 0] /= 2
+    cov_func = np.fft.irfft(psd_nu * sec_per_year ** 3 / (delta_regtimes * sec_per_day))
+    return interp.interp1d(
+        np.arange(ndays_time + 1),
+        cov_func[:ndays_time + 1],
+        bounds_error=False,
+        fill_value=(cov_func[0], cov_func[ndays_time]),
+    )
 
 
-    # need covFunc to work for abs(times[j]-times[i]), any j,i
-    # ndays_time-1 <max (abs(times[j]-times[i])) =< ndays_time
+def evaluate_covariance_matrix(times_a, times_b=None, covariance_interpolator=None, **kwargs):
+    if covariance_interpolator is None:
+        if not kwargs:
+            raise ValueError("Either covariance_interpolator or covariance parameters must be provided")
+        all_times = np.asarray(times_a if times_b is None else np.concatenate((np.asarray(times_a), np.asarray(times_b))))
+        covariance_interpolator = build_covariance_interpolator(all_times, **kwargs)
 
-    # so interpolate it for the regular times up to ndays_time:
-    covFunc = interp.interp1d(np.arange(ndays_time+1), covFunc[:ndays_time+1])
+    times_a = np.asarray(times_a, dtype=float)
+    if times_b is None:
+        time_deltas = np.abs(times_a[:, None] - times_a[None, :])
+    else:
+        times_b = np.asarray(times_b, dtype=float)
+        time_deltas = np.abs(times_a[:, None] - times_b[None, :])
+    return covariance_interpolator(time_deltas)
 
-    C = np.empty([len(times),len(times)])
-    #alltimes = np.empty([len(times),len(times)])
-    for i in range(len(times)):
-        try:
-            C[i] = covFunc(np.abs(times-times[i]))
-            #alltimes[i] = np.abs(times-times[i])
-        except ValueError as e:
-            print (e)
-            print (np.abs(times-times[i]))
-    return C # have covariance matrix!
+
+def getC(times,logA,gamma,fc_yr,log_qp_ratio=None, log_f0=None, sig=None, lam=None):
+    covariance_interpolator = build_covariance_interpolator(
+        times,
+        logA,
+        gamma,
+        fc_yr,
+        log_qp_ratio=log_qp_ratio,
+        log_f0=log_f0,
+        sig=sig,
+        lam=lam,
+    )
+    return evaluate_covariance_matrix(times, covariance_interpolator=covariance_interpolator)

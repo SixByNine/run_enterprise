@@ -1,9 +1,14 @@
+from html import parser
+
 from . import xparameter as parameter
 import numpy as np
 from enterprise.signals import utils
 from enterprise.signals import gp_signals
 from enterprise.signals.parameter import function
 import enterprise.constants as const
+from enterprise.signals.selections import Selection
+from enterprise.signals import selections
+
 
 from enterprise.signals import deterministic_signals
 
@@ -48,7 +53,9 @@ def setup_argparse(parser):
 
     parser.add_argument('--red-nlog-below-tspan', type=int, default=0, help='Number of log-spaced red noise components below tspan')
     parser.add_argument('--red-nlog-factor', type=float, default=2.0, help='Factor for log-spaced red noise components below tspan')
-
+    parser.add_argument('--red-basis-subtract-quad', action='store_true', help='Subtract a quadratic from the red noise basis (equv to --red-basis-subtract-poly-order 2)')
+    parser.add_argument('--red-basis-subtract-cubic', action='store_true', help='Subtract a cubic from the red noise basis (equv to --red-basis-subtract-poly-order 3)')
+    parser.add_argument('--red-basis-subtract-poly-order', '--red-subpoly', type=int, default=None, help='Subtract an order N polynomial from red noise basis')
     parser.add_argument('--min-red-sin-scale', type=float, default=None, help='Limit red noise to reach a minimum to avoid numerical issues')
 
     parser.add_argument('--red-fit-cutoff', action='store_true', default=False,
@@ -56,6 +63,11 @@ def setup_argparse(parser):
 def setup_model(args, psr, parfile):
     global Tspan
     if args.red:
+        if args.red_basis_subtract_cubic:
+            args.red_basis_subtract_poly_order = 3
+        elif args.red_basis_subtract_quad:
+            args.red_basis_subtract_poly_order = 2
+
         # We scale Tspan if we are using tspan-mult
         nC = args.red_ncoeff
         Tspan = psr.toas.max() - psr.toas.min()
@@ -163,6 +175,11 @@ def setup_model(args, psr, parfile):
             nC = len(modes)
 
 
+        if args.red_basis_subtract_poly_order is not None:
+             parfile.append("TNSubtractPoly 2\n")
+             parfile.append(f"TNRedSubPolyOrd {args.red_basis_subtract_poly_order}\n")
+             print(f"Subtracting order {args.red_basis_subtract_poly_order} polynomial from red noise basis")
+
         if args.red_nlog_below_tspan > 0:
             freq0 = 1.0 / Tspan
             low_modes = sorted(freq0 * args.red_nlog_factor**-np.arange(1, args.red_nlog_below_tspan + 1)) # log spaced below Tspan
@@ -170,11 +187,11 @@ def setup_model(args, psr, parfile):
             modes = np.concatenate((low_modes,hi_modes))
             print(f"Modes: {len(low_modes)} {len(hi_modes)}")
             print(modes)
-            rn = gp_signals.FourierBasisGP(spectrum=pl, components=None, Tspan=Tspan, modes=modes)
+            rn = FourierBasisGP_SubPoly(spectrum=pl, components=None, Tspan=Tspan, modes=modes, poly_order=args.red_basis_subtract_poly_order)
             parfile.append(f"TNRedFLog {args.red_nlog_below_tspan}\n")
             parfile.append(f"TNRedFLog_factor {args.red_nlog_factor}\n")
         else:
-            rn = gp_signals.FourierBasisGP(spectrum=pl, components=nC, Tspan=Tspan, modes=modes)
+            rn = FourierBasisGP_SubPoly(spectrum=pl, components=nC, Tspan=Tspan, modes=modes, poly_order=args.red_basis_subtract_poly_order)
 
         if not fmodes is None:
             for i, f in enumerate(fmodes):
@@ -188,6 +205,56 @@ def setup_model(args, psr, parfile):
     else:
         return None
 
+
+
+@function 
+def createfourierdesignmatrix_subpoly(toas, nmodes=30, Tspan=None, fref=1.0, modes=None, poly_order=3):
+        
+    T = Tspan if Tspan is not None else toas.max() - toas.min()
+
+    if modes is None:
+        modes = np.arange(1, nmodes + 1) / T
+    else:
+        nmodes = len(modes)
+    f = modes
+
+    N = len(toas)
+    F = np.zeros((N, 2 * nmodes))
+
+    # The sine/cosine modes
+    F[:, ::2] = np.sin(2 * np.pi * toas[:, None] * f[None, :])
+    F[:, 1::2] = np.cos(2 * np.pi * toas[:, None] * f[None, :])
+    # fit and subtract the cubic term from each mode
+    for imode in range(2*nmodes):
+        coef = np.polyfit(toas, F[:, imode], poly_order)
+        F[:, imode] -= np.polyval(coef, toas)
+
+    Ffreqs = np.repeat(f, 2)
+
+    return F, Ffreqs
+
+
+def FourierBasisGP_SubPoly(spectrum, components=20,
+                      selection=Selection(selections.no_selection),
+                      Tspan=None, name="red_noise", modes=None, poly_order=3):
+    """Convenience function to return a BasisGP class with a
+    fourier basis."""
+
+    if poly_order == None:
+        return gp_signals.FourierBasisGP(spectrum, components=components, selection=selection, Tspan=Tspan, name=name, modes=modes)
+    else:
+        basis = createfourierdesignmatrix_subpoly(nmodes=components, Tspan=Tspan, modes=modes, poly_order=poly_order)
+        # subtract a polynomial from each row of the deign matrix to remove the cubic term
+        # this is equivalent to fitting for a polynomial and then subtracting it off the red noise
+
+        BaseClass = gp_signals.BasisGP(spectrum, basis, selection=selection, name=name)
+
+        class FourierBasisGP_SubPoly(BaseClass):
+            signal_type = 'basis'
+            signal_name = 'red noise'
+            signal_id = name
+
+        return FourierBasisGP_SubPoly
 
 def to_par(self, p, chain):
     if "red_noise_log10_A1" in p:
