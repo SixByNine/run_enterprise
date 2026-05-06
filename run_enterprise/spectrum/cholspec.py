@@ -153,7 +153,7 @@ def build_covariance_interpolator(times, logA, gamma, fc_yr, log_qp_ratio=None, 
     delta_regtimes = 1
     while npts_regtimes * delta_regtimes < (ndays_time + 1) * 2 or npts_regtimes * delta_regtimes < (2. / fc_days):
         npts_regtimes *= 2
-
+    npts_regtimes *= 2
     nu = np.fft.rfftfreq(npts_regtimes, delta_regtimes)
     if log_qp_ratio is None:
         psd_nu = PSD(nu, fc_yr, logA, gamma)
