@@ -1,7 +1,7 @@
 import numpy as np
 import dynesty
 import scipy.optimize as opt
-import model_components.xparameter as parameter
+import run_enterprise.model_components.xparameter as parameter
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 import dynesty.plotting as plotting

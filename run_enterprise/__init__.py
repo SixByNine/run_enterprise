@@ -8,7 +8,3 @@ try:
 except ImportError:
     pass
 
-try:
-    from . import spectrum
-except ImportError:
-    pass
