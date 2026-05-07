@@ -7,7 +7,7 @@ import run_enterprise.samplers as samplers
 import run_enterprise.output_plots as output_plots
 import run_enterprise.time_domain_realisations as td_realisations
 
-from run_enterprise import run
+from run_enterprise.run_enterprise import run_enterprise as run
 
 if __name__ == "__main__":
     parser=argparse.ArgumentParser(description="Run 'enterprise' on a single pulsar")

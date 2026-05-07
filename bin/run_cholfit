@@ -6,7 +6,7 @@ import run_enterprise.model_components as model_components
 import run_enterprise.samplers as samplers
 import run_enterprise.output_plots as output_plots
 
-from run_enterprise import run_cholfit
+from run_enterprise.run_cholfit import run_cholfit as run_cholfit
 
 if __name__ == "__main__":
     parser=argparse.ArgumentParser(description="Run 'cholfit' on a single pulsar")
