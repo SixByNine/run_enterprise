@@ -12,6 +12,76 @@ from scipy import linalg
 import sys
 import subprocess
 
+
+def subtract_legendre_series_fit_on_ref(
+    basis_ref,
+    x_ref,
+    basis_target,
+    x_target,
+    order,
+    domain=None,
+    d_target=None,
+    dd_target=None,
+    d_scale=1.0,
+    dd_scale=1.0,
+):
+    if order is None:
+        return
+
+    if order < 0:
+        return
+
+    if domain is None:
+        x_min = np.min(x_ref)
+        x_max = np.max(x_ref)
+    else:
+        x_min, x_max = domain
+
+    if x_max == x_min:
+        return
+
+    x_ref_scaled = 2.0 * (x_ref - x_min) / (x_max - x_min) - 1.0
+    x_target_scaled = 2.0 * (x_target - x_min) / (x_max - x_min) - 1.0
+
+    # Build Legendre basis rows P_0..P_order on the reference and target abscissae.
+    v_ref = np.zeros((order + 1, len(x_ref)))
+    v_target = np.zeros((order + 1, len(x_target)))
+    dv_target = None
+    ddv_target = None
+
+    need_d = d_target is not None
+    need_dd = dd_target is not None
+    dxi_dt = 2.0 / (x_max - x_min)
+    if need_d:
+        dv_target = np.zeros_like(v_target)
+    if need_dd:
+        ddv_target = np.zeros_like(v_target)
+
+    for n in range(order + 1):
+        poly = np.polynomial.legendre.Legendre.basis(n)
+        v_ref[n] = poly(x_ref_scaled)
+        v_target[n] = poly(x_target_scaled)
+
+        if need_d:
+            dv_target[n] = poly.deriv(1)(x_target_scaled) * dxi_dt
+        if need_dd:
+            ddv_target[n] = poly.deriv(2)(x_target_scaled) * (dxi_dt * dxi_dt)
+
+    # Least-squares fit of polynomial coefficients on basis_ref for every row.
+    # Solve V_ref^T * C^T ~= basis_ref^T.
+    coeff_t, _, _, _ = np.linalg.lstsq(v_ref.T, basis_ref.T, rcond=None)
+    coeff = coeff_t.T
+
+    # Subtract the same fitted polynomial series from both reference and target bases.
+    basis_ref -= coeff.dot(v_ref)
+    basis_target -= coeff.dot(v_target)
+
+    # dM and ddM represent scaled first/second derivatives of the basis rows.
+    if need_d:
+        d_target += d_scale * coeff.dot(dv_target)
+    if need_dd:
+        dd_target += dd_scale * coeff.dot(ddv_target)
+
 def polymodel(x,f0,meta):
     res=np.zeros_like(x)
     print(meta)
@@ -125,6 +195,7 @@ TNRedLog_factor=2.0
 TNRedC=0
 TNRedGam2= None
 TNRedAmp2=None
+TNRedSubPolyOrd=None
 
 F2=0
 
@@ -148,6 +219,8 @@ with open(par) as f:
                 TNRedC = int(e[1])
             if e[0] == "TNRedFLog_factor":
                 TNRedLog_factor = float(e[1])
+            if e[0] == "TNRedSubPolyOrd":
+                TNRedSubPolyOrd = int(e[1])
         else:
             inpar.append(line)
         line = line.strip()
@@ -328,10 +401,6 @@ cvm_mod_unf = cvm_mod_orig - np.dot(A,A.T)
 cvm_mod=np.diag(np.diag(cvm_mod_unf))
 #cvm_mod = cvm_mod_unf
 
-Lcvm = linalg.cholesky(cvm_mod)
-
-
-
 
 
 s2d2 = 1.0/(86400.0*86400.0)
@@ -378,22 +447,40 @@ else:
 
 
 
+
+
 for i, omegai in enumerate(modes):
-    #print(i,i+nwav,nwav,omegai)
-    #omegai = omega*(i+1.0)
+    freqs.append(365.25*omegai/2.0/np.pi)
     M[i]        = np.sin(omegai * (t-epoch))
     M[i+nwav]   = np.cos(omegai * (t-epoch))
 
-    freqs.append(365.25*omegai/2.0/np.pi)
+    M2[i]       = np.sin(omegai * (dat_t-epoch))
+    M2[i+nwav]  = np.cos(omegai * (dat_t-epoch))
+
     
     dM[i]      = -F0*omegai*s2d*M[i+nwav]
     dM[i+nwav] = F0*omegai*s2d*M[i]
     
     ddM[i]      = F0*omegai*omegai*s2d2*M[i]
     ddM[i+nwav] = F0*omegai*omegai*s2d2*M[i+nwav]
+
                          
-    M2[i]       = np.sin(omegai * (dat_t-epoch))
-    M2[i+nwav]  = np.cos(omegai * (dat_t-epoch))
+if TNRedSubPolyOrd is not None:
+    print(f"Subtracting Legendre series up to order {TNRedSubPolyOrd} from red-noise basis")
+    # Fit on the data sampling (M2/dat_t) and apply the same subtraction to M.
+    leg_domain = (np.min(dat_t), np.max(dat_t))
+    subtract_legendre_series_fit_on_ref(
+        M2,
+        dat_t,
+        M,
+        t,
+        TNRedSubPolyOrd,
+        domain=leg_domain,
+        d_target=dM,
+        dd_target=ddM,
+        d_scale=F0 * s2d,
+        dd_scale=F0 * s2d2,
+    )
 
 
 

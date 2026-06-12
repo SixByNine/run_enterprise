@@ -181,7 +181,7 @@ def setup_model(args, psr, parfile):
     if not args.wrap is None:
         for w_epoch in args.wrap:
             w = parameter.Uniform(-args.wrap_range-0.49, args.wrap_range+0.49,to_par=to_par)("WRAP_{:.2f}".format(w_epoch))
-            cmp = deterministic_signals.Deterministic(fit_wrap(epoch=parameter.Constant(w_epoch),f0=parameter.Constant(f0),turns=w))
+            cmp = deterministic_signals.Deterministic(fit_wrap(epoch=parameter.Constant(w_epoch),f0=parameter.Constant(f0),turns=w),name='wrap_{:.2f}'.format(w_epoch))
             components.append(cmp)
 
     if not(args.tm_fit_file is None):

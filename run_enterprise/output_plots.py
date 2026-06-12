@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
+import json
 import dynesty # @todo: remove this dependency on dynesty
 from dynesty import plotting # @todo: remove this dependancy on dynesty
 from astropy import coordinates as coord
@@ -352,6 +353,12 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
 
     outpar = par + ".post"
     resfname = par + ".results"
+    json_fname = par + ".results.json"
+    results_json = {
+        "source_results_file": resfname,
+        "columns": ["param", "max_like", "mean", "std", "2.5%", "15.9%", "50%", "84.1%", "97.5%"],
+        "rows": []
+    }
     with open(outpar, "w") as outf:
         with open(resfname, "w") as resf:
             insfracmin=insfracmax=insfracsig=taufracmin=taufracmax=taufracsig=None
@@ -370,6 +377,17 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
                 s = "{:20s} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g}  {:< 10g}".format(p, v, mean, sig, l, l68, median, u68, u)
                 resf.write(s + "\n")
                 print(s)
+                results_json["rows"].append({
+                    "param": str(p),
+                    "max_like": float(v),
+                    "mean": float(mean),
+                    "std": float(sig),
+                    "2.5%": float(l),
+                    "15.9%": float(l68),
+                    "50%": float(median),
+                    "84.1%": float(u68),
+                    "97.5%": float(u)
+                })
                 if p.startswith("GL"):
                     gi = int(p.split('_')[-1]) - 1
                 if p.startswith("GLF0(ins"):
@@ -437,6 +455,17 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
                     s = "{:20s} {:< 10g} {:< 10g} {:< 10g} {:< 10g} {:< 10g}  {:< 10g} {:< 10g} {:< 10g}".format(p, v, mean, sig, l, l68, median, u68, u)
                     resf.write(s + "\n")
                     print(s)
+                    results_json["rows"].append({
+                        "param": str(p),
+                        "max_like": float(v),
+                        "mean": float(mean),
+                        "std": float(sig),
+                        "2.5%": float(l),
+                        "15.9%": float(l68),
+                        "50%": float(median),
+                        "84.1%": float(u68),
+                        "97.5%": float(u)
+                    })
                 for p,v in zip(derived_names,dpmax):
                     outf.write("%s %s\n" % (p, v))
 
@@ -446,6 +475,9 @@ def write_results(args, psr, par, parfile, samples, loglike, weights, pars, deri
             if all(p is not None for p in [taufracmin, taufracmax, taufracsig]):
                 print("Posterior mean as a fraction of prior width for GLF0(T=taug):", taufracmin, taufracmax)
                 print("Posterior sigma as a fraction of prior width for GLF0(T=taug):", taufracsig)
+
+    with open(json_fname, "w") as jsonf:
+        json.dump(results_json, jsonf, indent=2)
 
     return pars, pmax, ul, ll, means, medians, stds, ul68, ll68
 
