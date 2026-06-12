@@ -41,12 +41,13 @@ def run_solve(args,psrmodel,outdir):
         psrmodel.pack_for_thread()
         with Pool(args.nthread, initializer=init, initargs=[psrmodel]) as tpool:
             print("Run Dynesty")
+            maxiter = int(args.dynesty_maxiter) if args.dynesty_maxiter is not None else None
             if args.dynesty_dynamic:
                 sampler = dynesty.DynamicNestedSampler(get_lnlikelihood, prior_transform, ndim=len(pta.params), pool=tpool,
                                                        queue_size=args.nthread, sample=args.dynesty_sampler, bound=args.dynesty_bound,
                                                        first_update={'min_ncall': 1000, 'min_eff': args.dynesty_bound_eff},
                                                        bootstrap=args.dynesty_bootstrap)
-                sampler.run_nested(nlive_init=args.nlive,nlive_batch=args.nlive//2,dlogz_init=0.1,maxiter=int(args.dynesty_maxiter), maxbatch=args.dynesty_maxbatch, maxiter_batch=args.dynesty_maxiter_per_batch)
+                sampler.run_nested(nlive_init=args.nlive,nlive_batch=args.nlive//2,dlogz_init=0.1,maxiter=maxiter, maxbatch=args.dynesty_maxbatch, maxiter_batch=args.dynesty_maxiter_per_batch)
                 if args.nsample is not None:
                     while (sampler.results.samples.shape[0] < args.nsample):
                         print(f"Not enough samples... continue ({sampler.results.samples.shape[0]}/{args.nsample})")
@@ -56,7 +57,7 @@ def run_solve(args,psrmodel,outdir):
                 sampler = dynesty.NestedSampler(get_lnlikelihood, prior_transform, ndim=len(pta.params), nlive=nlive,
                                                 pool=tpool, queue_size=args.nthread, sample=args.dynesty_sampler, bound=args.dynesty_bound,
                                                 first_update={'min_ncall': 1000, 'min_eff': args.dynesty_bound_eff},bootstrap=args.dynesty_bootstrap)
-                sampler.run_nested(maxiter=int(args.dynesty_maxiter))
+                sampler.run_nested(maxiter=maxiter)
 
             print(sampler.results.summary())
             with open(filename, "wb") as f:
