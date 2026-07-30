@@ -79,8 +79,8 @@ def get_posteriors(args,info):
     reader = emcee.backends.HDFBackend(filename)
 
     tau = reader.get_autocorr_time(tol=0)
-    burnin = int(2 * np.max(tau))
-    thin = int(0.5 * np.min(tau))
+    burnin = int(2 * np.max(tau)) if not np.isnan(np.max(tau)) else 0
+    thin = int(0.5 * np.min(tau)) if not np.isnan(np.min(tau)) else 0
     print("tau = {} burn = {} thin = {}".format(tau, burnin, thin))
     samples = reader.get_chain(discard=burnin, flat=True, thin=thin)
     samples *= scls

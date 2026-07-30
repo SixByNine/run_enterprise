@@ -41,6 +41,15 @@ def setup_argparse(parser):
     parser.add_argument('--chrom-bump-amp-min',default=[], nargs='+', type=float, help='Amp-min for chromatic bumps')
     parser.add_argument('--chrom-bump-amp-max',default=[], nargs='+', type=float, help='Amp-max for chromatic bumps')
 
+    parser.add_argument('--chrom-exp-epoch', default=[], nargs='+', type=float, help='Epoch for chromatic exponential events')
+    parser.add_argument('--chrom-exp-epoch-range', default=[], nargs='+', type=float, help='Epoch range for chromatic exponential events')
+    parser.add_argument('--chrom-exp-amp-min', default=[], nargs='+', type=float, help='Amp-min for chromatic exponential events')
+    parser.add_argument('--chrom-exp-amp-max', default=[], nargs='+', type=float, help='Amp-max for chromatic exponential events')
+    parser.add_argument('--chrom-exp-tau-min', default=[], nargs='+', type=float, help='Tau-min for chromatic exponential events')
+    parser.add_argument('--chrom-exp-tau-max', default=[], nargs='+', type=float, help='Tau-max for chromatic exponential events')
+    parser.add_argument('--chrom-exp-index-min', default=[], nargs='+', type=float, help='Index-min for chromatic exponential events')
+    parser.add_argument('--chrom-exp-index-max', default=[], nargs='+', type=float, help='Index-max for chromatic exponential event')
+    
 
 
 
@@ -152,6 +161,57 @@ def setup_model(args, psr, parfile):
         wf = chrom_gaussian_bump(log10_Amp=amp_bump, t0=t0_bump,sigma=sig_bump,idx=idx_bump,sign_param=sign_param)
         components.append(deterministic_signals.Deterministic(wf, name=f"chrom_bump_{ibump+1}"))
 
+    if args.chrom_exp_epoch:
+        for iexp,epoch in enumerate(args.chrom_exp_epoch):
+            # if we go past the end of array, just use the last value for the rest of the events
+            while len(args.chrom_exp_amp_min) <= iexp:
+                args.chrom_exp_amp_min.append(args.chrom_exp_amp_min[-1])
+            while len(args.chrom_exp_amp_max) <= iexp:
+                args.chrom_exp_amp_max.append(args.chrom_exp_amp_max[-1])
+            while len(args.chrom_exp_tau_min) <= iexp:
+                args.chrom_exp_tau_min.append(args.chrom_exp_tau_min[-1])
+            while len(args.chrom_exp_tau_max) <= iexp:
+                args.chrom_exp_tau_max.append(args.chrom_exp_tau_max[-1]) 
+            while len(args.chrom_exp_index_min) <= iexp:
+                args.chrom_exp_index_min.append(args.chrom_exp_index_min[-1])
+            while len(args.chrom_exp_index_max) <= iexp:
+                args.chrom_exp_index_max.append(args.chrom_exp_index_max[-1])
+            if args.chrom_exp_tau_min[iexp] <= 0:
+                raise ValueError(f"chrom_exp_tau_min must be > 0 for event {iexp+1}")
+            if args.chrom_exp_tau_max[iexp] <= 0:
+                raise ValueError(f"chrom_exp_tau_max must be > 0 for event {iexp+1}")
+            if args.chrom_exp_amp_min[iexp] >= args.chrom_exp_amp_max[iexp]:
+                raise ValueError(f"chrom_exp_amp_min must be < chrom_exp_amp_max for event {iexp+1}")
+            if args.chrom_exp_index_min[iexp] >= args.chrom_exp_index_max[iexp]:
+                raise ValueError(f"chrom_exp_index_min must be < chrom_exp_index_max for event {iexp+1}")
+            if args.chrom_exp_tau_min[iexp] >= args.chrom_exp_tau_max[iexp]:
+                raise ValueError(f"chrom_exp_tau_min must be < chrom_exp_tau_max for event {iexp+1}")
+            if args.chrom_exp_amp_min[iexp] >= args.chrom_exp_amp_max[iexp]:
+                raise ValueError(f"chrom_exp_amp_min must be < chrom_exp_amp_max for event {iexp+1}")
+            if args.chrom_exp_index_min[iexp] >= args.chrom_exp_index_max[iexp]:
+                raise ValueError(f"chrom_exp_index_min must be < chrom_exp_index_max for event {iexp+1}")
+            if args.chrom_exp_tau_min[iexp] <= 0:
+                raise ValueError(f"chrom_exp_tau_min must be > 0 for event {iexp+1}")
+            if args.chrom_exp_tau_max[iexp] <= 0:
+                raise ValueError(f"chrom_exp_tau_max must be > 0 for event {iexp+1}")
+            if args.chrom_exp_amp_min[iexp] >= args.chrom_exp_amp_max[iexp]:
+                raise ValueError(f"chrom_exp_amp_min must be < chrom_exp_amp_max for event {iexp+1}")
+            if args.chrom_exp_index_min[iexp] >= args.chrom_exp_index_max[iexp]:
+                raise ValueError(f"chrom_exp_index_min must be < chrom_exp_index_max for event {iexp+1}")
+            if args.chrom_exp_tau_min[iexp] <= 0:
+                raise ValueError(f"chrom_exp_tau_min must be > 0 for event {iexp+1}")
+            if args.chrom_exp_epoch_range:
+                epoch = parameter.Uniform(epoch-args.chrom_exp_epoch_range[iexp],epoch+args.chrom_exp_epoch_range[iexp],to_par=to_par)(f"EXPEP_{iexp+1}")
+            else:
+                epoch = parameter.Constant(epoch)
+            amp_exp = parameter.Uniform(args.chrom_exp_amp_min[iexp],
+                                        args.chrom_exp_amp_max[iexp],to_par=to_par)(f"EXPPH_{iexp+1}")
+            tau_exp = parameter.Uniform(args.chrom_exp_tau_min[iexp],
+                                         args.chrom_exp_tau_max[iexp],to_par=to_par)(f"EXPTAU_{iexp+1}")
+            idx_exp = parameter.Uniform(args.chrom_exp_index_min[iexp],
+                                         args.chrom_exp_index_max[iexp],to_par=to_par)(f"EXPIDX_{iexp+1}")
+            wf = chrom_exponential(epoch=epoch, tau=tau_exp, amp=amp_exp, index=idx_exp)
+            components.append(deterministic_signals.Deterministic(wf, name=f"chrom_exponential_{iexp+1}"))
 
     if len(components) > 0:
         model = components[0]
@@ -207,6 +267,15 @@ def createfourierdesignmatrix_chromatic(toas, freqs, nmodes=30, Tspan=None, logf
     Dm = (1400 / freqs) ** idx
 
     return F * Dm[:, None], Ffreqs
+
+
+@signal_base.function
+def chrom_exponential(toas, freqs, epoch, index, tau, amp):
+    t = toas - epoch * 86400.0
+    m = t >= 0
+    res = np.zeros_like(toas)
+    res[m] = amp * np.exp(-t[m] / (tau*86400.0)) * (1400 / freqs[m]) ** -index
+    return res
 
 
 
@@ -267,6 +336,10 @@ def to_par(self,p,chain):
         return "CM", chain
     elif p=="CM1":
         return "CM1", chain
+    if "EXPIDX" in p:
+        return p, -chain
+    elif "EXP" in p:
+        return p, chain
     else:
         return None
 

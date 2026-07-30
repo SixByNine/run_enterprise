@@ -24,7 +24,7 @@ def setup_argparse(parser):
     :return:
     """
 
-    parser.add_argument('-sw', '--solar-wind', action='store_true', help='Turn on solar wind')
+    parser.add_argument('-sw', '--solar-wind', action='store_true', help='Turn on basic time variable solar wind')
     parser.add_argument('--sw-sigma-max', type=float, default=10, help='Max solar wind')
     parser.add_argument('--sw-sigma-min', type=float, default=1e-3, help='Min solar wind')
     parser.add_argument('--sw-log-ncomp', type=int,default=0, help='Number of log-spaced ifunc terms per half year')

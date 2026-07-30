@@ -148,6 +148,7 @@ parser.add_argument('--noplots',dest="plots",action='store_false')
 parser.add_argument('--noerr',action='store_true')
 parser.add_argument('--perturb',action='store_true')
 parser.add_argument('--only-low-modes',action='store_true')
+parser.add_argument('--deproject-cvm',action='store_true')
 parser.add_argument('-s','--start',type=float,default=None)
 parser.add_argument('-f','--finish',type=float,default=None)
 parser.add_argument('-N',type=int,default=1000)
@@ -390,16 +391,17 @@ W=np.power(dat_e,2)  # np.zeros_like(dat_e)+np.power(0.5e-3,2)#
 
 frqidx=lab[1]=='param_f'
 
-CCof = cvm[np.logical_or(sinidx,cosidx),:][:,frqidx]
-CCf  = cvm[frqidx,:][:,frqidx]
-LLf = linalg.cholesky(CCf)
-LLfinv = linalg.inv(LLf)
+if args.deproject_cvm:
+    CCof = cvm[np.logical_or(sinidx,cosidx),:][:,frqidx]
+    CCf  = cvm[frqidx,:][:,frqidx]
+    LLf = linalg.cholesky(CCf)
+    LLfinv = linalg.inv(LLf)
 
-A=CCof.dot(LLfinv)
-cvm_mod_unf = cvm_mod_orig - np.dot(A,A.T)
+    A=CCof.dot(LLfinv)
+    cvm_mod_unf = cvm_mod_orig - np.dot(A,A.T)
 
-cvm_mod=np.diag(np.diag(cvm_mod_unf))
-#cvm_mod = cvm_mod_unf
+    cvm_mod=np.diag(np.diag(cvm_mod_unf))
+    #cvm_mod = cvm_mod_unf
 
 
 

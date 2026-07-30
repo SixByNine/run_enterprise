@@ -206,7 +206,7 @@ def create_td_realisations(args,psr_model, raw_results):
     print(f"Making {args.time_realisations} time-domain realisations...")
 
     pta_signals = set([s.signal_id for s in pta._signalcollections[0]._signals])
-    signal = sorted(list(set(('red_noise','dm_noise','chrom_noise','solar_wind','f2')).intersection(pta_signals)))
+    signal = sorted(list(set(('red_noise','dm_noise','chrom_noise','solar_wind','f2','gp_sw')).intersection(pta_signals)))
     print("Making realisations for signals: ", signal, "out of ", pta_signals)
     types=[]
     for s in signal:
@@ -217,6 +217,8 @@ def create_td_realisations(args,psr_model, raw_results):
         elif s in ['chrom_noise']:
             types.append('cm')
         elif s in ['solar_wind']:
+            types.append('dm')
+        elif s in ['gp_sw']:
             types.append('dm')
         elif s in ['f2']:
             types.append('achrom')
@@ -244,7 +246,7 @@ def create_td_realisations(args,psr_model, raw_results):
                 poly=max(poly,1)
         if s=="f2":
             poly=2
-        if s=='solar_wind:':
+        if s=='solar_wind' or s=='gp_sw':
             poly=-1
         if s=='dm_noise':
             poly=-1

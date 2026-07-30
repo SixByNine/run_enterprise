@@ -256,10 +256,10 @@ def fit_f2(toas, pepoch, f0, valf2):
 
 
 @signal_base.function
-def fit_pm_angle(toas, pos, earthssb, posepoch, amp, angle, orig_pmra=0, orig_pmdec=0,position_meta=None):
+def fit_pm_angle(toas, pos, posepoch,  amp, angle, orig_pmra=0, orig_pmdec=0,position_meta=None):
     pmra = amp * np.cos(angle)
     pmdec = amp * np.sin(angle)
-    return fit_pm(toas, pos, earthssb, posepoch, pmra, pmdec, orig_pmra, orig_pmdec,position_meta=position_meta)
+    return fit_pm_core(toas, posepoch, pmra, pmdec, orig_pmra, orig_pmdec,position_meta=position_meta)
 
 @signal_base.function
 def fit_wrap(toas, epoch, f0, turns):
@@ -320,6 +320,9 @@ def precompute_position_gradients(psr):
 
 @signal_base.function
 def fit_pm(toas, posepoch, pmra, pmdec, orig_pmra=0, orig_pmdec=0, position_meta=None):
+    return fit_pm_core(toas, posepoch, pmra, pmdec, orig_pmra=orig_pmra, orig_pmdec=orig_pmdec, position_meta=position_meta)
+
+def fit_pm_core(toas, posepoch, pmra, pmdec, orig_pmra=0, orig_pmdec=0, position_meta=None):
     # This is just the linearised proper motion function from tempo2...
     rad_per_day2mas_per_year, psrra, psrdec, d_ra, d_dec, d_px = position_meta
 
