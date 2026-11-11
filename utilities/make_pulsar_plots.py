@@ -261,6 +261,11 @@ with open(par) as f:
         if e[0].startswith("NUDOT_AMP_"):
             i=int(e[0][10:])
             nudot_tran_amp[i-1] = float(e[1])
+        elif e[0] == "NUDOT_AMP":
+            sign=1
+            for i in range(max_nudot_tran):
+                nudot_tran_amp[i] = sign*float(e[1])
+                sign *= -1
         if e[0].startswith("NUDOT_TIME_"):
             i=int(e[0][11:])
             nudot_tran_time[i-1] = float(e[1])

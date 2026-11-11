@@ -46,6 +46,8 @@ def setup_model(args, psr, parfile):
                                         args.swgp_gamma_dm_sw_max,
                                         to_par=to_par)('gamma_dm_sw')
         Tspan = psr.toas.max() - psr.toas.min()
+        parfile.append("SWGPC {}\n".format(args.swgp_nmodes))
+
         dm_sw_basis = SW.createfourierdesignmatrix_solar_dm(nmodes=args.swgp_nmodes,Tspan=Tspan)
         dm_sw_prior = utils.powerlaw(log10_A=log10_A_dm_sw, gamma=gamma_dm_sw)
         gp_sw = gp_signals.BasisGP(priorFunction=dm_sw_prior, basisFunction=dm_sw_basis, name='gp_sw')
@@ -65,8 +67,8 @@ def to_par(self, p, chain):
    if "n_earth" in p:
        return "NE_SW", chain
    if "log10_A_dm_sw" in p:
-       return "log10_A_dm_sw", chain
+       return "SWGPAmp", chain
    if "gamma_dm_sw" in p:
-       return "gamma_dm_sw", chain
+       return "SWGPGam", chain
    else:
        return None
