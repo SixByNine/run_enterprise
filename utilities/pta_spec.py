@@ -55,6 +55,25 @@ def margin_designmatrix(toas, freqssb, exponents, reffreq=1400.0):
     return M
 
 
+def component_correlations(pcov, component_a, component_b):
+    """Return two canonical correlations, largest first."""
+    ia = slice(2 * component_a, 2 * component_a + 2)
+    ib = slice(2 * component_b, 2 * component_b + 2)
+    
+    Vaa = pcov[ia, ia]
+    Vbb = pcov[ib, ib]
+    Vab = pcov[ia, ib]
+    
+    La = linalg.cholesky(Vaa, lower=True)
+    Lb = linalg.cholesky(Vbb, lower=True)
+    
+    # R = inv(La) @ Vab @ inv(Lb.T)
+    tmp = linalg.solve_triangular(La, Vab, lower=True)
+    R = linalg.solve_triangular(Lb, tmp.T, lower=True).T
+    
+    rho = linalg.svdvals(R)
+    return np.clip(rho, 0.0, 1.0)
+
 def ptaspec(par, tim, reffreq=1400.0, fmax=None, fmax_limit=None):
     """
     Compute the PSD for a pulsar at reffreq with a par/tim file and a model.
@@ -194,6 +213,10 @@ def ptaspec(par, tim, reffreq=1400.0, fmax=None, fmax_limit=None):
     total_psds=[]
     component_psds=[]
     coefficient_covariances=[]
+    rho_max=[]
+    rho_min=[]
+    sec_per_year = 365.25 * 86400.0
+
     for i, omega in enumerate(omegas):
         # Design matrix for this mode.
         M = design_matrix(toas, freqssb, [omega], exponents, reffreq=reffreq)
@@ -205,26 +228,44 @@ def ptaspec(par, tim, reffreq=1400.0, fmax=None, fmax_limit=None):
 
 
         coeff = p.reshape(len(exponents), 2)
-        component_psd = 0.5 * tspan * np.sum(coeff**2, axis=1)
+        component_psd = 0.5 * tspan * np.sum(coeff**2, axis=1)* 86400.0 / sec_per_year**3
         total_coeff = coeff.sum(axis=0)
-        total_psd = 0.5 * tspan * np.sum(total_coeff**2)
+        total_psd = 0.5 * tspan * np.sum(total_coeff**2)* 86400.0 / sec_per_year**3
         component_psds.append(component_psd)
         coefficient_covariances.append(pcov)
         total_psds.append(total_psd)
+        rho = component_correlations(pcov, 0, 1)
+        rho_max.append(rho[0])
+        rho_min.append(rho[1])
 
     component_psds = np.asarray(component_psds)
     total_psds = np.asarray(total_psds)
     coefficient_covariances = np.asarray(coefficient_covariances)
-    plt.loglog(freqs, total_psds)
-    
+    rho_max = np.asarray(rho_max)
+    rho_min = np.asarray(rho_min)
+
+
+    fig, ax = plt.subplots()
+    ax.set_xscale('log')
+    ax2=ax.twinx()
+    ax.set_yscale('log')
+    ax2.set_ylim(0, 1.0)
+    ax.plot(freqs, total_psds, label="Total PSD", color='k', lw=2)
+    ax2.plot(freqs, rho_max, color='k', alpha=0.5, label='Max Correlation',ls=':')
+
     for exp in exponents:
-        plt.loglog(freqs, component_psds[:,exponents.index(exp)], label="exp={}".format(exp))
-    plt.xlabel("Frequency (per day)")
-    plt.ylabel("PSD")
-    plt.title("PSD for {}".format(par))
+        ax.plot(freqs, component_psds[:,exponents.index(exp)], label=r"$\alpha={}$".format(exp),ls='--')
+        
+        
+    ax.set_xlabel("Frequency (per day)")
+    ax.set_ylabel("PSD")
+    ax2.set_ylabel("Correlation")
+    ax.set_title("PSD for {}".format(par))
+    ax.legend()
+    ax2.legend()
     plt.show()
 
-    return freqs, np.array(psds)
+    return freqs, total_psds, component_psds, coefficient_covariances, rho_max, rho_min
 
 
 if __name__ == "__main__":
@@ -238,4 +279,4 @@ if __name__ == "__main__":
     parser.add_argument("--fmax_limit", type=float, default=None,help="Limit on maximum frequency in per day")
     args = parser.parse_args()
 
-    freqs, psds = ptaspec(args.par, args.tim,  reffreq=args.reffreq, fmax=args.fmax, fmax_limit=args.fmax_limit)
+    ptaspec(args.par, args.tim,  reffreq=args.reffreq, fmax=args.fmax, fmax_limit=args.fmax_limit)
