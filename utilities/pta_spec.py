@@ -191,7 +191,9 @@ def ptaspec(par, tim, reffreq=1400.0, fmax=None, fmax_limit=None):
     print("Computing {} frequency channels from {:.3g} to {:.3g} per day".format(N_f, delta_f, f_Nyq))
     freqs = np.linspace(delta_f,f_Nyq, N_f, endpoint=False) # per day
     omegas = 2 * np.pi * freqs
-    psds=[]
+    total_psds=[]
+    component_psds=[]
+    coefficient_covariances=[]
     for i, omega in enumerate(omegas):
         # Design matrix for this mode.
         M = design_matrix(toas, freqssb, [omega], exponents, reffreq=reffreq)
@@ -199,14 +201,27 @@ def ptaspec(par, tim, reffreq=1400.0, fmax=None, fmax_limit=None):
         Z = project(Mw)
 
         # Least-squares fit for this mode.
-        p, _, _ = qrfit(Z, y)
-        # Compute the PSD for this mode.
-        psd = np.sum(p ** 2) / 2.0
-        psds.append(psd)
+        p, pcov, chisq = qrfit(Z, y)
 
 
+        coeff = p.reshape(len(exponents), 2)
+        component_psd = 0.5 * tspan * np.sum(coeff**2, axis=1)
+        total_coeff = coeff.sum(axis=0)
+        total_psd = 0.5 * tspan * np.sum(total_coeff**2)
+        component_psds.append(component_psd)
+        coefficient_covariances.append(pcov)
+        total_psds.append(total_psd)
 
-    plt.loglog(freqs, psds)
+    component_psds = np.asarray(component_psds)
+    total_psds = np.asarray(total_psds)
+    coefficient_covariances = np.asarray(coefficient_covariances)
+    plt.loglog(freqs, total_psds)
+    
+    for exp in exponents:
+        plt.loglog(freqs, component_psds[:,exponents.index(exp)], label="exp={}".format(exp))
+    plt.xlabel("Frequency (per day)")
+    plt.ylabel("PSD")
+    plt.title("PSD for {}".format(par))
     plt.show()
 
     return freqs, np.array(psds)
