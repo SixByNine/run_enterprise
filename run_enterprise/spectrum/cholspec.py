@@ -170,11 +170,34 @@ def build_covariance_interpolator(times, logA, gamma, fc_yr, log_qp_ratio=None, 
     )
 
 
-def evaluate_covariance_matrix(times_a, times_b=None, covariance_interpolator=None, **kwargs):
+def evaluate_covariance_matrix(times_a, times_b=None, covariance_interpolator=None, freqssb_a=None,
+    freqssb_b=None,
+    chromatic_index=0.0,
+    reference_frequency=1400.0, **kwargs):
+    """
+    Evaluate a temporal covariance, optionally with chromatic scaling.
+
+    times_a, times_b: times in days
+    freqssb_a, freqssb_b: positive observing frequencies, in the same
+        units as reference_frequency (e.g. MHz)
+    chromatic_index: 0 for achromatic, 2 for DM delays
+
+    The temporal covariance describes timing delays at reference_frequency.
+    """
+    times_a = np.asarray(times_a, dtype=float)
+    same_samples = times_b is None
+    times_b = (
+        times_a if same_samples
+        else np.asarray(times_b, dtype=float)
+    )
+
     if covariance_interpolator is None:
         if not kwargs:
             raise ValueError("Either covariance_interpolator or covariance parameters must be provided")
-        all_times = np.asarray(times_a if times_b is None else np.concatenate((np.asarray(times_a), np.asarray(times_b))))
+        all_times = (
+            times_a if same_samples
+            else np.concatenate((times_a, times_b))
+        )
         covariance_interpolator = build_covariance_interpolator(all_times, **kwargs)
 
     times_a = np.asarray(times_a, dtype=float)
@@ -183,10 +206,45 @@ def evaluate_covariance_matrix(times_a, times_b=None, covariance_interpolator=No
     else:
         times_b = np.asarray(times_b, dtype=float)
         time_deltas = np.abs(times_a[:, None] - times_b[None, :])
-    return covariance_interpolator(time_deltas)
 
 
-def getC(times,logA,gamma,fc_yr,log_qp_ratio=None, log_f0=None, sig=None, lam=None):
+    covariance = covariance_interpolator(time_deltas)
+    if chromatic_index == 0:
+        return covariance
+    else:
+        if not np.isfinite(reference_frequency) or reference_frequency <= 0:
+            raise ValueError("reference_frequency must be positive and finite")
+
+        def frequency_scaling(freqs, times, name):
+            if freqs is None:
+                raise ValueError(f"{name} is required for chromatic covariance")
+
+            freqs = np.asarray(freqs, dtype=float)
+            if freqs.shape != times.shape:
+                raise ValueError(f"{name} must have the same shape as its times")
+            if np.any(~np.isfinite(freqs)) or np.any(freqs <= 0):
+                raise ValueError(f"{name} must contain positive finite values")
+
+            return (reference_frequency / freqs) ** -chromatic_index
+
+        scale_a = frequency_scaling(freqssb_a, times_a, "freqssb_a")
+
+        if same_samples:
+            scale_b = scale_a
+        else:
+            scale_b = frequency_scaling(freqssb_b, times_b, "freqssb_b")
+
+        return covariance * scale_a[:, None] * scale_b[None, :]
+
+    
+
+def getC(times,logA,gamma,fc_yr,log_qp_ratio=None, log_f0=None, sig=None, lam=None,freqssb=None, chromatic_index=0.0, reference_frequency=1400.0):
+    """
+    Get the covariance matrix for a given set of ToAs.
+
+    If a chromatic process is used, freqssb must be provided and the log10A must be relative to the reference_freqnency.
+    Specifically, this should NOT be the TNDMAmp, but rather the equivilent amplitude at reffreq, similar to enterprise.
+    """
     covariance_interpolator = build_covariance_interpolator(
         times,
         logA,
@@ -195,6 +253,10 @@ def getC(times,logA,gamma,fc_yr,log_qp_ratio=None, log_f0=None, sig=None, lam=No
         log_qp_ratio=log_qp_ratio,
         log_f0=log_f0,
         sig=sig,
-        lam=lam,
+        lam=lam
     )
-    return evaluate_covariance_matrix(times, covariance_interpolator=covariance_interpolator)
+    return evaluate_covariance_matrix(times, 
+                                      covariance_interpolator=covariance_interpolator,
+                                      freqssb_a=freqssb,
+                                      chromatic_index=chromatic_index,
+                                      reference_frequency=reference_frequency)
