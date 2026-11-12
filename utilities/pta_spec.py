@@ -3,6 +3,7 @@ from run_enterprise.spectrum import cholspec
 from enterprise.pulsar import Pulsar
 from scipy import linalg
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 def qrfit(dm, b):
     """Least squares for data with known, whitened covariance."""
@@ -41,6 +42,9 @@ def design_matrix(toas, freqssb, omega, exponents, reffreq=1400.0):
         M[:, i*2] = np.sin(omega * toas) * (freqssb / reffreq) ** -exp
         M[:, i*2 + 1] = np.cos(omega * toas) * (freqssb / reffreq) ** -exp
     return M
+
+def margin_full_designmatrix(psr):
+    return psr.t2pulsar.designmatrix(updatebats=False)
 
 def margin_designmatrix(toas, freqssb, exponents, reffreq=1400.0):
     """
@@ -172,12 +176,11 @@ def ptaspec(par, tim, reffreq=1400.0, fmax=None, fmax_limit=None):
 
     print("Done making covariance matrix.")
     C = np.sum(Cs, axis=0)
-    white = np.diag(psr.toaerrs**2)
-    C += white
+    C_white = np.diag(effective_toaerrs(psr.t2pulsar)**2)
+    C += C_white
 
     freqssb=psr.freqs 
-    print(freqssb)
-    M = margin_designmatrix(toas, freqssb, exponents, reffreq=reffreq)
+    M = margin_full_designmatrix(psr)
     print("Design matrix shape:", M.shape)
     print("Whiten and project out nuisance parameters")
     # Now do linear algebra.
@@ -186,7 +189,9 @@ def ptaspec(par, tim, reffreq=1400.0, fmax=None, fmax_limit=None):
         return linalg.solve_triangular(L, a, lower=True)
     # Whiten the nuisance design matrix.
     Mw = whiten(M)
-
+    norms = np.linalg.norm(Mw, axis=0)
+    keep = norms > 0
+    Mw = Mw[:, keep] / norms[keep]
     # SVD handles redundant nuisance columns safely.
     U, s, _ = linalg.svd(Mw, full_matrices=False)
 
@@ -216,8 +221,13 @@ def ptaspec(par, tim, reffreq=1400.0, fmax=None, fmax_limit=None):
     rho_max=[]
     rho_min=[]
     sec_per_year = 365.25 * 86400.0
+    rng = np.random.default_rng(1234)
+    white_quantiles = []
+    conversion = 86400.0 / sec_per_year**3
+    white_psd=[]
+    expected_psd=[]
 
-    for i, omega in enumerate(omegas):
+    for i, omega in enumerate(tqdm(omegas, desc="Processing modes")):
         # Design matrix for this mode.
         M = design_matrix(toas, freqssb, [omega], exponents, reffreq=reffreq)
         Mw = whiten(M)
@@ -225,25 +235,42 @@ def ptaspec(par, tim, reffreq=1400.0, fmax=None, fmax_limit=None):
 
         # Least-squares fit for this mode.
         p, pcov, chisq = qrfit(Z, y)
+        white_components, white_total, B = white_psd_estimator(
+        Z, L, project, C_white, tspan)
 
-
+        white_components *= conversion
+        white_total *= conversion
         coeff = p.reshape(len(exponents), 2)
-        component_psd = 0.5 * tspan * np.sum(coeff**2, axis=1)* 86400.0 / sec_per_year**3
+        component_psd = 0.5 * tspan * np.sum(coeff**2, axis=1)* conversion
         total_coeff = coeff.sum(axis=0)
-        total_psd = 0.5 * tspan * np.sum(total_coeff**2)* 86400.0 / sec_per_year**3
+        total_psd = 0.5 * tspan * np.sum(total_coeff**2)* conversion
         component_psds.append(component_psd)
         coefficient_covariances.append(pcov)
         total_psds.append(total_psd)
         rho = component_correlations(pcov, 0, 1)
         rho_max.append(rho[0])
         rho_min.append(rho[1])
+        white_psd.append(white_total)
+        # white_quantiles.append(
+        # white_total_psd_quantiles(
+        #     B, tspan, conversion=conversion, rng=rng
+        # ))
+        # Lsum = np.tile(np.eye(2), (1, len(exponents)))
+        # expected_full_psd = (
+        #     0.5 * tspan
+        #     * np.trace(Lsum @ pcov @ Lsum.T)
+        #     * conversion
+        #     )
+        
+        # expected_psd.append(expected_full_psd)
+
 
     component_psds = np.asarray(component_psds)
     total_psds = np.asarray(total_psds)
     coefficient_covariances = np.asarray(coefficient_covariances)
     rho_max = np.asarray(rho_max)
     rho_min = np.asarray(rho_min)
-
+    expected_psd = np.asarray(expected_psd)
 
     fig, ax = plt.subplots()
     ax.set_xscale('log')
@@ -255,17 +282,254 @@ def ptaspec(par, tim, reffreq=1400.0, fmax=None, fmax_limit=None):
 
     for exp in exponents:
         ax.plot(freqs, component_psds[:,exponents.index(exp)], label=r"$\alpha={}$".format(exp),ls='--')
-        
-        
+    
+    ax.plot(freqs, white_psd, label="White PSD", color='gray', ls='-.')
+
+    # white_quantiles = np.asarray(white_quantiles)
+
+    # ax.fill_between(
+    #     freqs,
+    #     white_quantiles[:, 0],
+    #     white_quantiles[:, 2],
+    #     color="gray",
+    #     alpha=0.2,
+    #     label="White-only 5–95% interval",
+    # )
+
+    # ax.plot(
+    #     freqs,
+    #     white_quantiles[:, 1],
+    #     color="gray",
+    #     ls=":",
+    #     label="White-only median",
+    # )
+
+    # ax.plot(
+    #     freqs,
+    #     expected_psd,
+    #     color="red",
+    #     ls="-",
+    #     label="Expected PSD",
+    # )
+
+    
     ax.set_xlabel("Frequency (per day)")
     ax.set_ylabel("PSD")
     ax2.set_ylabel("Correlation")
     ax.set_title("PSD for {}".format(par))
     ax.legend()
-    ax2.legend()
+    #ax2.legend()
     plt.show()
 
     return freqs, total_psds, component_psds, coefficient_covariances, rho_max, rho_min
+
+
+
+
+
+
+import numpy as np
+from scipy import linalg
+
+
+def white_psd_estimator(Z, L, project, white_cov, span):
+    """
+    Expected white-noise contribution to a joint GLS periodogram.
+
+    Parameters
+    ----------
+    Z : (n_toa, 2*n_component) array
+        Projected, whitened Fourier design:
+            Z = project(whiten(X))
+
+        Columns must alternate sine/cosine for each component.
+
+    L : (n_toa, n_toa) array
+        Lower Cholesky factor of the FULL working covariance:
+            C = L @ L.T
+
+    project : callable
+        Nuisance projection in whitened coordinates.
+        Must accept a matrix with n_toa rows.
+
+    white_cov : array
+        Either:
+        - shape (n_toa,): white-noise VARIANCES, not standard deviations;
+        - shape (n_toa, n_toa): full white-noise covariance.
+
+        This must be the white-noise contribution only, not full C.
+
+    span : float
+        Observing span in the same time units used for Fourier frequencies.
+        For times in days, outputs have units residual_units**2 * days.
+
+    Returns
+    -------
+    component_psd : (n_component,) array
+        Expected white contribution to each component periodogram.
+
+    total_psd : float
+        Expected white contribution to the total reference-frequency
+        periodogram, including cross-component coefficient covariance.
+
+    B : (2*n_component, 2*n_component) array
+        White-noise contribution to the fitted coefficient covariance.
+    """
+    Z = np.asarray(Z, dtype=float)
+    white_cov = np.asarray(white_cov, dtype=float)
+
+    n_toa, n_param = Z.shape
+
+    if n_param == 0 or n_param % 2:
+        raise ValueError("Z must contain sine/cosine column pairs")
+    if not np.isfinite(span) or span <= 0:
+        raise ValueError("span must be positive and finite")
+    if n_toa < n_param:
+        raise ValueError("Too few observations for the Fourier fit")
+
+    Q, R = linalg.qr(Z, mode="economic")
+
+    if np.linalg.matrix_rank(R) < n_param:
+        raise ValueError("Projected Fourier design is rank deficient")
+
+    # The coefficient estimator is:
+    # A = inv(R) @ Q.T @ P @ inv(L)
+    #
+    # Construct its transpose-side factors using triangular solves,
+    # without forming inv(L) or the dense projection matrix P.
+    H = linalg.solve_triangular(
+        L.T, project(Q), lower=False
+    )
+    A = linalg.solve_triangular(R, H.T, lower=False)
+
+    if white_cov.ndim == 1:
+        if white_cov.shape != (n_toa,):
+            raise ValueError("White variances must have length n_toa")
+        if np.any(~np.isfinite(white_cov)) or np.any(white_cov < 0):
+            raise ValueError("White variances must be finite and nonnegative")
+
+        B = (A * white_cov[None, :]) @ A.T
+
+    elif white_cov.ndim == 2:
+        if white_cov.shape != (n_toa, n_toa):
+            raise ValueError("White covariance must have shape (n_toa, n_toa)")
+
+        B = A @ white_cov @ A.T
+
+    else:
+        raise ValueError("white_cov must be a vector or matrix")
+
+    B = 0.5 * (B + B.T)
+
+    # Individual component periodograms: span/2 * (sin**2 + cos**2).
+    component_psd = (
+        0.5 * span * np.diag(B).reshape(-1, 2).sum(axis=1)
+    )
+
+    # At the reference frequency, sum all sine coefficients and
+    # all cosine coefficients before calculating power.
+    n_component = n_param // 2
+    Lsum = np.tile(np.eye(2), (1, n_component))
+    total_psd = 0.5 * span * np.trace(Lsum @ B @ Lsum.T)
+
+    return component_psd, float(total_psd), B
+
+
+
+def effective_toaerrs(psr):
+    """Return TOA errors in seconds with TNEF/TNEQ applied."""
+    err = np.asarray(psr.toaerrs).copy()
+
+    if psr.noisemodel is None:
+        return err
+
+    # Apply EFAC/TNEF first
+    for name, noise in psr.noisemodel.items():
+        if name.startswith("efac"):
+            mask = psr.flagvals(noise.flag) == noise.flagval
+            err[mask] *= noise.val
+
+    # Then add EQUAD/TNEQ in quadrature
+    for name, noise in psr.noisemodel.items():
+        if name.startswith("equad"):
+            mask = psr.flagvals(noise.flag) == noise.flagval
+            err[mask] = np.sqrt(err[mask]**2 + noise.val**2)
+
+    return err*1e-6  # convert to seconds
+
+def check_white_psd(
+    Z, whiten, project, white_variances, span,
+    n_sim=1000, seed=1234,
+):
+    """
+    Monte Carlo white-noise contribution using the actual GLS pipeline.
+
+    white_variances: diagonal white-noise variances in residual units^2.
+    """
+    rng = np.random.default_rng(seed)
+
+    white_variances = np.asarray(white_variances, dtype=float)
+    n_toa = Z.shape[0]
+    n_component = Z.shape[1] // 2
+
+    # Independent white-noise realisations, one per column.
+    noise = (
+        np.sqrt(white_variances)[:, None]
+        * rng.standard_normal((n_toa, n_sim))
+    )
+
+    # Apply exactly the same transformations as for the real residuals.
+    simulated_y = project(whiten(noise))
+
+    Q, R = linalg.qr(Z, mode="economic")
+    p = linalg.solve_triangular(R, Q.T @ simulated_y)
+
+    # Shape: component, quadrature, simulation.
+    coeff = p.reshape(n_component, 2, n_sim)
+
+    component_psds = 0.5 * span * np.sum(coeff**2, axis=1)
+    total_psds = (
+        0.5 * span * np.sum(coeff.sum(axis=0)**2, axis=0)
+    )
+
+    return component_psds.mean(axis=1), total_psds.mean()
+
+
+def white_total_psd_quantiles(
+    B, span, conversion=1.0, n_draw=20000, rng=None
+):
+    """
+    White-only marginal PSD quantiles at one Fourier frequency.
+
+    B: white contribution to the full fitted coefficient covariance.
+    Returns the 5th, 50th and 95th percentiles.
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+
+    n_component = B.shape[0] // 2
+    Lsum = np.tile(np.eye(2), (1, n_component))
+
+    Btotal = Lsum @ B @ Lsum.T
+    Btotal = 0.5 * (Btotal + Btotal.T)
+
+    eigenvalues = np.linalg.eigvalsh(Btotal)
+
+    # Allow only tiny negative eigenvalues from roundoff.
+    scale = np.max(np.abs(eigenvalues))
+    if scale > 0 and eigenvalues.min() < -1e-10 * scale:
+        raise ValueError("Total white coefficient covariance is not PSD")
+
+    eigenvalues = np.maximum(eigenvalues, 0.0)
+
+    # Rotation does not affect the sum of squared coefficients.
+    z = rng.standard_normal((n_draw, 2))
+    powers = (
+        0.5 * span * conversion
+        * np.sum(eigenvalues * z**2, axis=1)
+    )
+
+    return np.quantile(powers, [0.05, 0.50, 0.95])
 
 
 if __name__ == "__main__":
