@@ -160,7 +160,8 @@ def build_covariance_interpolator(times, logA, gamma, fc_yr, log_qp_ratio=None, 
     else:
         psd_nu = PSD_QP(nu, fc_yr, logA, gamma, log_qp_ratio, log_f0, sig, lam, nu[0])
 
-    #psd_nu[nu > 0] /= 2
+    #psd_nu[nu > 0] /= 2  # We already corrected the PSD for the one-sided to two-sided conversion in the PSD functions, so this line is not needed.
+
     cov_func = np.fft.irfft(psd_nu * sec_per_year ** 3 / (delta_regtimes * sec_per_day))
     return interp.interp1d(
         np.arange(ndays_time + 1),
@@ -225,7 +226,7 @@ def evaluate_covariance_matrix(times_a, times_b=None, covariance_interpolator=No
             if np.any(~np.isfinite(freqs)) or np.any(freqs <= 0):
                 raise ValueError(f"{name} must contain positive finite values")
 
-            return (reference_frequency / freqs) ** -chromatic_index
+            return (reference_frequency / freqs) ** chromatic_index
 
         scale_a = frequency_scaling(freqssb_a, times_a, "freqssb_a")
 
