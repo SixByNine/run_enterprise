@@ -86,7 +86,7 @@ def ptaspec(par, tim, reffreq=1400.0, fmax=None, fmax_limit=None):
 
     """
 
-    psr=Pulsar(par,tim,drop_t2pulsar=False)
+    psr=Pulsar(par,tim,drop_t2pulsar=False,sort=False)
     is_binary=False
     redAmp=None
     redGam=None
@@ -117,8 +117,10 @@ def ptaspec(par, tim, reffreq=1400.0, fmax=None, fmax_limit=None):
             elif split_line[0] == 'TNChromIdx':
                 chromatic_index = float(split_line[1])
             elif split_line[0] == 'TNDMAmp':
-                # NOTE: This converts to amplitude at 1400 MHz, which is what we want for the PSD.
-                dmAmp = float(split_line[1])+ np.log10(1400.0 ** -2 / 2.41e-4)
+                # getC's PSD includes 1/(12*pi**2), unlike the DM model.
+                dmAmp = (float(split_line[1])
+                         + np.log10(1400.0 ** -2 / 2.41e-4)
+                         + 0.5 * np.log10(12.0 * np.pi**2))
             elif split_line[0] == 'TNDMGam':
                 dmGam = float(split_line[1])
             elif split_line[0] == 'F0':
@@ -139,8 +141,12 @@ def ptaspec(par, tim, reffreq=1400.0, fmax=None, fmax_limit=None):
                 qp_sig = float(split_line[1])
 
 
-    psr.sort_data()
-    toas = psr.toas/86400.0 # convert back to days for sanity
+    order = np.argsort(psr.toas, kind="stable")
+    toas = psr.toas[order]/86400.0 # convert back to days for sanity
+    freqssb = psr.freqs[order]
+    residuals = np.asarray(psr.residuals, dtype=float)[order]
+    toaerrs = effective_toaerrs(psr.t2pulsar)[order]
+    nuisance_matrix = margin_full_designmatrix(psr)[order, :]
     ntoa=len(toas)
 
     toa_spacing = np.diff(toas)
@@ -162,12 +168,12 @@ def ptaspec(par, tim, reffreq=1400.0, fmax=None, fmax_limit=None):
         Cs.append(Cred)
     if dmAmp is not None:
         print(f"DM A={dmAmp}, gamma={dmGam}, fc_yr={fc_yr}")
-        Cdm = cholspec.getC(toas, dmAmp, dmGam, fc_yr=fc_yr, freqssb=psr.freqs, chromatic_index=2.0)
+        Cdm = cholspec.getC(toas, dmAmp, dmGam, fc_yr=fc_yr, freqssb=freqssb, chromatic_index=2.0)
         exponents.append(2)
         Cs.append(Cdm)
     if chromAmp is not None:
         print(f"Chromatic A={chromAmp}, gamma={chromGam}, fc_yr={fc_yr}, chromatic_index={chromatic_index}")
-        Cchrom = cholspec.getC(toas, chromAmp, chromGam, fc_yr=fc_yr, freqssb=psr.freqs, chromatic_index=chromatic_index)
+        Cchrom = cholspec.getC(toas, chromAmp, chromGam, fc_yr=fc_yr, freqssb=freqssb, chromatic_index=chromatic_index)
         exponents.append(chromatic_index)
         Cs.append(Cchrom)
 
@@ -176,11 +182,10 @@ def ptaspec(par, tim, reffreq=1400.0, fmax=None, fmax_limit=None):
 
     print("Done making covariance matrix.")
     C = np.sum(Cs, axis=0)
-    C_white = np.diag(effective_toaerrs(psr.t2pulsar)**2)
+    C_white = np.diag(toaerrs**2)
     C += C_white
 
-    freqssb=psr.freqs 
-    M = margin_full_designmatrix(psr)
+    M = nuisance_matrix
     print("Design matrix shape:", M.shape)
     print("Whiten and project out nuisance parameters")
     # Now do linear algebra.
@@ -207,13 +212,13 @@ def ptaspec(par, tim, reffreq=1400.0, fmax=None, fmax_limit=None):
         return a - Qm @ (Qm.T @ a)
 
     # Prepare residuals once.
-    y = project(whiten(np.asarray(psr.residuals, dtype=float)))
+    y = project(whiten(residuals))
 
     f_Nyq = fmax
     delta_f = 1.0/(tspan) # frequency step, per day
-    N_f = int(f_Nyq/delta_f) # number of spectral channels
-    print("Computing {} frequency channels from {:.3g} to {:.3g} per day".format(N_f, delta_f, f_Nyq))
-    freqs = np.linspace(delta_f,f_Nyq, N_f, endpoint=False) # per day
+    N_f = int(fmax / delta_f)
+    freqs = np.arange(1, N_f + 1) * delta_f
+    print("Computing {} frequency channels from {:.3g} to {:.3g} per day".format(N_f, freqs[0], freqs[-1]))
     omegas = 2 * np.pi * freqs
     total_psds=[]
     component_psds=[]
@@ -441,7 +446,7 @@ def effective_toaerrs(psr):
     err = np.asarray(psr.toaerrs).copy()
 
     if psr.noisemodel is None:
-        return err
+        return err*1e-6
 
     # Apply EFAC/TNEF first
     for name, noise in psr.noisemodel.items():
