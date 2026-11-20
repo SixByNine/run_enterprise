@@ -277,6 +277,10 @@ def ptaspec(par, tim, reffreq=1400.0, fmax=None, fmax_limit=None):
     rho_min = np.asarray(rho_min)
     expected_psd = np.asarray(expected_psd)
 
+    
+
+
+
     fig, ax = plt.subplots()
     ax.set_xscale('log')
     ax2=ax.twinx()
@@ -285,8 +289,10 @@ def ptaspec(par, tim, reffreq=1400.0, fmax=None, fmax_limit=None):
     ax.plot(freqs, total_psds, label="Total PSD", color='k', lw=2)
     ax2.plot(freqs, rho_max, color='k', alpha=0.5, label='Max Correlation',ls=':')
 
+    colors={0:'blue', 2:'orange', chromatic_index:'green'}
+
     for exp in exponents:
-        ax.plot(freqs, component_psds[:,exponents.index(exp)], label=r"$\alpha={}$".format(exp),ls='--')
+        ax.plot(freqs, component_psds[:,exponents.index(exp)], label=r"$\alpha={}$".format(exp),ls='--',color=colors[exp])
     
     ax.plot(freqs, white_psd, label="White PSD", color='gray', ls='-.')
 
@@ -317,6 +323,23 @@ def ptaspec(par, tim, reffreq=1400.0, fmax=None, fmax_limit=None):
     #     label="Expected PSD",
     # )
 
+
+    # save the yscale limits for the PSD plot
+    ylims = ax.get_ylim()
+
+    # Note that the model PSDs are two-sided, while the periodogram is one-sided.
+    # The factor of 2 is included in the PSD functions, so we don't need to include it here.
+    if redAmp is not None:
+        red_model_psd = 2*cholspec.PSD(freqs, fc_yr, redAmp, redGam)
+        ax.plot(freqs, red_model_psd, color="blue", ls="-", label="Red model PSD")
+    if dmAmp is not None:
+        dm_model_psd = 2*cholspec.PSD(freqs, fc_yr, dmAmp, dmGam)
+        ax.plot(freqs, dm_model_psd, color="orange", ls="-", label="DM model PSD")
+    if chromAmp is not None:
+        chrom_model_psd = 2*cholspec.PSD(freqs, fc_yr, chromAmp, chromGam)
+        ax.plot(freqs, chrom_model_psd, color="green", ls="-", label="Chrom model PSD")
+    # restore the yscale limits for the PSD plot
+    ax.set_ylim(ylims)
     
     ax.set_xlabel("Frequency (per day)")
     ax.set_ylabel("PSD")
